@@ -34,37 +34,16 @@ export default async function Page() {
     getAccessoryCategories(),
   ]);
 
-  const manuById = new Map(
-    manufacturers.map((m) => [m.manufacturerid, m.manufacturername])
-  );
-  const modelById = new Map(models.map((m) => [m.modelid, m.modelname]));
-  const statusById = new Map(
-    statuses.map((s) => [s.statustypeid, s.statustypename])
-  );
-  const locationById = new Map(
-    locations.map((l) => [l.locationid, l.locationname])
-  );
-  const supplierById = new Map(
-    suppliers.map((s) => [s.supplierid, s.suppliername])
-  );
-  const categoryById = new Map(
-    categories.map((c) => [
-      c.accessoriecategorytypeid,
-      c.accessoriecategorytypename,
-    ])
-  );
-
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-4">Accessories</h1>
       <AccessoriesTable
         items={accessories}
-        manuById={manuById}
-        modelById={modelById}
-        statusById={statusById}
-        categoryById={categoryById}
-        locationById={locationById}
-        supplierById={supplierById}
+        manufacturers={manufacturers}
+        models={models}
+        statuses={statuses}
+        categories={categories}
+        locations={locations}
+        suppliers={suppliers}
       />
     </div>
   );

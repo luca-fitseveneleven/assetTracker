@@ -15,18 +15,13 @@ export default async function Page() {
     getSuppliers(),
   ]);
 
-  const catById = new Map(categories.map((c) => [c.consumablecategorytypeid, c.consumablecategorytypename]));
-  const manuById = new Map(manufacturers.map((m) => [m.manufacturerid, m.manufacturername]));
-  const supplierById = new Map(suppliers.map((s) => [s.supplierid, s.suppliername]));
-
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-4">Consumables</h1>
       <ConsumablesTable
         items={items}
-        catById={catById}
-        manuById={manuById}
-        supplierById={supplierById}
+        categories={categories}
+        manufacturers={manufacturers}
+        suppliers={suppliers}
       />
     </div>
   );

@@ -3,15 +3,15 @@ import Link from "next/link";
 export default function Page() {
   return (
     <div className="max-w-xl space-y-4">
-      <h1 className="text-2xl font-semibold">Create Supplier</h1>
+      <h1 className="text-2xl font-semibold">Create Accessory</h1>
       <p className="text-default-500">
-        Flesh out the supplier creation flow here to onboard new vendors.
+        This placeholder page is ready for the accessory creation form.
       </p>
       <Link
-        href="/suppliers"
+        href="/accessories"
         className="inline-flex items-center rounded-md border border-default-300 px-3 py-2 text-sm font-medium text-foreground hover:bg-default-100"
       >
-        Back to Suppliers
+        Back to Accessories
       </Link>
     </div>
   );

@@ -12,7 +12,6 @@ export default async function Page() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-4">Suppliers</h1>
       <SuppliersTable items={suppliers} />
     </div>
   );

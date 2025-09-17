@@ -38,8 +38,8 @@ function Navigation({ userName }) {
 
   return (
     <Navbar>
-      <NavbarContent justify="start">
-        <NavbarBrand className="mr-4">
+      <NavbarContent>
+        <NavbarBrand>
           <Link href="/">
             <span className="hidden sm:block font-bold text-inherit">
               Asset Tracker

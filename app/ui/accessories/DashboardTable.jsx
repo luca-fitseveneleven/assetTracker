@@ -1,28 +1,29 @@
 "use client";
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
-  TableHeader,
-  TableColumn,
   TableBody,
-  TableRow,
   TableCell,
-  Input,
-  Button,
-  DropdownTrigger,
-  Dropdown,
-  DropdownMenu,
-  DropdownItem,
-  Chip,
-  User,
-  Pagination,
-  Breadcrumbs,
-  BreadcrumbItem,
-  Select,
-  SelectSection,
-  Tooltip,
-  SelectItem,
-} from "@heroui/react";
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import Link from "next/link";
 import {
   AssignIcon,
@@ -36,12 +37,12 @@ import {
 import { capitalize } from "../../utils/utils";
 
 const statusColorMap = {
-  Active: "primary",
-  Available: "success",
-  Pending: "warning",
-  "Lost/Stolen": "danger",
-  "Out for Repair": "default",
-  Archived: "default",
+  Active: "default",
+  Available: "default",
+  Pending: "secondary",
+  "Lost/Stolen": "destructive",
+  "Out for Repair": "secondary",
+  Archived: "secondary",
 };
 
 const statusOptions = [
@@ -78,19 +79,19 @@ export default function App({
   selectOptions,
   userAssets,
 }) {
-  const [filterValue, setFilterValue] = React.useState("");
-  const [selectedKeys, setSelectedKeys] = React.useState(new Set([]));
-  const [deleteButtonActive, setDeleteButtonActive] = React.useState(false);
-  const [visibleColumns, setVisibleColumns] = React.useState(
+  const [filterValue, setFilterValue] = useState("");
+  const [selectedKeys, setSelectedKeys] = useState(new Set([]));
+  const [deleteButtonActive, setDeleteButtonActive] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(
     new Set(INITIAL_VISIBLE_COLUMNS)
   );
-  const [statusFilter, setStatusFilter] = React.useState("all");
-  const [rowsPerPage, setRowsPerPage] = React.useState(20);
-  const [sortDescriptor, setSortDescriptor] = React.useState({
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [sortDescriptor, setSortDescriptor] = useState({
     column: "assettag",
     direction: "ascending",
   });
-  const [page, setPage] = React.useState(1);
+  const [page, setPage] = useState(1);
 
   const hasSearchFilter = Boolean(filterValue);
 
@@ -104,7 +105,7 @@ export default function App({
     }
   }, [selectedKeys]);
 
-  const headerColumns = React.useMemo(() => {
+  const headerColumns = useMemo(() => {
     if (visibleColumns === "all") return columns;
 
     return columns?.filter((column) =>
@@ -112,7 +113,7 @@ export default function App({
     );
   }, [visibleColumns, columns]);
 
-  const filteredItems = React.useMemo(() => {
+  const filteredItems = useMemo(() => {
     let filteredAssets = [...data];
 
     if (hasSearchFilter) {
@@ -144,9 +145,9 @@ export default function App({
     return filteredAssets;
   }, [data, status, filterValue, statusFilter, hasSearchFilter]);
 
-  const pages = Math.ceil(filteredItems.length / rowsPerPage);
+  const pages = Math.max(1, Math.ceil(filteredItems.length / rowsPerPage));
 
-  const items = React.useMemo(() => {
+  const items = useMemo(() => {
     const start = (page - 1) * rowsPerPage;
     const end = start + rowsPerPage;
     return filteredItems.slice(start, end);
@@ -154,7 +155,7 @@ export default function App({
 
   console.log("ITEMS:", items);
 
-  const sortedItems = React.useMemo(() => {
+  const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => {
       let first, second;
       switch (sortDescriptor.column) {
@@ -233,7 +234,7 @@ export default function App({
     categories,
   ]);
 
-  const renderCell = React.useCallback(
+  const renderCell = useCallback(
     (asset, columnKey) => {
       const cellValue = asset[columnKey];
 
@@ -330,14 +331,9 @@ export default function App({
             (stat) => stat.statustypeid === asset.statustypeid
           );
           return (
-            <Chip
-              className="capitalize"
-              color={statusColorMap[stat.statustypename]}
-              size="sm"
-              variant="flat"
-            >
+            <Badge className="capitalize" variant={statusColorMap[stat.statustypename]}>
               {stat ? stat.statustypename : "Unknown"}
-            </Chip>
+            </Badge>
           );
         case "assetcategorytypeid":
           const cat = categories.find(
@@ -427,24 +423,25 @@ export default function App({
     [locations, status, manufacturers, models, categories, user, userAssets]
   );
 
-  const onNextPage = React.useCallback(() => {
+  const onNextPage = useCallback(() => {
     if (page < pages) {
       setPage(page + 1);
     }
   }, [page, pages]);
 
-  const onPreviousPage = React.useCallback(() => {
+  const onPreviousPage = useCallback(() => {
     if (page > 1) {
       setPage(page - 1);
     }
   }, [page]);
 
-  const onRowsPerPageChange = React.useCallback((e) => {
-    setRowsPerPage(Number(e.target.value));
+  const onRowsPerPageChange = useCallback((value) => {
+    setRowsPerPage(Number(value));
     setPage(1);
   }, []);
 
-  const onSearchChange = React.useCallback((value) => {
+  const onSearchChange = useCallback((e) => {
+    const value = e.target.value;
     if (value) {
       setFilterValue(value);
       setPage(1);
@@ -453,193 +450,173 @@ export default function App({
     }
   }, []);
 
-  const onClear = React.useCallback(() => {
-    setFilterValue("");
-    setPage(1);
-  }, []);
-
-  const topContent = React.useMemo(() => {
+  const topContent = useMemo(() => {
     return (
       <div className="flex flex-col gap-4">
         <div className="flex justify-between gap-3 items-end">
-          <Input
-            isClearable
-            className="w-full sm:max-w-[44%]"
-            placeholder="Search for an Item..."
-            startContent={<SearchIcon />}
-            value={filterValue}
-            onClear={() => onClear()}
-            onValueChange={onSearchChange}
-          />
+          <div className="relative w-full sm:max-w-[44%]">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search for an Item..."
+              value={filterValue}
+              onChange={onSearchChange}
+            />
+          </div>
           <div className="flex gap-3">
-            <Dropdown>
-              <DropdownTrigger className="hidden sm:flex">
-                <Button
-                  endContent={<ChevronDownIcon className="text-small" />}
-                  variant="flat"
-                >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild className="hidden sm:flex">
+                <Button variant="outline">
                   Status
+                  <ChevronDownIcon className="ml-2 h-4 w-4" />
                 </Button>
-              </DropdownTrigger>
-              <DropdownMenu
-                disallowEmptySelection
-                aria-label="Table Columns"
-                closeOnSelect={false}
-                selectedKeys={statusFilter}
-                selectionMode="multiple"
-                onSelectionChange={setStatusFilter}
-              >
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
                 {statusOptions.map((status) => (
-                  <DropdownItem key={status.uid} className="capitalize">
+                  <DropdownMenuItem key={status.uid} className="capitalize">
                     {capitalize(status.name)}
-                  </DropdownItem>
+                  </DropdownMenuItem>
                 ))}
-              </DropdownMenu>
-            </Dropdown>
-            <Dropdown>
-              <DropdownTrigger className="hidden sm:flex">
-                <Button
-                  endContent={<ChevronDownIcon className="text-small" />}
-                  variant="flat"
-                >
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild className="hidden sm:flex">
+                <Button variant="outline">
                   Columns
+                  <ChevronDownIcon className="ml-2 h-4 w-4" />
                 </Button>
-              </DropdownTrigger>
-              <DropdownMenu
-                disallowEmptySelection
-                aria-label="Table Columns"
-                closeOnSelect={false}
-                selectedKeys={visibleColumns}
-                selectionMode="multiple"
-                onSelectionChange={setVisibleColumns}
-              >
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
                 {columns.map((column) => (
-                  <DropdownItem key={column.uid} className="capitalize">
+                  <DropdownMenuItem key={column.uid} className="capitalize">
                     {capitalize(column.name)}
-                  </DropdownItem>
+                  </DropdownMenuItem>
                 ))}
-              </DropdownMenu>
-            </Dropdown>
-            <Dropdown>
-              <DropdownTrigger>
-                <Button
-                  variant="bordered"
-                  isDisabled={!deleteButtonActive}
-                  endContent={<ChevronDownIcon className="text-small" />}
-                >
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={!deleteButtonActive}>
                   Bulk Edit
+                  <ChevronDownIcon className="ml-2 h-4 w-4" />
                 </Button>
-              </DropdownTrigger>
-              <DropdownMenu aria-label="Static Actions">
-                <DropdownItem key="edit">Edit Entries</DropdownItem>
-                <DropdownItem
-                  key="delete"
-                  className="text-danger"
-                  color="danger"
-                >
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem>Edit Entries</DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive">
                   Delete Entries
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
-            <Button color="primary" endContent={<PlusIcon />}>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button>
+              <PlusIcon className="mr-2 h-4 w-4" />
               Add New
             </Button>
           </div>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-default-400 text-small">
+          <span className="text-sm text-muted-foreground">
             Total: {data.length} Entries
           </span>
-          <Select
-            items={selectOptions}
-            label="Rows per page:"
-            placeholder={rowsPerPage.toString()}
-            className="max-w-xs"
-            onChange={onRowsPerPageChange}
-          >
-            {(selectOptions) => (
-              <SelectItem key={selectOptions.value}>
-                {selectOptions.label}
-              </SelectItem>
-            )}
+          <Select value={String(rowsPerPage)} onValueChange={onRowsPerPageChange}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Rows per page" />
+            </SelectTrigger>
+            <SelectContent>
+              {selectOptions.map((option) => (
+                <SelectItem key={option.value} value={String(option.value)}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
       </div>
     );
   }, [
     filterValue,
-    statusFilter,
-    visibleColumns,
     onRowsPerPageChange,
     data.length,
     onSearchChange,
     deleteButtonActive,
     columns,
     rowsPerPage,
-    onClear,
     selectOptions,
   ]);
 
-  const bottomContent = React.useMemo(() => {
+  const bottomContent = useMemo(() => {
     return (
-      <div className="py-2 px-2 flex justify-between items-center">
-        <span className="w-[30%] text-small text-default-400">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-muted-foreground">
           {selectedKeys === "all"
             ? "All items selected"
             : `${selectedKeys.size} of ${filteredItems.length} selected`}
         </span>
-        <Pagination
-          loop
-          showControls
-          showShadow
-          color="primary"
-          page={page}
-          total={pages}
-          onChange={setPage}
-        />
-        <div className="hidden sm:flex w-[30%] justify-end gap-2"></div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onPreviousPage}
+            disabled={page === 1 || filteredItems.length === 0}
+          >
+            Previous
+          </Button>
+          <span className="text-sm">
+            Page {page} of {pages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onNextPage}
+            disabled={page === pages || filteredItems.length === 0}
+          >
+            Next
+          </Button>
+        </div>
+        <div className="w-[30%]"></div>
       </div>
     );
-  }, [selectedKeys, page, pages, filteredItems]);
+  }, [selectedKeys, page, pages, filteredItems, onPreviousPage, onNextPage]);
 
   return (
-    <Table
-      aria-label="Asset Table"
-      isHeaderSticky
-      isStriped
-      bottomContent={bottomContent}
-      bottomContentPlacement="outside"
-      classNames={{
-        wrapper: "max-h-full",
-      }}
-      selectedKeys={selectedKeys}
-      selectionMode="multiple"
-      sortDescriptor={sortDescriptor}
-      topContent={topContent}
-      topContentPlacement="outside"
-      onSelectionChange={setSelectedKeys}
-      onSortChange={setSortDescriptor}
-    >
-      <TableHeader columns={headerColumns}>
-        {(column) => (
-          <TableColumn
-            key={column.uid}
-            align={column.uid === "actions" ? "center" : "start"}
-            allowsSorting={column.sortable}
-          >
-            {column.name}
-          </TableColumn>
-        )}
-      </TableHeader>
-      <TableBody emptyContent={"No users found"} items={sortedItems}>
-        {(item) => (
-          <TableRow key={item.assetid} className="bg-blue">
-            {(columnKey) => (
-              <TableCell>{renderCell(item, columnKey)}</TableCell>
+    <div className="w-full space-y-4">
+      {topContent}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {headerColumns.map((column) => (
+                <TableHead
+                  key={column.uid}
+                  className={column.uid === "actions" ? "text-center" : ""}
+                >
+                  {column.name}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedItems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={headerColumns.length} className="text-center">
+                  No users found
+                </TableCell>
+              </TableRow>
+            ) : (
+              sortedItems.map((item) => (
+                <TableRow key={item.assetid}>
+                  {headerColumns.map((column) => (
+                    <TableCell key={column.uid}>
+                      {renderCell(item, column.uid)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             )}
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
+          </TableBody>
+        </Table>
+      </div>
+      {bottomContent}
+    </div>
   );
 }

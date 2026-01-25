@@ -254,9 +254,12 @@ No features currently in active development.
 - **Package Manager**: Bun (with npm/yarn/pnpm support)
 
 ### Testing Status
-- Automated tests: Not yet configured
-- Manual testing: Required for critical flows (login, CRUD operations, QR generation)
-- Linting: ESLint configured with Next.js config
+- **Automated tests**: Not yet configured
+  - Recommended: Jest or Vitest for unit tests
+  - Recommended: React Testing Library for component tests
+  - Recommended: Playwright or Cypress for E2E tests
+- **Manual testing**: Required for critical flows (login, CRUD operations, QR generation)
+- **Linting**: ESLint configured with Next.js config
 
 ### Build & Development
 - `bun dev` - Start development server with Turbopack

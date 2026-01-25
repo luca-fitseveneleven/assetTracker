@@ -1081,7 +1081,6 @@ export default function App({
       >
         <DialogContent className="sm:max-w-lg">
           {(() => {
-            console.log(selectedAsset);
             const assignedUser = userAssetsData.find(
               (ua) => ua.assetid === selectedAsset?.assetid
             );
@@ -1135,7 +1134,6 @@ export default function App({
                           setIsAssignModalOpen(false);
                         }}
                       >
-                        {console.log(assignedUser.userid)}
                         Remove
                       </Button>
                       <Button

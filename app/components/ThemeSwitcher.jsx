@@ -2,7 +2,7 @@
 
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import { Button } from "@heroui/react";
+import { Button } from "@/components/ui/button";
 import { LightModeIcon, DarkModeIcon } from "../ui/Icons.jsx";
 
 const ThemeSwitcher = () => {
@@ -22,7 +22,7 @@ const ThemeSwitcher = () => {
 
   return (
     <div>
-      <Button onClick={toggleTheme} isIconOnly color="default">
+      <Button onClick={toggleTheme} variant="ghost" size="icon">
         {theme === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
       </Button>
     </div>

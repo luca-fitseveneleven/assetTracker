@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -739,7 +740,6 @@ export default function App({
       categories,
       user,
       userAssetsData,
-      handleDelete,
       handleOpenModal,
     ]
   );
@@ -841,128 +841,146 @@ export default function App({
   }, []);
 
   const topContent = useMemo(() => {
+    const handleStatusToggle = (statusUid) => {
+      const currentFilter = statusFilter === "all" ? new Set(statusOptions.map(s => s.uid)) : new Set(statusFilter);
+      if (currentFilter.has(statusUid)) {
+        currentFilter.delete(statusUid);
+      } else {
+        currentFilter.add(statusUid);
+      }
+      setStatusFilter(currentFilter.size === statusOptions.length ? "all" : currentFilter);
+    };
+
+    const handleColumnToggle = (columnUid) => {
+      const currentColumns = visibleColumns === "all" ? new Set(columns.map(c => c.uid)) : new Set(visibleColumns);
+      if (currentColumns.has(columnUid)) {
+        currentColumns.delete(columnUid);
+      } else {
+        currentColumns.add(columnUid);
+      }
+      setVisibleColumns(currentColumns.size === columns.length ? "all" : currentColumns);
+    };
+
+    const currentStatusSet = statusFilter === "all" ? new Set(statusOptions.map(s => s.uid)) : new Set(statusFilter);
+    const currentColumnsSet = visibleColumns === "all" ? new Set(columns.map(c => c.uid)) : new Set(visibleColumns);
+
     return (
       <div className="flex flex-col gap-4">
         <div className="flex justify-between gap-3 items-end">
-          <Input
-            isClearable
-            className="w-full sm:max-w-[44%]"
-            placeholder="Search for an Item..."
-            startContent={<SearchIcon />}
-            value={filterValue}
-            onClear={() => onClear()}
-            onValueChange={onSearchChange}
-          />
+          <div className="relative w-full sm:max-w-[44%]">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search for an Item..."
+              value={filterValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+          </div>
           <div className="flex gap-3">
-            <Dropdown>
-              <DropdownTrigger className="hidden sm:flex">
-                <Button
-                  endContent={<ChevronDownIcon className="text-small" />}
-                  variant="flat"
-                >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild className="hidden sm:flex">
+                <Button variant="outline">
                   Status
+                  <ChevronDownIcon className="ml-2 h-4 w-4" />
                 </Button>
-              </DropdownTrigger>
-              <DropdownMenu
-                disallowEmptySelection
-                aria-label="Table Columns"
-                closeOnSelect={false}
-                selectedKeys={statusFilter}
-                selectionMode="multiple"
-                onSelectionChange={setStatusFilter}
-              >
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
                 {statusOptions.map((status) => (
-                  <DropdownItem key={status.uid} className="capitalize">
+                  <DropdownMenuItem
+                    key={status.uid}
+                    className="capitalize"
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleStatusToggle(status.uid);
+                    }}
+                  >
+                    <Checkbox
+                      checked={currentStatusSet.has(status.uid)}
+                      onCheckedChange={() => handleStatusToggle(status.uid)}
+                      className="mr-2"
+                    />
                     {capitalize(status.name)}
-                  </DropdownItem>
+                  </DropdownMenuItem>
                 ))}
-              </DropdownMenu>
-            </Dropdown>
-            <Dropdown>
-              <DropdownTrigger className="hidden sm:flex">
-                <Button
-                  endContent={<ChevronDownIcon className="text-small" />}
-                  variant="flat"
-                >
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild className="hidden sm:flex">
+                <Button variant="outline">
                   Columns
+                  <ChevronDownIcon className="ml-2 h-4 w-4" />
                 </Button>
-              </DropdownTrigger>
-              <DropdownMenu
-                disallowEmptySelection
-                aria-label="Table Columns"
-                closeOnSelect={false}
-                selectedKeys={visibleColumns}
-                selectionMode="multiple"
-                onSelectionChange={setVisibleColumns}
-              >
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
                 {columns.map((column) => (
-                  <DropdownItem key={column.uid} className="capitalize">
+                  <DropdownMenuItem
+                    key={column.uid}
+                    className="capitalize"
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleColumnToggle(column.uid);
+                    }}
+                  >
+                    <Checkbox
+                      checked={currentColumnsSet.has(column.uid)}
+                      onCheckedChange={() => handleColumnToggle(column.uid)}
+                      className="mr-2"
+                    />
                     {capitalize(column.name)}
-                  </DropdownItem>
+                  </DropdownMenuItem>
                 ))}
-              </DropdownMenu>
-            </Dropdown>
-            <Dropdown>
-              <DropdownTrigger>
-                <Button
-                  variant="bordered"
-                  isDisabled={!deleteButtonActive}
-                  endContent={<ChevronDownIcon className="text-small" />}
-                >
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={!deleteButtonActive}>
                   Bulk Edit
+                  <ChevronDownIcon className="ml-2 h-4 w-4" />
                 </Button>
-              </DropdownTrigger>
-              <DropdownMenu aria-label="Static Actions">
-                <DropdownItem key="edit">Edit Entries</DropdownItem>
-                <DropdownItem
-                  key="delete"
-                  className="text-danger"
-                  color="danger"
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>Edit Entries</DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
                   onClick={() => handleOpenModal(null, "delete-bulk")}
                 >
                   Delete Entries
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
-            <Button
-              variant="flat"
-              isLoading={isRefreshing}
-              onPress={refreshData}
-            >
-              Refresh
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" onClick={refreshData} disabled={isRefreshing}>
+              {isRefreshing ? "Refreshing..." : "Refresh"}
             </Button>
-            <Button
-              color="primary"
-              endContent={<PlusIcon />}
-              href={`assets/create/`}
-              as={Link}
-            >
-              Add New
+            <Button asChild>
+              <Link href="assets/create/">
+                <PlusIcon className="mr-2 h-4 w-4" />
+                Add New
+              </Link>
             </Button>
           </div>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-default-400 text-small">
+          <span className="text-sm text-muted-foreground">
             Total: {assetsData.length} Entries
           </span>
-          <span className="text-default-400 text-small" suppressHydrationWarning>
+          <span className="text-sm text-muted-foreground" suppressHydrationWarning>
             Last updated: {mounted && now ? formatRelativeTime(lastUpdated, now) : "-"}
           </span>
-          <Select
-            items={selectOptions}
-            label="Rows per page:"
-            placeholder={rowsPerPage.toString()}
-            className="max-w-xs"
-            onChange={onRowsPerPageChange}
-            disallowEmptySelection
-            defaultSelectedKeys={["20"]}
-          >
-            {(selectOptions) => (
-              <SelectItem key={selectOptions.value}>
-                {selectOptions.label}
-              </SelectItem>
-            )}
-          </Select>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Rows per page:</span>
+            <Select value={String(rowsPerPage)} onValueChange={(value) => { setRowsPerPage(Number(value)); setPage(1); }}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {selectOptions.map((option) => (
+                  <SelectItem key={option.value} value={String(option.value)}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
     );
@@ -970,93 +988,100 @@ export default function App({
     filterValue,
     statusFilter,
     visibleColumns,
-    onRowsPerPageChange,
     onSearchChange,
     deleteButtonActive,
     columns,
     rowsPerPage,
     assetsData.length,
-    onClear,
     selectOptions,
-    handleDelete,
+    handleOpenModal,
+    isRefreshing,
+    refreshData,
+    mounted,
+    now,
+    lastUpdated,
+    formatRelativeTime,
   ]);
 
   const bottomContent = useMemo(() => {
     return (
-      <div className="py-2 px-2 flex justify-between items-center">
-        <span className="w-[30%] text-small text-default-400">
+      <div className="flex items-center justify-between px-2 py-2">
+        <span className="text-sm text-muted-foreground">
           {selectedKeys === "all"
             ? "All items selected"
             : `${selectedKeys.size} of ${assetsData.length} selected`}
         </span>
-        <Pagination
-          loop
-          showControls
-          showShadow
-          color="primary"
-          page={page}
-          total={pages}
-          onChange={setPage}
-        />
-        <div className="hidden sm:flex w-[30%] justify-end gap-2"></div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(Math.max(1, page - 1))}
+            disabled={page === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm">
+            Page {page} of {pages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(Math.min(pages, page + 1))}
+            disabled={page === pages}
+          >
+            Next
+          </Button>
+        </div>
       </div>
     );
   }, [selectedKeys, page, pages, assetsData.length]);
 
   return (
-    <>
-      <Table
-        aria-label="Asset Table"
-        isHeaderSticky
-        isStriped
-        bottomContent={bottomContent}
-        bottomContentPlacement="outside"
-        classNames={{
-          wrapper: "max-h-full",
-        }}
-        selectedKeys={selectedKeys}
-        selectionMode="multiple"
-        sortDescriptor={sortDescriptor}
-        topContent={topContent}
-        topContentPlacement="outside"
-        onSelectionChange={setSelectedKeys}
-        onSortChange={setSortDescriptor}
-      >
-        <TableHeader columns={headerColumns}>
-          {(column) => (
-            <TableColumn
-              key={column.uid}
-              align={column.uid === "actions" ? "center" : "start"}
-              allowsSorting={column.sortable}
-            >
-              {column.name}
-            </TableColumn>
-          )}
-        </TableHeader>
-        <TableBody emptyContent={"No assets found"} items={sortedItems}>
-          {(item) => (
-            <TableRow key={item.assetid} className="bg-blue">
-              {(columnKey) => (
-                <TableCell>{renderCell(item, columnKey)}</TableCell>
-              )}
+    <div className="w-full space-y-4">
+      {topContent}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {headerColumns.map((column) => (
+                <TableHead
+                  key={column.uid}
+                  className={column.uid === "actions" ? "text-center" : ""}
+                >
+                  {column.name}
+                </TableHead>
+              ))}
             </TableRow>
-          )}
-        </TableBody>
-      </Table>
-      <Modal
-        isOpen={isAssignModalOpen}
-        onOpenChange={onAssignModalOpenChange}
-        onClose={handleUserSelection}
-        backdrop="blur"
-        isKeyboardDismissDisabled
-        hideCloseButton
-        size="lg"
+          </TableHeader>
+          <TableBody>
+            {sortedItems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={headerColumns.length} className="text-center">
+                  No assets found
+                </TableCell>
+              </TableRow>
+            ) : (
+              sortedItems.map((item) => (
+                <TableRow key={item.assetid}>
+                  {headerColumns.map((column) => (
+                    <TableCell key={column.uid}>
+                      {renderCell(item, column.uid)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      {bottomContent}
+      <Dialog
+        open={isAssignModalOpen}
+        onOpenChange={setIsAssignModalOpen}
       >
-        <ModalContent>
-          {(onClose) => {
-            {
-              console.log(selectedAsset);
-            }
+        <DialogContent className="sm:max-w-lg">
+          {(() => {
+            console.log(selectedAsset);
             const assignedUser = userAssetsData.find(
               (ua) => ua.assetid === selectedAsset?.assetid
             );
@@ -1064,39 +1089,42 @@ export default function App({
 
             return (
               <>
-                <ModalHeader className="flex flex-col gap-1">
-                  {assignedUser && selectedAsset
-                    ? `Update User for ${selectedAsset?.assetname} from ${
-                        user.find((user) => user.userid === assignedUser.userid)
-                          .firstname
-                      }`
-                    : `Assign User to ${selectedAsset?.assetname}`}
-                </ModalHeader>
-                <ModalBody>
+                <DialogHeader>
+                  <DialogTitle>
+                    {assignedUser && selectedAsset
+                      ? `Update User for ${selectedAsset?.assetname} from ${
+                          user.find((user) => user.userid === assignedUser.userid)
+                            .firstname
+                        }`
+                      : `Assign User to ${selectedAsset?.assetname}`}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
                   <Select
-                    items={user}
-                    placeholder="Select an user"
-                    className="w-full"
-                    aria-label="Select an user"
-                    onSelectionChange={handleUserSelection}
-                    defaultSelectedKeys={assignedUserId ? [assignedUserId] : []}
+                    value={selectedUser ? String(selectedUser) : assignedUserId ? String(assignedUserId) : ""}
+                    onValueChange={(value) => handleUserSelection(new Set([value]))}
                   >
-                    {(user) => (
-                      <SelectItem key={user.userid}>
-                        {user.firstname + " " + user.lastname}
-                      </SelectItem>
-                    )}
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a user" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {user.map((u) => (
+                        <SelectItem key={u.userid} value={String(u.userid)}>
+                          {u.firstname + " " + u.lastname}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
-                </ModalBody>
-                <ModalFooter>
-                  <Button color="danger" variant="solid" onPress={onClose}>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAssignModalOpen(false)}>
                     Close
                   </Button>
                   {assignedUser ? (
                     <>
                       <Button
-                        color="warning"
-                        onPress={() => {
+                        variant="destructive"
+                        onClick={() => {
                           handleUnassign(
                             selectedAsset?.assetid,
                             assignedUser.userid
@@ -1104,21 +1132,20 @@ export default function App({
                           setTimeout(() => {
                             setSelectedUser(null);
                           }, 500);
-                          onClose();
+                          setIsAssignModalOpen(false);
                         }}
                       >
                         {console.log(assignedUser.userid)}
                         Remove
                       </Button>
                       <Button
-                        color="primary"
-                        isDisabled={!selectedUser}
-                        onPress={() => {
+                        disabled={!selectedUser}
+                        onClick={() => {
                           handleAssign(selectedAsset?.assetid, selectedUser);
                           setTimeout(() => {
                             setSelectedUser(null);
                           }, 500);
-                          onClose();
+                          setIsAssignModalOpen(false);
                         }}
                       >
                         Update
@@ -1126,146 +1153,130 @@ export default function App({
                     </>
                   ) : (
                     <Button
-                      color="primary"
-                      isDisabled={!selectedUser}
-                      onPress={() => {
+                      disabled={!selectedUser}
+                      onClick={() => {
                         handleAssign(selectedAsset?.assetid, selectedUser);
                         setTimeout(() => {
                           setSelectedUser(null);
                         }, 500);
-                        onClose();
+                        setIsAssignModalOpen(false);
                       }}
                     >
                       Assign
                     </Button>
                   )}
-                </ModalFooter>
+                </DialogFooter>
               </>
             );
-          }}
-        </ModalContent>
-      </Modal>
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onOpenChange={onDeleteModalOpenChange}
-        backdrop="blur"
-        isKeyboardDismissDisabled
-        hideCloseButton
+          })()}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={isDeleteModalOpen}
+        onOpenChange={setIsDeleteModalOpen}
       >
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1">
-                {deleteMode === "bulk"
-                  ? `Delete ${selectedKeys === "all" ? assetsData.length : selectedKeys.size} selected item(s)?`
-                  : `Delete ${selectedAsset?.assetname || "this item"}?`}
-              </ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-default-500">
-                  This action permanently removes the asset and its user assignment. This cannot be undone.
-                </p>
-                {deleteMode === "single" && selectedAsset ? (() => {
-                  const assigned = userAssetsData.find((ua) => ua.assetid === selectedAsset.assetid);
-                  if (!assigned) return null;
-                  const u = user.find((x) => x.userid === assigned.userid);
-                  return (
-                    <p className="text-sm text-danger-500">This asset is currently assigned to {u ? `${u.firstname} ${u.lastname}` : "a user"}.</p>
-                  );
-                })() : null}
-                {deleteMode === "bulk" ? (() => {
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {deleteMode === "bulk"
+                ? `Delete ${selectedKeys === "all" ? assetsData.length : selectedKeys.size} selected item(s)?`
+                : `Delete ${selectedAsset?.assetname || "this item"}?`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This action permanently removes the asset and its user assignment. This cannot be undone.
+            </p>
+            {deleteMode === "single" && selectedAsset ? (() => {
+              const assigned = userAssetsData.find((ua) => ua.assetid === selectedAsset.assetid);
+              if (!assigned) return null;
+              const u = user.find((x) => x.userid === assigned.userid);
+              return (
+                <p className="text-sm text-destructive">This asset is currently assigned to {u ? `${u.firstname} ${u.lastname}` : "a user"}.</p>
+              );
+            })() : null}
+            {deleteMode === "bulk" ? (() => {
+              const ids = selectedKeys === "all" ? assetsData.map((a) => a.assetid) : Array.from(selectedKeys);
+              const assignedCount = userAssetsData.filter((ua) => ids.includes(ua.assetid)).length;
+              if (!assignedCount) return null;
+              return (
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm text-destructive">{assignedCount} selected item(s) are currently assigned to users.</p>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={confirmAssigned} onCheckedChange={setConfirmAssigned} />
+                    I understand and want to delete them anyway
+                  </label>
+                </div>
+              );
+            })() : null}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMode === "bulk" && (() => {
+                const ids = selectedKeys === "all" ? assetsData.map((a) => a.assetid) : Array.from(selectedKeys);
+                const assignedCount = userAssetsData.filter((ua) => ids.includes(ua.assetid)).length;
+                return assignedCount > 0 && !confirmAssigned;
+              })()}
+              onClick={async () => {
+                if (deleteMode === "bulk") {
                   const ids = selectedKeys === "all" ? assetsData.map((a) => a.assetid) : Array.from(selectedKeys);
-                  const assignedCount = userAssetsData.filter((ua) => ids.includes(ua.assetid)).length;
-                  if (!assignedCount) return null;
-                  return (
-                    <div className="flex flex-col gap-2">
-                      <p className="text-sm text-danger-500">{assignedCount} selected item(s) are currently assigned to users.</p>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={confirmAssigned} onChange={(e) => setConfirmAssigned(e.target.checked)} />
-                        I understand and want to delete them anyway
-                      </label>
-                    </div>
-                  );
-                })() : null}
-              </ModalBody>
-              <ModalFooter>
-                <Button variant="light" onPress={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  color="danger"
-                  isDisabled={deleteMode === "bulk" && (() => {
-                    const ids = selectedKeys === "all" ? assetsData.map((a) => a.assetid) : Array.from(selectedKeys);
-                    const assignedCount = userAssetsData.filter((ua) => ids.includes(ua.assetid)).length;
-                    return assignedCount > 0 && !confirmAssigned;
-                  })()}
-                  onPress={async () => {
-                    if (deleteMode === "bulk") {
-                      const ids = selectedKeys === "all" ? assetsData.map((a) => a.assetid) : Array.from(selectedKeys);
-                      for (const id of ids) {
-                        await handleDelete(id);
-                      }
-                      setSelectedKeys(new Set());
-                      setConfirmAssigned(false);
-                    } else if (selectedAsset) {
-                      await handleDelete(selectedAsset.assetid);
-                    }
-                    onClose();
-                  }}
-                >
-                  Delete
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
-      <Modal
-        isOpen={isQRCodeModalOpen}
-        size="sm"
-        onOpenChange={onQRCodeModalOpenChange}
-        backdrop="blur"
-        isKeyboardDismissDisabled
-        hideCloseButton
+                  for (const id of ids) {
+                    await handleDelete(id);
+                  }
+                  setSelectedKeys(new Set());
+                  setConfirmAssigned(false);
+                } else if (selectedAsset) {
+                  await handleDelete(selectedAsset.assetid);
+                }
+                setIsDeleteModalOpen(false);
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={isQRCodeModalOpen}
+        onOpenChange={setIsQRCodeModalOpen}
       >
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1 bg-white text-black">
-                QR-Code for {selectedAsset?.assettag}
-              </ModalHeader>
-              <ModalBody className="flex justify-center items-center bg-white">
-                <QRCodeCanvas
-                  value={`http://192.168.0.81:3000/assets/${selectedAsset?.assetid}`}
-                  size={256}
-                  bgColor={"#ffffff"}
-                  fgColor={"#000000"}
-                  level={"H"}
-                  includeMargin={false}
-                />
-              </ModalBody>
-              <ModalFooter className="bg-white">
-                <Button color="danger" onPress={onClose}>
-                  Close
-                </Button>
-                <Button color="primary" onClick={handleDownload}>
-                  Download
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="bg-white text-black">
+              QR-Code for {selectedAsset?.assettag}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center items-center bg-white py-4">
+            <QRCodeCanvas
+              value={`http://192.168.0.81:3000/assets/${selectedAsset?.assetid}`}
+              size={256}
+              bgColor={"#ffffff"}
+              fgColor={"#000000"}
+              level={"H"}
+              includeMargin={false}
+            />
+          </div>
+          <DialogFooter className="bg-white">
+            <Button variant="outline" onClick={() => setIsQRCodeModalOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={handleDownload}>
+              Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <Modal
-        isOpen={isStatusModalOpen}
-        size="lg"
-        onOpenChange={onStatusModalOpenChange}
-        hideCloseButton
-        backdrop="blur"
-        isKeyboardDismissDisabled
+      <Dialog
+        open={isStatusModalOpen}
+        onOpenChange={setIsStatusModalOpen}
       >
-        <ModalContent>
-          {(onClose) => {
+        <DialogContent className="sm:max-w-lg">
+          {(() => {
             const assignedStatus = status.find(
               (stat) => stat.statustypeid === selectedAsset?.statustypeid
             );
@@ -1296,63 +1307,61 @@ export default function App({
 
             return (
               <>
-                <ModalHeader className="flex flex-col gap-1">
-                  {selectedAsset &&
-                    `Update Status for ${selectedAsset?.assetname}`}
-                </ModalHeader>
-                <ModalBody>
+                <DialogHeader>
+                  <DialogTitle>
+                    {selectedAsset &&
+                      `Update Status for ${selectedAsset?.assetname}`}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
                   <Select
-                    items={status}
-                    placeholder="Select a status"
-                    className="w-full"
-                    aria-label="Select a status"
-                    onSelectionChange={handleUserSelection}
-                    defaultSelectedKeys={
-                      assignedStatus ? [assignedStatus.statustypeid] : []
-                    }
-                    disabledKeys={disabledKeys}
+                    value={selectedUser ? String(selectedUser) : assignedStatus ? String(assignedStatus.statustypeid) : ""}
+                    onValueChange={(value) => handleUserSelection(new Set([value]))}
                   >
-                    {(status) => (
-                      <SelectItem
-                        key={status.statustypeid}
-                        className={`text-${statusColorMap[status?.statustypename] || "default"}`}
-                        color={statusColorMap[status?.statustypename] || "default"}
-                      >
-                        {status?.statustypename || "Unknown"}
-                      </SelectItem>
-                    )}
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {status.map((s) => (
+                        <SelectItem
+                          key={s.statustypeid}
+                          value={String(s.statustypeid)}
+                          disabled={disabledKeys.has(s.statustypeid)}
+                        >
+                          {s?.statustypename || "Unknown"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
-                  <p className="text-sm text-default-400 mt-2">
-                    <Info></Info>
-                    {`Note: The current status and "Available" status cannot be
+                  <p className="text-sm text-muted-foreground">
+                    <Info className="inline mr-1" />
+                    Note: The current status and &quot;Available&quot; status cannot be
                     selected again. If the asset is not assigned to any user, it
-                    cannot be set to "Active."`}
+                    cannot be set to &quot;Active.&quot;
                   </p>
-                </ModalBody>
-                <ModalFooter>
-                  <Button color="danger" variant="solid" onPress={onClose}>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsStatusModalOpen(false)}>
                     Close
                   </Button>
-
                   <Button
-                    color="primary"
-                    isDisabled={!selectedUser}
-                    onPress={async () => {
+                    disabled={!selectedUser}
+                    onClick={async () => {
                       await handleStatusUpdate(selectedAsset?.assetid, selectedUser);
                       setTimeout(() => setSelectedUser(null), 300);
-                      onClose();
+                      setIsStatusModalOpen(false);
                     }}
                   >
                     Update
                   </Button>
-                </ModalFooter>
+                </DialogFooter>
               </>
             );
-          }}
-        </ModalContent>
-      </Modal>
+          })()}
+        </DialogContent>
+      </Dialog>
 
       <Toaster position="bottom-right" expand={false} richColors closeButton />
-    </>
+    </div>
   );
 }

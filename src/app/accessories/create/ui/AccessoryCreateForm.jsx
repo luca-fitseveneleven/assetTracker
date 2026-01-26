@@ -2,14 +2,18 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Button,
-  Checkbox,
-  Divider,
-  Input,
   Select,
+  SelectContent,
   SelectItem,
-} from "@heroui/react";
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
 
@@ -70,11 +74,6 @@ export default function AccessoryCreateForm({
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const onSelectChange = (name) => (keys) => {
-    const value = Array.from(keys)[0] || "";
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
   const onSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
@@ -127,147 +126,237 @@ export default function AccessoryCreateForm({
             <h1 className="text-2xl font-semibold">
               {mode === "edit" ? "Edit Accessory" : "Create Accessory"}
             </h1>
-            <p className="text-sm text-foreground-500 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Provide identification, ownership, and lifecycle details.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button as={Link} href="/accessories" variant="light">
-              Cancel
+            <Button asChild variant="ghost">
+              <Link href="/accessories">Cancel</Link>
             </Button>
-            <Button color="primary" type="submit" isLoading={submitting}>
+            <Button type="submit" disabled={submitting}>
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="rounded-lg border border-default-200 p-4">
-            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Basics</h2>
-            <div className="grid grid-cols-1 gap-3">
-              <Input
-                label="Accessory Name"
-                name="accessoriename"
-                value={form.accessoriename}
-                onChange={onChange}
-                isRequired
-              />
-              <Input
-                label="Asset Tag"
-                name="accessorietag"
-                value={form.accessorietag}
-                onChange={onChange}
-                isRequired
-              />
-              <Select
-                label="Category"
-                placeholder="Select a category"
-                selectedKeys={new Set(form.accessoriecategorytypeid ? [form.accessoriecategorytypeid] : [])}
-                onSelectionChange={onSelectChange("accessoriecategorytypeid")}
-                isRequired
-              >
-                {categories.map((category) => (
-                  <SelectItem key={category.accessoriecategorytypeid}>
-                    {category.accessoriecategorytypename}
-                  </SelectItem>
-                ))}
-              </Select>
-              <Select
-                label="Status"
-                placeholder="Select a status"
-                selectedKeys={new Set(form.statustypeid ? [form.statustypeid] : [])}
-                onSelectionChange={onSelectChange("statustypeid")}
-                isRequired
-              >
-                {sortedStatuses.map((status) => (
-                  <SelectItem key={status.statustypeid}>{status.statustypename}</SelectItem>
-                ))}
-              </Select>
-              <Select
-                label="Location"
-                placeholder="Select a location"
-                selectedKeys={new Set(form.locationid ? [form.locationid] : [])}
-                onSelectionChange={onSelectChange("locationid")}
-                isRequired
-              >
-                {locations.map((location) => (
-                  <SelectItem key={location.locationid}>{location.locationname}</SelectItem>
-                ))}
-              </Select>
-              <Checkbox
-                isSelected={form.requestable}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, requestable: value }))}
-              >
-                Requestable
-              </Checkbox>
+          <div className="rounded-lg border p-4">
+            <h2 className="text-sm font-semibold text-muted-foreground mb-3">Basics</h2>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="accessoriename">
+                  Accessory Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="accessoriename"
+                  name="accessoriename"
+                  value={form.accessoriename}
+                  onChange={onChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accessorietag">
+                  Asset Tag <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="accessorietag"
+                  name="accessorietag"
+                  value={form.accessorietag}
+                  onChange={onChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accessoriecategorytypeid">
+                  Category <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.accessoriecategorytypeid}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, accessoriecategorytypeid: value }))
+                  }
+                  required
+                >
+                  <SelectTrigger id="accessoriecategorytypeid">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.accessoriecategorytypeid} value={category.accessoriecategorytypeid}>
+                        {category.accessoriecategorytypename}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="statustypeid">
+                  Status <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.statustypeid}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, statustypeid: value }))
+                  }
+                  required
+                >
+                  <SelectTrigger id="statustypeid">
+                    <SelectValue placeholder="Select a status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sortedStatuses.map((status) => (
+                      <SelectItem key={status.statustypeid} value={status.statustypeid}>
+                        {status.statustypename}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="locationid">
+                  Location <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.locationid}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, locationid: value }))
+                  }
+                  required
+                >
+                  <SelectTrigger id="locationid">
+                    <SelectValue placeholder="Select a location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map((location) => (
+                      <SelectItem key={location.locationid} value={location.locationid}>
+                        {location.locationname}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="requestable"
+                  checked={form.requestable}
+                  onCheckedChange={(checked) =>
+                    setForm((prev) => ({ ...prev, requestable: checked }))
+                  }
+                />
+                <Label htmlFor="requestable" className="cursor-pointer">Requestable</Label>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-default-200 p-4">
-            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Procurement & Specs</h2>
-            <div className="grid grid-cols-1 gap-3">
-              <Select
-                label="Manufacturer"
-                placeholder="Select a manufacturer"
-                selectedKeys={new Set(form.manufacturerid ? [form.manufacturerid] : [])}
-                onSelectionChange={onSelectChange("manufacturerid")}
-                isRequired
-              >
-                {manufacturers.map((manufacturer) => (
-                  <SelectItem key={manufacturer.manufacturerid}>{manufacturer.manufacturername}</SelectItem>
-                ))}
-              </Select>
-              <Select
-                label="Model"
-                placeholder="Select a model"
-                selectedKeys={new Set(form.modelid ? [form.modelid] : [])}
-                onSelectionChange={onSelectChange("modelid")}
-                isRequired
-              >
-                {models.map((model) => (
-                  <SelectItem key={model.modelid}>{model.modelname}</SelectItem>
-                ))}
-              </Select>
-              <Select
-                label="Supplier"
-                placeholder="Select a supplier"
-                selectedKeys={new Set(form.supplierid ? [form.supplierid] : [])}
-                onSelectionChange={onSelectChange("supplierid")}
-                isRequired
-              >
-                {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.supplierid}>{supplier.suppliername}</SelectItem>
-                ))}
-              </Select>
-              <Input
-                label="Purchase Price"
-                name="purchaseprice"
-                type="number"
-                value={form.purchaseprice}
-                onChange={onChange}
-                min={0}
-                step="0.01"
-              />
-              <Input
-                label="Purchase Date"
-                name="purchasedate"
-                type="date"
-                value={form.purchasedate}
-                onChange={onChange}
-              />
+          <div className="rounded-lg border p-4">
+            <h2 className="text-sm font-semibold text-muted-foreground mb-3">Procurement & Specs</h2>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="manufacturerid">
+                  Manufacturer <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.manufacturerid}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, manufacturerid: value }))
+                  }
+                  required
+                >
+                  <SelectTrigger id="manufacturerid">
+                    <SelectValue placeholder="Select a manufacturer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manufacturers.map((manufacturer) => (
+                      <SelectItem key={manufacturer.manufacturerid} value={manufacturer.manufacturerid}>
+                        {manufacturer.manufacturername}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="modelid">
+                  Model <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.modelid}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, modelid: value }))
+                  }
+                  required
+                >
+                  <SelectTrigger id="modelid">
+                    <SelectValue placeholder="Select a model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {models.map((model) => (
+                      <SelectItem key={model.modelid} value={model.modelid}>
+                        {model.modelname}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="supplierid">
+                  Supplier <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.supplierid}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, supplierid: value }))
+                  }
+                  required
+                >
+                  <SelectTrigger id="supplierid">
+                    <SelectValue placeholder="Select a supplier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((supplier) => (
+                      <SelectItem key={supplier.supplierid} value={supplier.supplierid}>
+                        {supplier.suppliername}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purchaseprice">Purchase Price</Label>
+                <Input
+                  id="purchaseprice"
+                  name="purchaseprice"
+                  type="number"
+                  value={form.purchaseprice}
+                  onChange={onChange}
+                  min={0}
+                  step="0.01"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purchasedate">Purchase Date</Label>
+                <Input
+                  id="purchasedate"
+                  name="purchasedate"
+                  type="date"
+                  value={form.purchasedate}
+                  onChange={onChange}
+                />
+              </div>
             </div>
           </div>
         </section>
 
-        <Divider />
+        <Separator />
 
         <div className="flex justify-end gap-2">
-          <Button as={Link} href="/accessories" variant="light">
-            Cancel
+          <Button asChild variant="ghost">
+            <Link href="/accessories">Cancel</Link>
           </Button>
-          <Button color="primary" type="submit" isLoading={submitting}>
+          <Button type="submit" disabled={submitting}>
             {mode === "edit" ? "Save Changes" : "Create Accessory"}
           </Button>
         </div>

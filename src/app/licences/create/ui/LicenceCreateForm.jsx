@@ -2,15 +2,19 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Button,
-  Checkbox,
-  Divider,
-  Input,
   Select,
+  SelectContent,
   SelectItem,
-  Textarea,
-} from "@heroui/react";
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
 
@@ -62,11 +66,6 @@ export default function LicenceCreateForm({
 
   const onChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const onSelectChange = (name) => (keys) => {
-    const value = Array.from(keys)[0] || "";
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -125,144 +124,206 @@ export default function LicenceCreateForm({
             <h1 className="text-2xl font-semibold">
               {mode === "edit" ? "Edit Licence" : "Create Licence"}
             </h1>
-            <p className="text-sm text-foreground-500 mt-1">Capture entitlement metadata to keep compliance in check.</p>
+            <p className="text-sm text-muted-foreground mt-1">Capture entitlement metadata to keep compliance in check.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button as={Link} href="/licences" variant="light">
-              Cancel
+            <Button asChild variant="ghost">
+              <Link href="/licences">Cancel</Link>
             </Button>
-            <Button color="primary" type="submit" isLoading={submitting}>
+            <Button type="submit" disabled={submitting}>
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="rounded-lg border border-default-200 p-4">
-            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Assignment</h2>
-            <div className="grid grid-cols-1 gap-3">
-              <Input
-                label="Licence Key"
-                name="licencekey"
-                value={form.licencekey}
-                onChange={onChange}
-              />
-              <Select
-                label="Assigned User"
-                placeholder="Unassigned"
-                selectedKeys={new Set(form.licenceduserid ? [form.licenceduserid] : [])}
-                onSelectionChange={onSelectChange("licenceduserid")}
-              >
-                <SelectItem key="">Unassigned</SelectItem>
-                {users.map((user) => (
-                  <SelectItem key={user.userid}>
-                    {user.firstname} {user.lastname}
-                  </SelectItem>
-                ))}
-              </Select>
-              <Input
-                label="Licensed To (Email)"
-                name="licensedtoemail"
-                type="email"
-                value={form.licensedtoemail}
-                onChange={onChange}
-              />
-              <Checkbox
-                isSelected={form.requestable}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, requestable: value }))}
-              >
-                Requestable
-              </Checkbox>
+          <div className="rounded-lg border p-4">
+            <h2 className="text-sm font-semibold text-muted-foreground mb-3">Assignment</h2>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="licencekey">Licence Key</Label>
+                <Input
+                  id="licencekey"
+                  name="licencekey"
+                  value={form.licencekey}
+                  onChange={onChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="licenceduserid">Assigned User</Label>
+                <Select
+                  value={form.licenceduserid}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, licenceduserid: value }))
+                  }
+                >
+                  <SelectTrigger id="licenceduserid">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Unassigned</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.userid} value={user.userid}>
+                        {user.firstname} {user.lastname}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="licensedtoemail">Licensed To (Email)</Label>
+                <Input
+                  id="licensedtoemail"
+                  name="licensedtoemail"
+                  type="email"
+                  value={form.licensedtoemail}
+                  onChange={onChange}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="requestable"
+                  checked={form.requestable}
+                  onCheckedChange={(checked) =>
+                    setForm((prev) => ({ ...prev, requestable: checked }))
+                  }
+                />
+                <Label htmlFor="requestable" className="cursor-pointer">Requestable</Label>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-default-200 p-4">
-            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Catalogue</h2>
-            <div className="grid grid-cols-1 gap-3">
-              <Select
-                label="Category"
-                placeholder="Select a category"
-                selectedKeys={new Set(form.licencecategorytypeid ? [form.licencecategorytypeid] : [])}
-                onSelectionChange={onSelectChange("licencecategorytypeid")}
-                isRequired
-              >
-                {categories.map((category) => (
-                  <SelectItem key={category.licencecategorytypeid}>
-                    {category.licencecategorytypename}
-                  </SelectItem>
-                ))}
-              </Select>
-              <Select
-                label="Manufacturer"
-                placeholder="Select a manufacturer"
-                selectedKeys={new Set(form.manufacturerid ? [form.manufacturerid] : [])}
-                onSelectionChange={onSelectChange("manufacturerid")}
-                isRequired
-              >
-                {manufacturers.map((manufacturer) => (
-                  <SelectItem key={manufacturer.manufacturerid}>
-                    {manufacturer.manufacturername}
-                  </SelectItem>
-                ))}
-              </Select>
-              <Select
-                label="Supplier"
-                placeholder="Select a supplier"
-                selectedKeys={new Set(form.supplierid ? [form.supplierid] : [])}
-                onSelectionChange={onSelectChange("supplierid")}
-                isRequired
-              >
-                {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.supplierid}>{supplier.suppliername}</SelectItem>
-                ))}
-              </Select>
-              <Input
-                label="Purchase Price"
-                name="purchaseprice"
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.purchaseprice}
-                onChange={onChange}
-              />
-              <Input
-                label="Purchase Date"
-                name="purchasedate"
-                type="date"
-                value={form.purchasedate}
-                onChange={onChange}
-              />
-              <Input
-                label="Expiration Date"
-                name="expirationdate"
-                type="date"
-                value={form.expirationdate}
-                onChange={onChange}
-              />
+          <div className="rounded-lg border p-4">
+            <h2 className="text-sm font-semibold text-muted-foreground mb-3">Catalogue</h2>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="licencecategorytypeid">
+                  Category <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.licencecategorytypeid}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, licencecategorytypeid: value }))
+                  }
+                  required
+                >
+                  <SelectTrigger id="licencecategorytypeid">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.licencecategorytypeid} value={category.licencecategorytypeid}>
+                        {category.licencecategorytypename}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manufacturerid">
+                  Manufacturer <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.manufacturerid}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, manufacturerid: value }))
+                  }
+                  required
+                >
+                  <SelectTrigger id="manufacturerid">
+                    <SelectValue placeholder="Select a manufacturer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manufacturers.map((manufacturer) => (
+                      <SelectItem key={manufacturer.manufacturerid} value={manufacturer.manufacturerid}>
+                        {manufacturer.manufacturername}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="supplierid">
+                  Supplier <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.supplierid}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, supplierid: value }))
+                  }
+                  required
+                >
+                  <SelectTrigger id="supplierid">
+                    <SelectValue placeholder="Select a supplier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((supplier) => (
+                      <SelectItem key={supplier.supplierid} value={supplier.supplierid}>
+                        {supplier.suppliername}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purchaseprice">Purchase Price</Label>
+                <Input
+                  id="purchaseprice"
+                  name="purchaseprice"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.purchaseprice}
+                  onChange={onChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purchasedate">Purchase Date</Label>
+                <Input
+                  id="purchasedate"
+                  name="purchasedate"
+                  type="date"
+                  value={form.purchasedate}
+                  onChange={onChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expirationdate">Expiration Date</Label>
+                <Input
+                  id="expirationdate"
+                  name="expirationdate"
+                  type="date"
+                  value={form.expirationdate}
+                  onChange={onChange}
+                />
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="rounded-lg border border-default-200 p-4">
-          <h2 className="text-sm font-semibold text-foreground-600 mb-3">Notes</h2>
-          <Textarea
-            name="notes"
-            placeholder="Licence scope, seats, or additional context"
-            value={form.notes}
-            onChange={onChange}
-            minRows={3}
-          />
+        <section className="rounded-lg border p-4">
+          <h2 className="text-sm font-semibold text-muted-foreground mb-3">Notes</h2>
+          <div className="space-y-2">
+            <Textarea
+              id="notes"
+              name="notes"
+              placeholder="Licence scope, seats, or additional context"
+              value={form.notes}
+              onChange={onChange}
+              rows={3}
+            />
+          </div>
         </section>
 
-        <Divider />
+        <Separator />
 
         <div className="flex justify-end gap-2">
-          <Button as={Link} href="/licences" variant="light">
-            Cancel
+          <Button asChild variant="ghost">
+            <Link href="/licences">Cancel</Link>
           </Button>
-          <Button color="primary" type="submit" isLoading={submitting}>
+          <Button type="submit" disabled={submitting}>
             {mode === "edit" ? "Save Changes" : "Create Licence"}
           </Button>
         </div>

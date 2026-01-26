@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import UserResources from "./ui/UserResources";
-import Breadcrumb from "@/app/components/Breadcrumb";
+import Breadcrumb from "@/components/Breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import {
   getUserById,

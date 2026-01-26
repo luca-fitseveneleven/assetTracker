@@ -1,21 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 230, 230, 230;
-  --background-end-rgb: 230, 230, 230;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
-}
-*/
 
 @layer utilities {
   .text-balance {
@@ -23,9 +8,33 @@
   }
 }
 
-/* 
----break---
-*/
+@layer components {
+  .scroll-shadow {
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .scroll-shadow::before,
+  .scroll-shadow::after {
+    content: '';
+    position: sticky;
+    left: 0;
+    right: 0;
+    height: 20px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .scroll-shadow::before {
+    top: 0;
+    background: linear-gradient(to bottom, hsl(var(--background)), transparent);
+  }
+
+  .scroll-shadow::after {
+    bottom: 0;
+    background: linear-gradient(to top, hsl(var(--background)), transparent);
+  }
+}
 
 @layer base {
   :root {
@@ -83,9 +92,6 @@
   }
 }
 
-/* 
----break---
-*/
 
 @layer base {
   * {

@@ -52,7 +52,7 @@ import { capitalize } from "../../utils/utils";
 import QRCode from "react-qr-code";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import { Toaster, toast } from "sonner";
-import { asset } from "@/app/components/testData";
+import { asset } from "@/components/testData";
 
 const statusColorMap = {
   Active: "default",
@@ -170,7 +170,6 @@ export default function App({
         }
 
         const result = await response.json();
-        console.log(result.message);
 
         toast.success(result.message, {
           description: `${assetId} deleted successfully`,
@@ -188,8 +187,6 @@ export default function App({
 
   const handleAssign = useCallback(
     async (assetId, userId) => {
-      console.log(`Assigning user ${userId} to asset ${assetId}`);
-
       try {
         const response = await fetch("/api/userAssets/assign/", {
           method: "POST",
@@ -206,7 +203,6 @@ export default function App({
         }
 
         const result = await response.json();
-        console.log(result.message);
         toast.success("Entry assigned successfully");
         // Update local userAssets mapping so UI reflects change immediately
         setUserAssetsData((prev) => {
@@ -241,54 +237,9 @@ export default function App({
     [setAssetsData, setUserAssetsData, status]
   );
 
-  // DELETE IF NOT NEEDED
-  // const handleUpdate = async (device, user) => {
-  //   try {
-  //     // First fetch the userassetsid based on the assetid
-  //     const userAssetResponse = await fetch(`/api/userAssets/findByAssetId`, {
-  //       method: "GET",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({ assetId: device }),
-  //     });
-
-  //     if (!userAssetResponse.ok) {
-  //       const errorData = await userAssetResponse.json();
-  //       throw new Error(errorData.error || "Error fetching UserAsset");
-  //     }
-
-  //     const userAssetData = await userAssetResponse.json();
-  //     const userAssetsId = userAssetData.userAsset?.userassetsid;
-
-  //     if (!userAssetsId) {
-  //       throw new Error("UserAssets ID not found for the given asset");
-  //     }
-
-  //     const updateResponse = await fetch("/api/userAssets/update", {
-  //       method: "PUT",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({ userAssetsId, userId: user }),
-  //     });
-
-  //     if (!updateResponse.ok) {
-  //       const errorData = await updateResponse.json();
-  //       throw new Error(errorData.error || "Error updating UserAsset");
-  //     }
-
-  //     const result = await updateResponse.json();
-  //     console.log(result.message);
-  //   } catch (error) {
-  //     console.error("Error:", error);
-  //   }
-  // };
 
   const handleUnassign = useCallback(
     async (assetId, userId) => {
-      console.log(`Unassigning user ${userId} from asset ${assetId}`);
-
       try {
         const response = await fetch("/api/userAssets/unassign/", {
           method: "DELETE",
@@ -304,7 +255,6 @@ export default function App({
         }
 
         const result = await response.json();
-        console.log(result.message);
         // Remove mapping locally
         setUserAssetsData((prev) => prev.filter((ua) => ua.assetid !== assetId));
         // Reflect status = Available locally if we can resolve it
@@ -322,7 +272,6 @@ export default function App({
   );
 
   const handleUserSelection = (value) => {
-    console.log("Selected user", value);
     // Check if value is empty or null and set selectedUser accordingly
     if (!value || value.size === 0) {
       setSelectedUser(null);

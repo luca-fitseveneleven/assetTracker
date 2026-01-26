@@ -96,8 +96,6 @@ export default function App({
 
   const hasSearchFilter = Boolean(filterValue);
 
-  console.log("VERBINDUNG :", userAssets);
-
   useEffect(() => {
     if (selectedKeys.size > 0) {
       setDeleteButtonActive(true);
@@ -153,8 +151,6 @@ export default function App({
     const end = start + rowsPerPage;
     return filteredItems.slice(start, end);
   }, [page, filteredItems, rowsPerPage]);
-
-  console.log("ITEMS:", items);
 
   const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => {

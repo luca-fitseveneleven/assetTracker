@@ -3,7 +3,13 @@
 import React, { useEffect, useMemo, useState, useLayoutEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Button, Tooltip, ScrollShadow } from "@heroui/react";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   LayoutDashboard,
   Users,
@@ -79,21 +85,21 @@ const Sidebar = ({ initialCollapsed = false }) => {
   }, [pathname]);
 
   return (
-    <aside
-      className={cx(
-        "hidden border-r border-default-200 bg-content1/60 backdrop-blur md:flex md:flex-col transition-[width] duration-300 ease-in-out",
-        collapsed ? "w-20" : "w-64"
-      )}
-    >
+    <TooltipProvider>
+      <aside
+        className={cx(
+          "hidden border-r border-default-200 bg-content1/60 backdrop-blur md:flex md:flex-col transition-[width] duration-300 ease-in-out",
+          collapsed ? "w-20" : "w-64"
+        )}
+      >
       <div className="flex h-16 shrink-0 items-center justify-between px-3">
         <Link href="/" className="flex items-center gap-2 font-semibold text-foreground">
           <span className={cx("text-lg tracking-tight", collapsed && "sr-only")}>Asset Tracker</span>
         </Link>
         <Button
-          isIconOnly
           size="sm"
-          variant="light"
-          onPress={() => {
+          variant="ghost"
+          onClick={() => {
             setCollapsed((prev) => {
               const next = !prev;
               if (typeof window !== "undefined") {
@@ -104,11 +110,12 @@ const Sidebar = ({ initialCollapsed = false }) => {
             });
           }}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="h-8 w-8 p-0"
         >
           {collapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </Button>
       </div>
-      <ScrollShadow className="flex-1 px-2 py-4">
+      <div className="flex-1 px-2 py-4 scroll-shadow">
         {navSections.map((section) => (
           <div key={section.title} className="mb-6">
             {!collapsed && (
@@ -136,8 +143,13 @@ const Sidebar = ({ initialCollapsed = false }) => {
 
                 if (collapsed) {
                   return (
-                    <Tooltip key={item.href} content={item.label} placement="right" offset={12}>
-                      {content}
+                    <Tooltip key={item.href}>
+                      <TooltipTrigger asChild>
+                        {content}
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>{item.label}</p>
+                      </TooltipContent>
                     </Tooltip>
                   );
                 }
@@ -147,23 +159,24 @@ const Sidebar = ({ initialCollapsed = false }) => {
             </div>
           </div>
         ))}
-      </ScrollShadow>
-        <div className="p-3">
+      </div>
+      <div className="p-3">
           <p className={cx("text-xs text-foreground-400", collapsed && "sr-only")}>Quick actions</p>
           <div className="mt-2 flex items-center gap-2">
             <Button
-              as={Link}
-              href="/assets/create"
+              asChild
               size="sm"
-              color="primary"
               className="w-full"
-              startContent={<SidebarPlusIcon className="h-4 w-4" color="currentColor" />}
             >
-              <span className={collapsed ? "sr-only" : "inline"}>Create Asset</span>
+              <Link href="/assets/create">
+                <SidebarPlusIcon className="h-4 w-4 mr-2" />
+                <span className={collapsed ? "sr-only" : "inline"}>Create Asset</span>
+              </Link>
             </Button>
           </div>
         </div>
-    </aside>
+      </aside>
+    </TooltipProvider>
   );
 };
 

@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import Breadcrumb from "../../components/Breadcrumb";
+import Breadcrumb from "@/components/Breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import {
   getAssetById,
@@ -12,7 +12,7 @@ import {
   getCategories,
   getUserAssets,
   getSuppliers,
-} from "@/app/lib/data";
+} from "@/lib/data";
 import AssetDetailHeader from "./ui/AssetDetailHeader";
 
 export const metadata = {

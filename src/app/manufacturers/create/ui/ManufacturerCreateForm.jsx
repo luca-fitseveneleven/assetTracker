@@ -2,7 +2,10 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Button, Divider, Input } from "@heroui/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
 
@@ -63,10 +66,10 @@ export default function ManufacturerCreateForm({ initialData = null, mode = "cre
             <p className="text-sm text-foreground-500 mt-1">Add a new hardware or software vendor.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button as={Link} href="/manufacturers" variant="light">
-              Cancel
+            <Button asChild variant="ghost">
+              <Link href="/manufacturers">Cancel</Link>
             </Button>
-            <Button color="primary" type="submit" isLoading={submitting}>
+            <Button type="submit" disabled={submitting}>
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
@@ -74,22 +77,25 @@ export default function ManufacturerCreateForm({ initialData = null, mode = "cre
 
         {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-        <section className="rounded-lg border border-default-200 p-4">
+        <section className="rounded-lg border border-default-200 p-4 space-y-2">
+          <Label htmlFor="manufacturername">
+            Manufacturer Name <span className="text-destructive">*</span>
+          </Label>
           <Input
-            label="Manufacturer Name"
+            id="manufacturername"
             value={manufacturername}
             onChange={(e) => setManufacturername(e.target.value)}
-            isRequired
+            required
           />
         </section>
 
-        <Divider />
+        <Separator />
 
         <div className="flex justify-end gap-2">
-          <Button as={Link} href="/manufacturers" variant="light">
-            Cancel
+          <Button asChild variant="ghost">
+            <Link href="/manufacturers">Cancel</Link>
           </Button>
-          <Button color="primary" type="submit" isLoading={submitting}>
+          <Button type="submit" disabled={submitting}>
             {mode === "edit" ? "Save Changes" : "Create Manufacturer"}
           </Button>
         </div>

@@ -2,7 +2,17 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Button, Divider, Input, Select, SelectItem } from "@heroui/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
 
@@ -79,55 +89,101 @@ export default function SupplierCreateForm({ initialData = null, mode = "create"
             <h1 className="text-2xl font-semibold">
               {mode === "edit" ? "Edit Supplier" : "Create Supplier"}
             </h1>
-            <p className="text-sm text-foreground-500 mt-1">Keep procurement contacts close for reorders.</p>
+            <p className="text-sm text-muted-foreground mt-1">Keep procurement contacts close for reorders.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button as={Link} href="/suppliers" variant="light">
-              Cancel
+            <Button asChild variant="ghost">
+              <Link href="/suppliers">Cancel</Link>
             </Button>
-            <Button color="primary" type="submit" isLoading={submitting}>
+            <Button type="submit" disabled={submitting}>
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-        <section className="rounded-lg border border-default-200 p-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Input
-              label="Supplier Name"
-              name="suppliername"
-              value={form.suppliername}
-              onChange={onChange}
-              isRequired
-            />
-            <Select
-              label="Salutation"
-              placeholder="Select"
-              selectedKeys={new Set(form.salutation ? [form.salutation] : [])}
-              onSelectionChange={(keys) =>
-                setForm((prev) => ({ ...prev, salutation: Array.from(keys)[0] || "" }))
-              }
-            >
-              {SALUTATION_OPTIONS.map((option) => (
-                <SelectItem key={option}>{option}</SelectItem>
-              ))}
-            </Select>
-            <Input label="First Name" name="firstname" value={form.firstname} onChange={onChange} />
-            <Input label="Last Name" name="lastname" value={form.lastname} onChange={onChange} />
-            <Input label="Email" name="email" type="email" value={form.email} onChange={onChange} />
-            <Input label="Phone" name="phonenumber" value={form.phonenumber} onChange={onChange} />
+        <section className="rounded-lg border p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="suppliername">
+                Supplier Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="suppliername"
+                name="suppliername"
+                value={form.suppliername}
+                onChange={onChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="salutation">Salutation</Label>
+              <Select
+                value={form.salutation}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, salutation: value }))
+                }
+              >
+                <SelectTrigger id="salutation">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SALUTATION_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="firstname">First Name</Label>
+              <Input
+                id="firstname"
+                name="firstname"
+                value={form.firstname}
+                onChange={onChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastname">Last Name</Label>
+              <Input
+                id="lastname"
+                name="lastname"
+                value={form.lastname}
+                onChange={onChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={onChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phonenumber">Phone</Label>
+              <Input
+                id="phonenumber"
+                name="phonenumber"
+                value={form.phonenumber}
+                onChange={onChange}
+              />
+            </div>
           </div>
         </section>
 
-        <Divider />
+        <Separator />
 
         <div className="flex justify-end gap-2">
-          <Button as={Link} href="/suppliers" variant="light">
-            Cancel
+          <Button asChild variant="ghost">
+            <Link href="/suppliers">Cancel</Link>
           </Button>
-          <Button color="primary" type="submit" isLoading={submitting}>
+          <Button type="submit" disabled={submitting}>
             {mode === "edit" ? "Save Changes" : "Create Supplier"}
           </Button>
         </div>

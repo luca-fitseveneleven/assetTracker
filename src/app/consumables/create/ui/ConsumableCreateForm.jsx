@@ -2,13 +2,17 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Button,
-  Divider,
-  Input,
   Select,
+  SelectContent,
   SelectItem,
-} from "@heroui/react";
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
 
@@ -49,11 +53,6 @@ export default function ConsumableCreateForm({
 
   const onChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const onSelectChange = (name) => (keys) => {
-    const value = Array.from(keys)[0] || "";
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -107,92 +106,135 @@ export default function ConsumableCreateForm({
             <h1 className="text-2xl font-semibold">
               {mode === "edit" ? "Edit Consumable" : "Create Consumable"}
             </h1>
-            <p className="text-sm text-foreground-500 mt-1">Track recurring purchases with clear sourcing details.</p>
+            <p className="text-sm text-muted-foreground mt-1">Track recurring purchases with clear sourcing details.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button as={Link} href="/consumables" variant="light">
-              Cancel
+            <Button asChild variant="ghost">
+              <Link href="/consumables">Cancel</Link>
             </Button>
-            <Button color="primary" type="submit" isLoading={submitting}>
+            <Button type="submit" disabled={submitting}>
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-        <section className="rounded-lg border border-default-200 p-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Input
-              label="Consumable Name"
-              name="consumablename"
-              value={form.consumablename}
-              onChange={onChange}
-              isRequired
-            />
-            <Select
-              label="Category"
-              placeholder="Select a category"
-              selectedKeys={new Set(form.consumablecategorytypeid ? [form.consumablecategorytypeid] : [])}
-              onSelectionChange={onSelectChange("consumablecategorytypeid")}
-              isRequired
-            >
-              {categories.map((category) => (
-                <SelectItem key={category.consumablecategorytypeid}>
-                  {category.consumablecategorytypename}
-                </SelectItem>
-              ))}
-            </Select>
-            <Select
-              label="Manufacturer"
-              placeholder="Select a manufacturer"
-              selectedKeys={new Set(form.manufacturerid ? [form.manufacturerid] : [])}
-              onSelectionChange={onSelectChange("manufacturerid")}
-              isRequired
-            >
-              {manufacturers.map((manufacturer) => (
-                <SelectItem key={manufacturer.manufacturerid}>
-                  {manufacturer.manufacturername}
-                </SelectItem>
-              ))}
-            </Select>
-            <Select
-              label="Supplier"
-              placeholder="Select a supplier"
-              selectedKeys={new Set(form.supplierid ? [form.supplierid] : [])}
-              onSelectionChange={onSelectChange("supplierid")}
-              isRequired
-            >
-              {suppliers.map((supplier) => (
-                <SelectItem key={supplier.supplierid}>{supplier.suppliername}</SelectItem>
-              ))}
-            </Select>
-            <Input
-              label="Purchase Price"
-              name="purchaseprice"
-              type="number"
-              min={0}
-              step="0.01"
-              value={form.purchaseprice}
-              onChange={onChange}
-            />
-            <Input
-              label="Purchase Date"
-              name="purchasedate"
-              type="date"
-              value={form.purchasedate}
-              onChange={onChange}
-            />
+        <section className="rounded-lg border p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="consumablename">
+                Consumable Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="consumablename"
+                name="consumablename"
+                value={form.consumablename}
+                onChange={onChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="consumablecategorytypeid">
+                Category <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={form.consumablecategorytypeid}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, consumablecategorytypeid: value }))
+                }
+                required
+              >
+                <SelectTrigger id="consumablecategorytypeid">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.consumablecategorytypeid} value={category.consumablecategorytypeid}>
+                      {category.consumablecategorytypename}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manufacturerid">
+                Manufacturer <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={form.manufacturerid}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, manufacturerid: value }))
+                }
+                required
+              >
+                <SelectTrigger id="manufacturerid">
+                  <SelectValue placeholder="Select a manufacturer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {manufacturers.map((manufacturer) => (
+                    <SelectItem key={manufacturer.manufacturerid} value={manufacturer.manufacturerid}>
+                      {manufacturer.manufacturername}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="supplierid">
+                Supplier <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={form.supplierid}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, supplierid: value }))
+                }
+                required
+              >
+                <SelectTrigger id="supplierid">
+                  <SelectValue placeholder="Select a supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.supplierid} value={supplier.supplierid}>
+                      {supplier.suppliername}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="purchaseprice">Purchase Price</Label>
+              <Input
+                id="purchaseprice"
+                name="purchaseprice"
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.purchaseprice}
+                onChange={onChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="purchasedate">Purchase Date</Label>
+              <Input
+                id="purchasedate"
+                name="purchasedate"
+                type="date"
+                value={form.purchasedate}
+                onChange={onChange}
+              />
+            </div>
           </div>
         </section>
 
-        <Divider />
+        <Separator />
 
         <div className="flex justify-end gap-2">
-          <Button as={Link} href="/consumables" variant="light">
-            Cancel
+          <Button asChild variant="ghost">
+            <Link href="/consumables">Cancel</Link>
           </Button>
-          <Button color="primary" type="submit" isLoading={submitting}>
+          <Button type="submit" disabled={submitting}>
             {mode === "edit" ? "Save Changes" : "Create Consumable"}
           </Button>
         </div>

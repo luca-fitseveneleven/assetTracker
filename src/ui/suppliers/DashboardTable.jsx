@@ -23,8 +23,6 @@ function DashboardTable({ data, columns }) {
   const renderCell = useCallback((user, columnKey) => {
     const cellValue = user[columnKey];
 
-    console.log("cellValue", user);
-
     switch (columnKey) {
       case "name":
         return (

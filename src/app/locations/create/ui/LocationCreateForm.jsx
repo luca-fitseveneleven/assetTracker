@@ -2,7 +2,10 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Button, Divider, Input } from "@heroui/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
 
@@ -75,43 +78,80 @@ export default function LocationCreateForm({ initialData = null, mode = "create"
             <h1 className="text-2xl font-semibold">
               {mode === "edit" ? "Edit Location" : "Create Location"}
             </h1>
-            <p className="text-sm text-foreground-500 mt-1">Add a new site for assets, accessories, and consumables.</p>
+            <p className="text-sm text-muted-foreground mt-1">Add a new site for assets, accessories, and consumables.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button as={Link} href="/locations" variant="light">
-              Cancel
+            <Button asChild variant="ghost">
+              <Link href="/locations">Cancel</Link>
             </Button>
-            <Button color="primary" type="submit" isLoading={submitting}>
+            <Button type="submit" disabled={submitting}>
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-        <section className="rounded-lg border border-default-200 p-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Input
-              label="Location Name"
-              name="locationname"
-              value={form.locationname}
-              onChange={onChange}
-              isRequired
-            />
-            <Input label="Street" name="street" value={form.street} onChange={onChange} />
-            <Input label="House Number" name="housenumber" value={form.housenumber} onChange={onChange} />
-            <Input label="City" name="city" value={form.city} onChange={onChange} />
-            <Input label="Country" name="country" value={form.country} onChange={onChange} />
+        <section className="rounded-lg border p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="locationname">
+                Location Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="locationname"
+                name="locationname"
+                value={form.locationname}
+                onChange={onChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="street">Street</Label>
+              <Input
+                id="street"
+                name="street"
+                value={form.street}
+                onChange={onChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="housenumber">House Number</Label>
+              <Input
+                id="housenumber"
+                name="housenumber"
+                value={form.housenumber}
+                onChange={onChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                name="city"
+                value={form.city}
+                onChange={onChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Input
+                id="country"
+                name="country"
+                value={form.country}
+                onChange={onChange}
+              />
+            </div>
           </div>
         </section>
 
-        <Divider />
+        <Separator />
 
         <div className="flex justify-end gap-2">
-          <Button as={Link} href="/locations" variant="light">
-            Cancel
+          <Button asChild variant="ghost">
+            <Link href="/locations">Cancel</Link>
           </Button>
-          <Button color="primary" type="submit" isLoading={submitting}>
+          <Button type="submit" disabled={submitting}>
             {mode === "edit" ? "Save Changes" : "Create Location"}
           </Button>
         </div>

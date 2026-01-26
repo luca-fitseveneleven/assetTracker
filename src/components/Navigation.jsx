@@ -1,243 +1,168 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import NextLink from "next/link";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeSwitcher from "./ThemeSwitcher.jsx";
+import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
-  ChevronDown,
-  Scale,
-  Lock,
-  Activity,
-  Flash,
-  Server,
-  TagUser,
-} from "../ui/Icons.jsx";
-import { Link, Button, Navbar, NavbarBrand, NavbarContent, NavbarItem, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection, Badge, Avatar } from "@heroui/react";
-import { NotificationIcon, Status } from "../ui/Icons.jsx";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { NotificationIcon } from "../ui/Icons.jsx";
+import { cn } from "@/lib/utils";
 
-
-function Navigation({ userName = "Guest", userId = "" }) {
+function Navigation({ userName }) {
   const route = usePathname();
   const [activeMenu, setActiveMenu] = useState("");
 
   useEffect(() => {
-    // This effect updates the activeMenu state whenever the route changes
-    const routeSegment = route.split("/")[1]; // Gets the first segment after the first '/'
+    const routeSegment = route.split("/")[1];
     setActiveMenu(routeSegment);
   }, [route]);
 
   const isActive = (path) => {
-    // This function checks if the path is the active menu
     return activeMenu === path;
   };
 
-  const icons = {
-    chevron: <ChevronDown fill="currentColor" size={16} />,
-    scale: <Scale className="text-warning" fill="currentColor" size={30} />,
-    lock: <Lock className="text-success" fill="currentColor" size={30} />,
-    activity: (
-      <Activity className="text-secondary" fill="currentColor" size={30} />
-    ),
-    flash: <Flash className="text-primary" fill="currentColor" size={30} />,
-    server: <Server className="text-success" fill="currentColor" size={30} />,
-    user: <TagUser className="text-danger" fill="currentColor" size={30} />,
-  };
-
   return (
-    <Navbar
-      isBordered
-      maxWidth="full"
-      className="sticky top-0 z-30 border-b border-default-200 bg-content1/80 backdrop-blur"
-    >
-      <NavbarContent>
-        <NavbarBrand>
-          <Link href="/">
-            <span className="hidden sm:block font-bold text-inherit">
-              Asset Tracker
-            </span>
+    <nav className="border-b">
+      <div className="flex h-16 items-center px-4 md:px-6">
+        <div className="flex items-center gap-6 flex-1">
+          <Link href="/" className="hidden sm:block font-bold text-lg">
+            Asset Tracker
           </Link>
-          {/* <AcmeLogo /> */}
-        </NavbarBrand>
-        <NavbarContent className="flex gap-3 md:hidden">
-          <NavbarItem isActive={isActive("user")}>
+          
+          <div className="hidden sm:flex gap-6">
             <Link
               href="/user"
-              aria-current="page"
-              color={isActive("user") ? "primary" : "foreground"}
+              className={cn(
+                "text-sm font-medium transition-colors hover:text-primary",
+                isActive("user") ? "text-primary" : "text-muted-foreground"
+              )}
             >
               Users
             </Link>
-          </NavbarItem>
-          <NavbarItem isActive={isActive("assets")}>
             <Link
               href="/assets"
-              aria-current="page"
-              color={isActive("assets") ? "primary" : "foreground"}
+              className={cn(
+                "text-sm font-medium transition-colors hover:text-primary",
+                isActive("assets") ? "text-primary" : "text-muted-foreground"
+              )}
             >
               Assets
             </Link>
-          </NavbarItem>
-          <NavbarItem isActive={isActive("accessories")}>
             <Link
               href="/accessories"
-              aria-current="page"
-              color={isActive("accessories") ? "primary" : "foreground"}
+              className={cn(
+                "text-sm font-medium transition-colors hover:text-primary",
+                isActive("accessories") ? "text-primary" : "text-muted-foreground"
+              )}
             >
               Accessories
             </Link>
-          </NavbarItem>
-          <Dropdown>
-            <NavbarItem>
-              <DropdownTrigger>
-                <Button
-                  disableRipple
-                  className="p-0 bg-transparent data-[hover=true]:bg-transparent"
-                  endContent={icons.chevron}
-                  radius="sm"
-                  variant="light"
-                >
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1">
                   Item Menu
+                  <ChevronDown className="h-4 w-4" />
                 </Button>
-              </DropdownTrigger>
-            </NavbarItem>
-            <DropdownMenu
-              aria-label="Other catergories"
-              className="w-[220px]"
-              itemClasses={{
-                base: "gap-4",
-              }}
-            >
-              <DropdownItem
-                key="autoscaling"
-                //startContent={icons.scale}
-                href="/locations"
-              >
-                Locations
-              </DropdownItem>
-              <DropdownItem
-                key="usage_metrics"
-                //startContent={icons.activity}
-                href="/manufacturers"
-              >
-                Manufacturer
-              </DropdownItem>
-              <DropdownItem
-                key="production_ready"
-                //startContent={icons.flash}
-                href="/suppliers"
-              >
-                Supplier
-              </DropdownItem>
-              <DropdownItem
-                key="99_uptime"
-                //startContent={icons.server}
-                href="/licences"
-              >
-                Licences
-              </DropdownItem>
-              <DropdownItem
-                key="supreme_support"
-                //startContent={icons.user}
-                href="/consumables"
-              >
-                Consumable
-              </DropdownItem>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[220px]">
+                <DropdownMenuItem asChild>
+                  <Link href="/locations">Locations</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/manufacturers">Manufacturer</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/suppliers">Supplier</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/licences">Licences</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/consumables">Consumable</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
             </DropdownMenu>
-          </Dropdown>
-        </NavbarContent>
-      </NavbarContent>
+          </div>
+        </div>
 
-      <NavbarContent as="div" className="items-center gap-2" justify="end">
-        <Dropdown backdrop="blur" showArrow size="lg">
-          <Badge
-            content="99+"
-            shape="rectangle"
-            color="danger"
-            placement="top-right"
-          >
-            <DropdownTrigger>
-              <Button
-                radius="full"
-                isIconOnly
-                aria-label="more than 99 notifications"
-                variant="light"
-              >
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative">
                 <NotificationIcon size={24} />
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                >
+                  99+
+                </Badge>
               </Button>
-            </DropdownTrigger>
-          </Badge>
-          <DropdownMenu variant="faded" aria-label="Static Actions">
-            <DropdownSection title="Notifications">
-              {" "}
-              <DropdownItem
-                key="new"
-                disableAnimation
-                textValue="test"
-                className="border-none"
-              >
-                <div className="flex flex-row items-center gap-6  justify-between">
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="py-3">
+                <div className="flex flex-row items-center gap-6 justify-between w-full">
                   <span>An asset got assigned</span>
-                  {/* <Link onClick={console.log("CLEAR")} color="danger">
-                    clear
-                  </Link> */}
                 </div>
-              </DropdownItem>
-            </DropdownSection>
-            <DropdownSection title="Actions">
-              {" "}
-              <DropdownItem key="delete" className="text-danger" color="danger">
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem className="text-destructive">
                 Delete all notifications
-              </DropdownItem>
-            </DropdownSection>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
           </DropdownMenu>
-        </Dropdown>
-        <ThemeSwitcher></ThemeSwitcher>
-        <Dropdown placement="bottom-end">
-          <DropdownTrigger>
-            <Avatar
-              //as="button"
-              className="transition-transform cursor-pointer"
-              color="secondary"
-              showFallback
-              name="Luca Gerlich"
-              size="md"
-              src="https://images.unsplash.com/broken"
-            />
-          </DropdownTrigger>
-          <DropdownMenu aria-label="Profile Actions" variant="flat">
-            <DropdownItem
-              href={userId ? `/user/${userId}/edit` : "/user"}
-              isDisabled={!userId}
-              key="profile"
-              textValue="profile"
-              className="h-14 gap-2"
-            >
-              <p className="font-semibold">Signed in as</p>
-              <p className="font-semibold">{userName}</p>
-            </DropdownItem>
-            <DropdownItem
-              href={userId ? `/user/${userId}` : "/user"}
-              key="items"
-              textValue="items"
-            >
-              My Items
-            </DropdownItem>
-            <DropdownItem
-              href={userId ? `/user/${userId}/settings` : "/user"}
-              isDisabled={!userId}
-              key="settings"
-              textValue="settings"
-            >
-              My Settings
-            </DropdownItem>
-            <DropdownItem key="logout" color="danger" textValue="logout">
-              Log Out
-            </DropdownItem>
+
+          <ThemeSwitcher />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src="https://images.unsplash.com/broken" alt={userName} />
+                  <AvatarFallback>LG</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">Signed in as</p>
+                  <p className="text-xs leading-none text-muted-foreground">{userName}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/user/123">My Items</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/user/123/settings">My Settings</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/user/123/edit">Edit Profile</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive">
+                Log Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
           </DropdownMenu>
-        </Dropdown>
-      </NavbarContent>
-    </Navbar>
+        </div>
+      </div>
+    </nav>
   );
 }
 

@@ -2,16 +2,32 @@
 
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Card, CardContent } from "@/components/ui/card"
+import { ReactNode } from "react"
 
-export function ResponsiveTable({
+interface Column {
+  key: string
+  label: string
+}
+
+interface ResponsiveTableProps<T> {
+  columns: Column[]
+  data: T[]
+  renderCell: (item: T, key: string) => ReactNode
+  mobileCardView?: boolean
+  minWidth?: string
+  keyExtractor?: (item: T) => string | number
+  emptyMessage?: string
+}
+
+export function ResponsiveTable<T>({
   columns,
   data,
   renderCell,
   mobileCardView = false,
   minWidth = "800px",
-  keyExtractor = (item) => item.id,
+  keyExtractor = (item) => (item as Record<string, unknown>).id as string | number,
   emptyMessage = "No data available"
-}) {
+}: ResponsiveTableProps<T>) {
   if (!data || data.length === 0) {
     return (
       <div className="w-full rounded-md border p-8 text-center">

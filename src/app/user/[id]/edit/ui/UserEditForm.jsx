@@ -119,6 +119,12 @@ export default function UserEditForm({ initial }) {
     }
   };
 
+  const handleCancel = () => {
+    if (!isDirty || confirm("Discard unsaved changes?")) {
+      router.back();
+    }
+  };
+
   return (
     <div className="max-w-4xl">
       <Toaster position="bottom-right" />
@@ -129,7 +135,7 @@ export default function UserEditForm({ initial }) {
             <p className="text-sm text-foreground-500 mt-1">{initial.email || "No email"}{initial.username ? ` • @${initial.username}` : ""}</p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <Button type="button" variant="ghost" onClick={() => { if (!isDirty || confirm("Discard unsaved changes?")) router.back(); }} className="w-full sm:w-auto">Cancel</Button>
+            <Button type="button" variant="ghost" onClick={handleCancel} className="w-full sm:w-auto">Cancel</Button>
             <Button type="submit" disabled={saving} className="w-full sm:w-auto">{saving ? "Saving..." : "Save"}</Button>
           </div>
         </div>
@@ -239,7 +245,7 @@ export default function UserEditForm({ initial }) {
           </p>
         )}
         <div className="flex flex-col sm:flex-row justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={() => router.back()} className="w-full sm:w-auto">Cancel</Button>
+          <Button type="button" variant="ghost" onClick={handleCancel} className="w-full sm:w-auto">Cancel</Button>
           <Button type="submit" disabled={saving || usernameTaken || emailTaken} className="w-full sm:w-auto">{saving ? "Saving..." : "Save"}</Button>
         </div>
       </form>

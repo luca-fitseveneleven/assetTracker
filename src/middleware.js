@@ -1,5 +1,8 @@
-import { auth } from "./auth";
+import NextAuth from "next-auth";
+import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -12,7 +15,7 @@ export default auth((req) => {
   const isApiRoute = pathname.startsWith("/api");
 
   // Static files and Next.js internals (always allow)
-  const isStaticFile = pathname.startsWith("/_next") || 
+  const isStaticFile = pathname.startsWith("/_next") ||
                       pathname.startsWith("/favicon") ||
                       pathname.match(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/);
 

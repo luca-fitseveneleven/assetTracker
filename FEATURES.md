@@ -138,37 +138,40 @@ No features currently in active development.
 ### 📋 Pending Features
 
 #### Asset History
-- [ ] User history tracking implementation
-- [ ] Asset check-in/check-out history
-- [ ] History timeline view on asset detail page
+- [x] User history tracking implementation
+- [x] Asset check-in/check-out history
+- [x] History timeline view on asset detail page
 - [ ] History timeline view on user detail page
-- [ ] Audit trail for all changes
+- [x] Audit trail for all changes
+- [x] Labels for assets (print with labelmakers)
 
 #### Reporting & Analytics
-- [ ] Advanced reporting dashboard
-- [ ] Asset utilization reports
-- [ ] Depreciation tracking
-- [ ] Cost analysis reports
-- [ ] Export functionality (CSV, PDF)
+- [x] Advanced reporting dashboard
+- [x] Asset utilization reports
+- [x] Depreciation tracking
+- [x] Cost analysis reports
+- [x] Export functionality (CSV, PDF)
 
 #### Enhanced Search & Filtering
-- [ ] Advanced search with multiple criteria
-- [ ] Saved search filters
-- [ ] Filter presets
-- [ ] Global search across all entities
+- [x] Advanced search with multiple criteria
+- [x] Saved search filters (database structure ready)
+- [ ] Filter presets UI
+- [x] Global search across all entities
 
 #### Notifications
-- [ ] Email notifications for assignments
-- [ ] License expiration alerts
-- [ ] Asset maintenance reminders
-- [ ] Low consumable stock alerts
+- [x] Email notifications for assignments
+- [x] License expiration alerts
+- [x] Asset maintenance reminders
+- [x] Low consumable stock alerts
+- [x] Email provider support (Brevo, SendGrid, Mailgun, Postmark, Amazon SES)
 
 #### Enhanced Asset Management
-- [ ] Asset maintenance scheduling
-- [ ] Warranty tracking
-- [ ] Asset depreciation calculation
-- [ ] Asset photos/attachments
-- [ ] Custom fields for assets
+- [x] Asset maintenance scheduling (database structure ready)
+- [x] Warranty tracking
+- [x] Asset depreciation calculation
+- [x] Asset photos/attachments (database structure ready)
+- [x] Custom fields for assets (database structure ready)
+- [x] Admin settings panel with full control
 
 ---
 

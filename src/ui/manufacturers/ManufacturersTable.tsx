@@ -11,14 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { PlusIcon, SearchIcon } from "../Icons";
 
 const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
@@ -44,10 +37,10 @@ export default function ManufacturersTable({ items }) {
   const [page, setPage] = useState(1);
 
   const years = useMemo(() => {
-    const unique = new Set(
+    const unique = new Set<number>(
       items
         .map((item) => getYear(item.creation_date))
-        .filter((year) => typeof year === "number")
+        .filter((year): year is number => typeof year === "number")
     );
     return Array.from(unique).sort((a, b) => b - a);
   }, [items]);
@@ -75,6 +68,22 @@ export default function ManufacturersTable({ items }) {
     const start = (page - 1) * rowsPerPage;
     return filteredItems.slice(start, start + rowsPerPage);
   }, [filteredItems, page, rowsPerPage]);
+
+  const columns = [
+    { key: 'manufacturername', label: 'Name' },
+    { key: 'creation_date', label: 'Created' },
+  ];
+
+  const renderCell = (item, columnKey) => {
+    switch (columnKey) {
+      case 'manufacturername':
+        return item.manufacturername;
+      case 'creation_date':
+        return formatDate(item.creation_date);
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="w-full space-y-4">
@@ -128,32 +137,14 @@ export default function ManufacturersTable({ items }) {
           </Select>
         </div>
       </div>
-      <div className="w-full overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Created</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedItems.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={2} className="text-center">
-                  No manufacturers found
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedItems.map((item) => (
-                <TableRow key={item.manufacturerid}>
-                  <TableCell>{item.manufacturername}</TableCell>
-                  <TableCell>{formatDate(item.creation_date)}</TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <ResponsiveTable
+        columns={columns}
+        data={paginatedItems}
+        renderCell={renderCell}
+        keyExtractor={(item) => item.manufacturerid}
+        emptyMessage="No manufacturers found"
+        mobileCardView={true}
+      />
       <div className="flex items-center justify-center gap-2">
         <Button
           variant="outline"

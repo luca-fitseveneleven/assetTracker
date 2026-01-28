@@ -164,7 +164,7 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
 
           {query.length >= 2 && !isLoading && results.length === 0 && (
             <p className="text-center text-muted-foreground py-8">
-              No results found for "{query}"
+              No results found for &quot;{query}&quot;
             </p>
           )}
 

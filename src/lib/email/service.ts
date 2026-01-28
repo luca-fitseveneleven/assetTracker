@@ -38,13 +38,13 @@ async function getEmailConfig(): Promise<EmailConfig | null> {
     if (provider && apiKey && fromEmail) {
       return {
         provider,
-        apiKey,
-        fromEmail,
-        fromName: fromName || 'Asset Tracker',
-        domain: configMap.get('email_domain') || undefined,
-        region: configMap.get('email_region') || undefined,
-        accessKeyId: configMap.get('email_access_key_id') || undefined,
-        secretAccessKey: configMap.get('email_secret_access_key') || undefined,
+        apiKey: apiKey as string,
+        fromEmail: fromEmail as string,
+        fromName: (fromName as string) || 'Asset Tracker',
+        domain: (configMap.get('email_domain') as string | undefined) || undefined,
+        region: (configMap.get('email_region') as string | undefined) || undefined,
+        accessKeyId: (configMap.get('email_access_key_id') as string | undefined) || undefined,
+        secretAccessKey: (configMap.get('email_secret_access_key') as string | undefined) || undefined,
       };
     }
 

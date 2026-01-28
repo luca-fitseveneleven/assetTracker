@@ -76,7 +76,7 @@ export default function GeneralSettingsTab({ settings }: GeneralSettingsTabProps
             Company Information
           </CardTitle>
           <CardDescription>
-            Configure your organization's branding and identity
+            Configure your organization&apos;s branding and identity
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -352,7 +353,7 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
                 <TableRow key={template.id}>
                   <TableCell className="font-medium">{template.name}</TableCell>
                   <TableCell>
-                    {Number(template.width)}" x {Number(template.height)}"
+                    {Number(template.width)}&quot; x {Number(template.height)}&quot;
                   </TableCell>
                   <TableCell>
                     {template.includeQR ? (
@@ -421,10 +422,10 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
         <CardContent>
           <div className="flex items-center gap-4">
             <Button variant="outline" asChild>
-              <a href="/assets?action=print-labels">
+              <Link href="/assets?action=print-labels">
                 <Printer className="h-4 w-4 mr-2" />
                 Go to Assets to Print Labels
-              </a>
+              </Link>
             </Button>
           </div>
         </CardContent>

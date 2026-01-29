@@ -5,6 +5,13 @@ import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { authConfig } from "./auth.config";
+import { logger } from "@/lib/logger";
+import {
+  isAccountLocked,
+  recordFailedAttempt,
+  recordSuccessfulLogin,
+  formatLockoutMessage,
+} from "@/lib/account-lockout";
 
 // Login schema validation
 const loginSchema = z.object({
@@ -26,6 +33,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // Validate input
           const { username, password } = loginSchema.parse(credentials);
 
+          // Check if account is locked
+          const lockStatus = isAccountLocked(username);
+          if (lockStatus.locked) {
+            logger.securityEvent("Login attempt on locked account", {
+              username,
+              remainingMs: lockStatus.remainingMs,
+            });
+            // Audit locked account login attempt
+            await createAuditLog({
+              userId: null,
+              action: AUDIT_ACTIONS.LOGIN_FAILED,
+              entity: AUDIT_ENTITIES.USER,
+              entityId: null,
+              details: { 
+                username, 
+                reason: "Account locked",
+                unlockTime: lockStatus.unlockTime?.toISOString(),
+              },
+            });
+            // Note: NextAuth doesn't support custom error messages in authorize
+            // The lockout message will be shown via the login form
+            return null;
+          }
+
           // Find user in database
           const user = await prisma.user.findUnique({
             where: { username },
@@ -42,7 +73,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
 
           if (!user) {
-            console.log("User not found:", username);
+            logger.warn("Login failed - user not found", { username });
+            // Record failed attempt for lockout
+            recordFailedAttempt(username);
             // Audit failed login attempt
             await createAuditLog({
               userId: null,
@@ -58,17 +91,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const isValidPassword = await bcrypt.compare(password, user.password);
 
           if (!isValidPassword) {
-            console.log("Invalid password for user:", username);
+            logger.warn("Login failed - invalid password", { username });
+            // Record failed attempt for lockout
+            const lockoutResult = recordFailedAttempt(username);
             // Audit failed login attempt
             await createAuditLog({
               userId: user.userid,
               action: AUDIT_ACTIONS.LOGIN_FAILED,
               entity: AUDIT_ENTITIES.USER,
               entityId: user.userid,
-              details: { username, reason: "Invalid password" },
+              details: { 
+                username, 
+                reason: "Invalid password",
+                attemptsRemaining: lockoutResult.attemptsRemaining,
+                locked: lockoutResult.locked,
+              },
             });
             return null;
           }
+
+          // Successful login - reset lockout counter
+          recordSuccessfulLogin(username);
 
           // Audit successful login
           await createAuditLog({
@@ -78,6 +121,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             entityId: user.userid,
             details: { username },
           });
+
+          logger.info("Login successful", { username, userId: user.userid });
 
           // Return user object (password excluded)
           return {
@@ -91,10 +136,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             lastname: user.lastname,
           };
         } catch (error) {
-          console.error("Authorization error:", error);
+          logger.error("Authorization error", { error });
           return null;
         }
       },
     }),
   ],
 });
+
+// Export lockout utilities for use in login form
+export { isAccountLocked, formatLockoutMessage };

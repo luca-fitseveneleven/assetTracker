@@ -218,6 +218,11 @@ model user {
   maintenanceAssigned   MaintenanceSchedule[] @relation("MaintenanceAssignee")
   maintenanceCompleted  MaintenanceLog[] @relation("MaintenanceCompleter")
   uploadedAttachments   AssetAttachment[] @relation("AssetAttachmentUploader")
+  
+  // Ticket system relations
+  createdTickets        Ticket[] @relation("TicketCreator")
+  assignedTickets       Ticket[] @relation("TicketAssignee")
+  ticketComments        TicketComment[]
 }
 
 model userAccessoires {
@@ -518,4 +523,37 @@ model DepreciationSetting {
   category assetCategoryType @relation(fields: [categoryId], references: [assetcategorytypeid], onDelete: Cascade)
 
   @@map("depreciation_settings")
+}
+
+// Ticket System for user requests
+model Ticket {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String    @db.VarChar(255)
+  description String?
+  status      String    @default("new") @db.VarChar(20) // new, in_progress, completed, cancelled
+  priority    String    @default("medium") @db.VarChar(20) // low, medium, high, urgent
+  createdBy   String    @db.Uuid
+  assignedTo  String?   @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamp(6)
+
+  creator  user @relation("TicketCreator", fields: [createdBy], references: [userid], onDelete: Cascade)
+  assignee user? @relation("TicketAssignee", fields: [assignedTo], references: [userid], onDelete: SetNull)
+  comments TicketComment[]
+
+  @@map("tickets")
+}
+
+// Ticket Comments for discussions
+model TicketComment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticketId  String   @db.Uuid
+  userId    String   @db.Uuid
+  comment   String
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   user   @relation(fields: [userId], references: [userid], onDelete: Cascade)
+
+  @@map("ticket_comments")
 }

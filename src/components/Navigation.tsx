@@ -114,6 +114,27 @@ function Navigation() {
                 >
                   Accessories
                 </Link>
+                {session?.user?.isAdmin ? (
+                  <Link
+                    href="/admin/tickets"
+                    className={cn(
+                      "text-lg font-medium hover:text-primary transition-colors",
+                      route.includes("/admin/tickets") || route.includes("/user/tickets") ? "text-primary" : "text-muted-foreground"
+                    )}
+                  >
+                    Tickets
+                  </Link>
+                ) : (
+                  <Link
+                    href="/user/tickets"
+                    className={cn(
+                      "text-lg font-medium hover:text-primary transition-colors",
+                      route.includes("/tickets") ? "text-primary" : "text-muted-foreground"
+                    )}
+                  >
+                    My Tickets
+                  </Link>
+                )}
                 <Separator className="my-2" />
                 <p className="text-sm font-semibold text-muted-foreground">More Items</p>
                 <Link
@@ -198,6 +219,27 @@ function Navigation() {
             >
               Accessories
             </Link>
+            {session?.user?.isAdmin ? (
+              <Link
+                href="/admin/tickets"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  route.includes("/admin/tickets") || route.includes("/user/tickets") ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                Tickets
+              </Link>
+            ) : (
+              <Link
+                href="/user/tickets"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  route.includes("/tickets") ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                My Tickets
+              </Link>
+            )}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -303,6 +345,11 @@ function Navigation() {
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href={`/user/${session?.user?.id || '123'}`}>My Items</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={session?.user?.isAdmin ? "/admin/tickets" : "/user/tickets"}>
+                  {session?.user?.isAdmin ? "Tickets" : "My Tickets"}
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href={`/user/${session?.user?.id || '123'}/settings`}>My Settings</Link>

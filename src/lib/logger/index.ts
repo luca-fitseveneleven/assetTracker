@@ -1,7 +1,10 @@
 /**
  * Structured logging utility
  * Provides consistent logging across the application with context
+ * Includes correlation ID support for request tracing
  */
+
+import { AsyncLocalStorage } from "async_hooks";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -12,6 +15,41 @@ interface LogContext {
   message?: string;
   error?: Error | unknown;
   stack?: string;
+  correlationId?: string;
+}
+
+// AsyncLocalStorage for correlation ID propagation
+const correlationIdStorage = new AsyncLocalStorage<string>();
+
+/**
+ * Generate a unique correlation ID
+ */
+export function generateCorrelationId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 11)}`;
+}
+
+/**
+ * Get the current correlation ID from async context
+ */
+export function getCorrelationId(): string | undefined {
+  return correlationIdStorage.getStore();
+}
+
+/**
+ * Run a function with a correlation ID in context
+ */
+export function withCorrelationId<T>(correlationId: string, fn: () => T): T {
+  return correlationIdStorage.run(correlationId, fn);
+}
+
+/**
+ * Run an async function with a correlation ID in context
+ */
+export async function withCorrelationIdAsync<T>(
+  correlationId: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  return correlationIdStorage.run(correlationId, fn);
 }
 
 class Logger {
@@ -24,12 +62,14 @@ class Logger {
   }
 
   private formatLog(level: LogLevel, message: string, context?: LogContext): LogContext {
+    const correlationId = getCorrelationId();
     const log: LogContext = {
       timestamp: new Date().toISOString(),
       level,
       service: this.serviceName,
       environment: this.environment,
       message,
+      ...(correlationId && { correlationId }),
       ...context,
     };
 
@@ -149,6 +189,25 @@ class Logger {
       ...context,
     });
   }
+
+  // Security-related logging
+  securityEvent(event: string, context?: LogContext) {
+    this.warn(`Security Event: ${event}`, {
+      type: "security_event",
+      event,
+      ...context,
+    });
+  }
+
+  // Rate limiting logging
+  rateLimitExceeded(identifier: string, endpoint: string, context?: LogContext) {
+    this.warn(`Rate limit exceeded`, {
+      type: "rate_limit",
+      identifier,
+      endpoint,
+      ...context,
+    });
+  }
 }
 
 // Export singleton instance
@@ -156,3 +215,11 @@ export const logger = new Logger();
 
 // Export class for custom instances
 export { Logger };
+
+// Export correlation ID utilities
+export {
+  generateCorrelationId,
+  getCorrelationId,
+  withCorrelationId,
+  withCorrelationIdAsync,
+};

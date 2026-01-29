@@ -56,6 +56,7 @@ export async function POST(req) {
         licencecategorytypeid,
         manufacturerid,
         supplierid,
+        creation_date: new Date(),
       } as Prisma.licenceUncheckedCreateInput,
     });
 

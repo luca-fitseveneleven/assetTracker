@@ -46,6 +46,7 @@ export async function POST(req) {
             ? null
             : Number(purchaseprice),
         purchasedate: purchasedate ? new Date(purchasedate) : null,
+        creation_date: new Date(),
       } as Prisma.consumableUncheckedCreateInput,
     });
 

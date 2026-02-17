@@ -25,6 +25,8 @@ This document tracks the development status of all features in the Asset Managem
 - [x] Asset create form with "Create & Assign" workflow
 - [x] Real-time validation for asset tags and serial numbers
 - [x] Bulk asset deletion with safeguards
+- [x] Asset history timeline (asset detail page)
+- [x] Audit logging across core APIs
 
 #### User Management
 - [x] User CRUD operations
@@ -76,15 +78,28 @@ This document tracks the development status of all features in the Asset Managem
 - [x] Assets table with filtering and sorting
 - [x] Pagination for large datasets
 - [x] Search functionality across tables
+- [x] Global search across all entities
 - [x] Responsive design (mobile and desktop)
 - [x] Status chips with color coding
 - [x] Refresh button on tables
 - [x] Auto-refresh on window focus/visibility
 - [x] Keyboard shortcuts (r for refresh)
 - [x] "Last updated" timestamp display
-- [x] NextUI component library integration
+- [x] Radix UI components (shadcn/ui)
 - [x] Tailwind CSS styling
 - [x] Dark mode support (via next-themes)
+
+#### Reporting & Analytics
+- [x] Reporting dashboard (charts + summary)
+- [x] Asset utilization reports
+- [x] Export functionality (CSV, PDF)
+
+#### Notifications
+- [x] Email notifications for assignments
+- [x] License expiration alerts
+- [x] Asset maintenance reminders
+- [x] Low consumable stock alerts
+- [x] Email provider support (Brevo, SendGrid, Mailgun, Postmark; SES placeholder)
 
 #### API Endpoints
 - [x] Asset API (GET, POST, PUT, DELETE)
@@ -110,10 +125,9 @@ This document tracks the development status of all features in the Asset Managem
 - [x] Database schema with foreign key relationships
 - [x] Database migrations support
 - [x] Database seeding functionality
-- [x] User history table (structure in place)
+- [x] Audit logs table (audit_logs)
 - [x] UUID primary keys
 - [x] Timestamps (creation_date, change_date)
-- [x] Transaction support for complex operations
 
 #### UX Improvements
 - [x] Inline validation with error messages
@@ -126,72 +140,71 @@ This document tracks the development status of all features in the Asset Managem
 - [x] Client-side state management for immediate UI updates
 - [x] Hydration-safe rendering
 - [x] Loading states and error handling
+- [x] Admin settings panel (multi-tab configuration)
+- [x] Breadcrumb navigation
+- [x] Toast notifications for CRUD actions
+- [x] Optimistic UI updates for status/assignment changes
 
 ---
 
 ### 🚧 In Progress
 
-No features currently in active development.
+- [ ] User history timeline on user detail page
+- [ ] Asset label printing workflow (from assets table)
+- [ ] Saved search filters UI
+- [ ] Maintenance scheduling UI
+- [ ] Warranty tracking UI
+- [ ] Depreciation UI (asset views + reports)
+- [ ] Custom fields on asset forms and detail views
+- [ ] Consumable quantity/minimums UI
 
 ---
 
 ### 📋 Pending Features
 
 #### Asset History
-- [x] User history tracking implementation
-- [x] Asset check-in/check-out history
+- [x] Audit log infrastructure
 - [x] History timeline view on asset detail page
-- [ ] History timeline view on user detail page
-- [x] Audit trail for all changes
-- [x] Labels for assets (print with labelmakers)
-
-#### Reporting & Analytics
-- [x] Advanced reporting dashboard
-- [x] Asset utilization reports
-- [x] Depreciation tracking
-- [x] Cost analysis reports
-- [x] Export functionality (CSV, PDF)
+- [ ] Asset check-in/check-out history (explicit workflow)
+- [x] Audit trail for core changes
 
 #### Enhanced Search & Filtering
-- [x] Advanced search with multiple criteria
-- [x] Saved search filters (database structure ready)
+- [x] Advanced search with multiple criteria (per-entity filters)
 - [ ] Filter presets UI
-- [x] Global search across all entities
-
-#### Notifications
-- [x] Email notifications for assignments
-- [x] License expiration alerts
-- [x] Asset maintenance reminders
-- [x] Low consumable stock alerts
-- [x] Email provider support (Brevo, SendGrid, Mailgun, Postmark, Amazon SES)
 
 #### Enhanced Asset Management
-- [x] Asset maintenance scheduling (database structure ready)
-- [x] Warranty tracking
-- [x] Asset depreciation calculation
-- [x] Asset photos/attachments (database structure ready)
-- [x] Custom fields for assets (database structure ready)
-- [x] Admin settings panel with full control
+- [ ] Asset photos/attachments UI
+
+#### Consumables Enhancement
+- [ ] Stock level management UI
+- [ ] Automatic reorder alerts (beyond low-stock notifications)
+- [ ] Consumable check-out system
+- [ ] Usage tracking
+
+#### Partially Implemented (DB/API Only)
+- [ ] Asset photos/attachments (DB only)
+- [ ] REST API documentation (OpenAPI spec + endpoint only)
+- [ ] Cost analysis reports (basic totals only)
+- [ ] User preferences (sidebar collapsed cookie only)
 
 ---
 
 ### 💡 Future Enhancements
 
 #### Multi-tenancy & Organization
-- [ ] Multi-organization support
-- [ ] Department/team management
-- [ ] Role-based access control (RBAC) expansion
+- [ ] Multi-organization support (DB/API only)
+- [ ] Department/team management (DB/API only)
+- [ ] Role-based access control (RBAC) expansion (helpers only)
 - [ ] Custom permission configurations
 
 #### Integration & APIs
-- [ ] REST API documentation (Swagger/OpenAPI)
-- [ ] Webhook support
+- [ ] Webhook support (API only)
 - [ ] Third-party integrations (Slack, Teams, etc.)
 - [ ] SSO/SAML authentication
 - [ ] LDAP/Active Directory integration
 
 #### Advanced Features
-- [ ] Asset reservations/booking system
+- [ ] Asset reservations/booking system (DB/API only)
 - [ ] Asset location tracking (GPS/RFID)
 - [ ] Barcode scanning support
 - [ ] Asset lifecycle management
@@ -200,6 +213,14 @@ No features currently in active development.
 - [ ] Asset transfer workflows
 - [ ] Multi-language support
 - [ ] Customizable dashboard widgets
+- [ ] AI-assisted support/helpdesk
+
+#### Personalization & Preferences
+- [ ] Persisted user preferences
+- [ ] Custom dashboard per user
+
+#### Data & Database
+- [ ] Pre-reserve UUIDs on create (client workflows)
 
 #### Performance & Scalability
 - [ ] Server-side validation enforcement
@@ -207,13 +228,8 @@ No features currently in active development.
 - [ ] Performance optimization for large datasets
 - [ ] Database query optimization
 - [ ] Rate limiting for API endpoints
-
-#### Consumables Enhancement
-- [ ] Inventory quantity tracking
-- [ ] Stock level management
-- [ ] Automatic reorder alerts
-- [ ] Consumable check-out system
-- [ ] Usage tracking
+- [ ] Server-side pagination + filtering endpoints
+- [ ] Database transactions for complex workflows
 
 #### Compliance & Security
 - [ ] Data encryption at rest
@@ -221,6 +237,7 @@ No features currently in active development.
 - [ ] Compliance reporting (SOX, HIPAA, etc.)
 - [ ] Data retention policies
 - [ ] GDPR compliance features
+- [ ] Security hardening beyond current feature flags
 
 #### UI/UX Improvements
 - [ ] Drag-and-drop file uploads
@@ -231,12 +248,20 @@ No features currently in active development.
 - [ ] Tooltips and help system
 - [ ] Keyboard navigation improvements
 - [ ] Accessibility enhancements (WCAG compliance)
+- [ ] Skeleton loaders
+- [ ] Shareable URLs (persist filters/state in query params)
+- [ ] Auto-suggestions/typeahead
+- [ ] Hover/animation polish
+- [ ] Micro-interactions
+- [ ] Regional settings (date/number/currency)
+- [ ] Documentation expansion (user/admin guides)
 
 #### Mobile App
 - [ ] Native mobile application
 - [ ] QR code scanning for quick asset lookup
 - [ ] Mobile-optimized workflows
 - [ ] Offline mode support
+- [ ] PWA install + app icons
 
 ---
 
@@ -248,19 +273,18 @@ No features currently in active development.
 - **Hydration Fixes**: Resolved SSR/client hydration mismatches by properly separating server and client components.
 
 ### Technical Stack
-- **Frontend**: Next.js 16, React 19, NextUI, Tailwind CSS
+- **Frontend**: Next.js 16, React 19, shadcn/ui (Radix UI), Tailwind CSS
 - **Backend**: Next.js API Routes
 - **Database**: PostgreSQL with Prisma ORM
-- **UI Components**: NextUI (HeroUI), Lucide Icons, Framer Motion
+- **UI Components**: Radix UI (shadcn/ui), Lucide Icons
 - **Data Visualization**: Recharts
 - **QR Code**: qrcode.react, react-qr-code
 - **Package Manager**: Bun (with npm/yarn/pnpm support)
 
 ### Testing Status
-- **Automated tests**: Not yet configured
+- **Automated tests**: Playwright configured for E2E; unit/component tests not set up
   - Recommended: Jest or Vitest for unit tests
   - Recommended: React Testing Library for component tests
-  - Recommended: Playwright or Cypress for E2E tests
 - **Manual testing**: Required for critical flows (login, CRUD operations, QR generation)
 - **Linting**: ESLint configured with Next.js config
 
@@ -276,14 +300,13 @@ No features currently in active development.
 
 Based on the current state of the application, here are recommended priorities:
 
-1. **Implement Asset History** - The database structure exists but needs UI implementation
-2. **Add Automated Testing** - Set up Jest/React Testing Library for component tests
-3. **Enhance Reporting** - Add basic reports and export functionality
-4. **Implement Notifications** - Email alerts for assignments and expirations
-5. **Add Asset Photos** - Allow image uploads for visual identification
-6. **API Documentation** - Create OpenAPI/Swagger documentation
-7. **Server-side Validation** - Add validation enforcement on the backend
-8. **Consumable Inventory** - Implement quantity tracking for consumables
+1. **Finish In-Progress UI** - User history timeline, labels workflow, custom fields, consumable quantities
+2. **Maintenance/Warranty/Depreciation UI** - Surface existing backend capabilities
+3. **Asset Photos/Attachments** - Upload and manage asset images
+4. **API Documentation UI** - Serve and expose OpenAPI docs in-app
+5. **Server-side Pagination/Filtering** - Move large tables to paged endpoints
+6. **Server-side Validation** - Enforce validation beyond client checks
+7. **Testing Coverage** - Add unit/component tests where critical
 
 ---
 
@@ -309,4 +332,4 @@ When adding new features:
 
 ---
 
-**Last Updated**: 2026-01-25
+**Last Updated**: 2026-02-17

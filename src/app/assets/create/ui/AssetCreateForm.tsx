@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
+import CustomFieldsSection from "@/components/CustomFieldsSection";
 
 export default function AssetCreateForm({ categories, locations, manufacturers, models, statuses, suppliers, users }) {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function AssetCreateForm({ categories, locations, manufacturers, 
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [assettagTaken, setAssettagTaken] = useState(false);
   const [serialTaken, setSerialTaken] = useState(false);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | null>>({});
   const [form, setForm] = useState({
     assetname: "",
     assettag: "",
@@ -35,6 +37,8 @@ export default function AssetCreateForm({ categories, locations, manufacturers, 
     supplierid: "",
     locationid: "",
     manufacturerid: "",
+    warrantyMonths: "",
+    warrantyExpires: "",
   });
 
   // Preselect default status "Available" if present
@@ -73,6 +77,8 @@ export default function AssetCreateForm({ categories, locations, manufacturers, 
         supplierid: form.supplierid || null,
         locationid: form.locationid || null,
         manufacturerid: form.manufacturerid || null,
+        warrantyMonths: form.warrantyMonths === "" ? null : Number(form.warrantyMonths),
+        warrantyExpires: form.warrantyExpires || null,
       };
       const res = await fetch("/api/asset", {
         method: "POST",
@@ -84,6 +90,18 @@ export default function AssetCreateForm({ categories, locations, manufacturers, 
         throw new Error(err?.error || "Failed to create asset");
       }
       const created = await res.json();
+      // Save custom field values
+      if (Object.keys(customFieldValues).length > 0) {
+        await fetch("/api/custom-fields/values", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            entityId: created.assetid,
+            entityType: "asset",
+            values: customFieldValues,
+          }),
+        });
+      }
       toast.success("Asset created", { description: created.assettag });
       if (assignAfter) {
         setCreatedAsset(created);
@@ -116,6 +134,8 @@ export default function AssetCreateForm({ categories, locations, manufacturers, 
       supplierid: "",
       locationid: "",
       manufacturerid: "",
+      warrantyMonths: "",
+      warrantyExpires: "",
     });
   }, []);
 
@@ -259,8 +279,24 @@ export default function AssetCreateForm({ categories, locations, manufacturers, 
                 <Label htmlFor="purchasedate">Purchase Date</Label>
                 <Input id="purchasedate" name="purchasedate" value={form.purchasedate} onChange={onChange} type="date" />
               </div>
+              <div>
+                <Label htmlFor="warrantyMonths">Warranty (months)</Label>
+                <Input id="warrantyMonths" name="warrantyMonths" value={form.warrantyMonths} onChange={onChange} type="number" min="0" />
+              </div>
+              <div>
+                <Label htmlFor="warrantyExpires">Warranty Expires</Label>
+                <Input id="warrantyExpires" name="warrantyExpires" value={form.warrantyExpires} onChange={onChange} type="date" />
+              </div>
             </div>
           </section>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <CustomFieldsSection
+            entityType="asset"
+            entityId={null}
+            onChange={setCustomFieldValues}
+          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">

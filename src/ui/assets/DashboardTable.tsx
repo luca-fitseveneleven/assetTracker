@@ -53,6 +53,8 @@ import QRCode from "react-qr-code";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import { Toaster, toast } from "sonner";
 import { asset } from "@/components/testData";
+import SavedFilters from "@/components/SavedFilters";
+import PrintLabelDialog from "@/components/PrintLabelDialog";
 
 const statusColorMap = {
   Active: "default",
@@ -123,7 +125,8 @@ export default function App({
   const [isQRCodeModalOpen, setIsQRCodeModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  
+  const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
+
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [deleteMode, setDeleteMode] = useState("single");
@@ -279,7 +282,7 @@ export default function App({
       setSelectedUser(null);
     } else if (value instanceof Set) {
       // If it's a Set, get the first value
-      setSelectedUser(value.values().next().value || value.anchorKey);
+      setSelectedUser(value.values().next().value || (value as any).anchorKey);
     } else {
       // Otherwise use the value directly (string from Select)
       setSelectedUser(value);
@@ -333,6 +336,8 @@ export default function App({
           setIsQRCodeModalOpen(true);
           break;
         case "label":
+          setSelectedAsset(asset);
+          setIsLabelModalOpen(true);
           break;
         default:
           break;
@@ -881,6 +886,19 @@ export default function App({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            <SavedFilters
+              entity="asset"
+              currentFilters={{
+                search: filterValue,
+                statuses: Array.from(statusFilter),
+                columns: Array.from(visibleColumns),
+              }}
+              onApplyFilter={(filters: Record<string, unknown>) => {
+                if (filters.search !== undefined) setFilterValue(filters.search as string);
+                if (filters.statuses) setStatusFilter(new Set(filters.statuses as string[]));
+                if (filters.columns) setVisibleColumns(new Set(filters.columns as string[]));
+              }}
+            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" disabled={!deleteButtonActive}>
@@ -1308,6 +1326,16 @@ export default function App({
           })()}
         </DialogContent>
       </Dialog>
+
+      <PrintLabelDialog
+        open={isLabelModalOpen}
+        onOpenChange={setIsLabelModalOpen}
+        assets={selectedAsset ? [selectedAsset] : []}
+        manufacturers={manufacturers}
+        models={models}
+        locations={locations}
+        categories={categories}
+      />
 
       <Toaster position="bottom-right" expand={false} richColors closeButton />
     </div>

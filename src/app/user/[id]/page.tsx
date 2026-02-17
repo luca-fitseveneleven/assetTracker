@@ -3,6 +3,8 @@ import Link from "next/link";
 import UserResources from "./ui/UserResources";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Separator } from "@/components/ui/separator";
+import HistoryTimeline from "@/components/HistoryTimeline";
+import prisma from "@/lib/prisma";
 import {
   getUserById,
   getUserAssets,
@@ -47,6 +49,28 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     .filter(Boolean);
   const myLicences = licences.filter((lic) => lic.licenceduserid === user.userid);
 
+  // Fetch history for this user from audit_logs
+  const historyEntries = await prisma.audit_logs.findMany({
+    where: {
+      OR: [
+        { entity: "user", entityId: params.id },
+        { userId: params.id },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: {
+      user: {
+        select: {
+          userid: true,
+          username: true,
+          firstname: true,
+          lastname: true,
+        },
+      },
+    },
+  });
+
   const statusById = new Map<string, string>(statuses.map((s) => [s.statustypeid, s.statustypename]));
   const statusColor = (name: string | undefined) => {
     const n = (name || "").toLowerCase();
@@ -80,6 +104,9 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
             {user.canrequest ? (
               <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-1 text-xs font-medium">Can Request</span>
             ) : null}
+            <Link href={`/user/${user.userid}/settings`} className="rounded-md border border-default-200 px-3 py-1.5 text-sm font-medium hover:bg-muted">
+              Settings
+            </Link>
             <Link href={`/user/${user.userid}/edit`} className="rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium hover:opacity-90">
               Edit
             </Link>
@@ -150,6 +177,13 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         </div>
 
         <UserResources user={user} accessories={myAccessories} licences={myLicences} allAccessories={allAccessories} allLicences={licences} />
+
+        <Separator className="my-6" />
+
+        <section className="rounded-lg border border-default-200 p-4">
+          <h2 className="text-sm font-semibold text-foreground-600 mb-4">User History</h2>
+          <HistoryTimeline entries={historyEntries} entityType="user" />
+        </section>
       </div>
     </>
   );

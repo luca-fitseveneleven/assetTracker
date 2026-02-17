@@ -86,7 +86,6 @@ export default function LicenceCategoriesTable({ items }) {
         keyExtractor={(item) => item.licencecategorytypeid}
         emptyMessage="No licence categories found"
         mobileCardView={true}
-        editUrl={(item) => `/licenceCategories/${item.licencecategorytypeid}/edit`}
       />
       <div className="flex items-center justify-center gap-2">
         <Button

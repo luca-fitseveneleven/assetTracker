@@ -4,14 +4,19 @@ import { Prisma } from "@prisma/client";
 import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
 import { createLicenseSchema, updateLicenseSchema, uuidSchema } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
 
 // GET /api/licence
 export async function GET() {
   try {
     // Require authentication to view licences
     await requireApiAuth();
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
+    const where = scopeToOrganization({}, orgId);
     const items = await prisma.licence.findMany({
+      where,
       orderBy: { creation_date: "desc" },
     });
     return NextResponse.json(items, { status: 200 });

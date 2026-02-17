@@ -35,6 +35,8 @@ export default function ConsumableCreateForm({
         supplierid: "",
         purchaseprice: "",
         purchasedate: "",
+        quantity: "0",
+        minQuantity: "0",
       };
     }
 
@@ -48,6 +50,8 @@ export default function ConsumableCreateForm({
           ? ""
           : String(initialData.purchaseprice),
       purchasedate: initialData.purchasedate ? initialData.purchasedate.slice(0, 10) : "",
+      quantity: String(initialData.quantity ?? 0),
+      minQuantity: String(initialData.minQuantity ?? 0),
     };
   });
 
@@ -67,6 +71,8 @@ export default function ConsumableCreateForm({
         ...form,
         purchaseprice: form.purchaseprice === "" ? null : form.purchaseprice,
         purchasedate: form.purchasedate || null,
+        quantity: form.quantity === "" ? 0 : Number(form.quantity),
+        minQuantity: form.minQuantity === "" ? 0 : Number(form.minQuantity),
       };
 
       if (mode === "edit" && initialData?.consumableid) {
@@ -224,6 +230,31 @@ export default function ConsumableCreateForm({
                 value={form.purchasedate}
                 onChange={onChange}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input
+                id="quantity"
+                name="quantity"
+                type="number"
+                min={0}
+                value={form.quantity}
+                onChange={onChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="minQuantity">Min. Quantity (Alert Threshold)</Label>
+              <Input
+                id="minQuantity"
+                name="minQuantity"
+                type="number"
+                min={0}
+                value={form.minQuantity}
+                onChange={onChange}
+              />
+              {Number(form.quantity) > 0 && Number(form.minQuantity) > 0 && Number(form.quantity) <= Number(form.minQuantity) && (
+                <p className="text-sm text-amber-600">Stock is at or below minimum threshold.</p>
+              )}
             </div>
           </div>
         </section>

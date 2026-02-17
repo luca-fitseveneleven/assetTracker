@@ -26,6 +26,7 @@ import {
   Tags,
   CircleDot,
   Ticket,
+  FileJson,
 } from "lucide-react";
 import { PlusIcon as SidebarPlusIcon } from "../ui/Icons";
 
@@ -65,6 +66,7 @@ const navSections = [
     title: "Administration",
     items: [
       { label: "Reports", href: "/reports", icon: LayoutDashboard },
+      { label: "API Docs", href: "/api-docs", icon: FileJson },
       { label: "Admin Settings", href: "/admin/settings", icon: LayoutDashboard, adminOnly: true },
     ],
   },

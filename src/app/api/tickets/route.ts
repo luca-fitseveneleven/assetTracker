@@ -95,10 +95,10 @@ async function getFreshdeskTickets(req: Request, url: URL) {
 
     // Get Freshdesk configuration from database
     const [domainSetting, apiKeySetting] = await Promise.all([
-      prisma.systemSettings.findUnique({
+      prisma.system_settings.findUnique({
         where: { settingKey: "freshdesk_domain" },
       }),
-      prisma.systemSettings.findUnique({
+      prisma.system_settings.findUnique({
         where: { settingKey: "freshdesk_api_key" },
       }),
     ]);

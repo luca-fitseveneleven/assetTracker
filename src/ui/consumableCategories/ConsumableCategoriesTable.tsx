@@ -86,7 +86,6 @@ export default function ConsumableCategoriesTable({ items }) {
         keyExtractor={(item) => item.consumablecategorytypeid}
         emptyMessage="No consumable categories found"
         mobileCardView={true}
-        editUrl={(item) => `/consumableCategories/${item.consumablecategorytypeid}/edit`}
       />
       <div className="flex items-center justify-center gap-2">
         <Button

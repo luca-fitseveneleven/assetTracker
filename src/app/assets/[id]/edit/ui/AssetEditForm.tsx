@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
+import CustomFieldsSection from "@/components/CustomFieldsSection";
 
 export default function AssetEditForm({ initial, categories, locations, manufacturers, models, statuses, suppliers }) {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function AssetEditForm({ initial, categories, locations, manufact
   const [assettagTaken, setAssettagTaken] = useState(false);
   const [serialTaken, setSerialTaken] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | null>>({});
 
   const [form, setForm] = useState({
     assetid: initial.assetid,
@@ -35,6 +37,8 @@ export default function AssetEditForm({ initial, categories, locations, manufact
     supplierid: initial.supplierid ?? "",
     locationid: initial.locationid ?? "",
     manufacturerid: initial.manufacturerid ?? "",
+    warrantyMonths: initial.warrantyMonths ?? "",
+    warrantyExpires: initial.warrantyExpires ? new Date(initial.warrantyExpires).toISOString().slice(0, 10) : "",
   });
 
   const initialSnapshot = useMemo(() => JSON.stringify({
@@ -53,6 +57,8 @@ export default function AssetEditForm({ initial, categories, locations, manufact
     supplierid: initial.supplierid ?? "",
     locationid: initial.locationid ?? "",
     manufacturerid: initial.manufacturerid ?? "",
+    warrantyMonths: initial.warrantyMonths ?? "",
+    warrantyExpires: initial.warrantyExpires ? new Date(initial.warrantyExpires).toISOString().slice(0, 10) : "",
   }), [initial]);
 
   useEffect(() => {
@@ -99,6 +105,8 @@ export default function AssetEditForm({ initial, categories, locations, manufact
           supplierid: form.supplierid || null,
           locationid: form.locationid || null,
           manufacturerid: form.manufacturerid || null,
+          warrantyMonths: form.warrantyMonths === "" ? null : Number(form.warrantyMonths),
+          warrantyExpires: form.warrantyExpires || null,
         }),
       });
       if (!res.ok) {
@@ -106,6 +114,18 @@ export default function AssetEditForm({ initial, categories, locations, manufact
         throw new Error(err?.error || "Failed to update asset");
       }
       const updated = await res.json();
+      // Save custom field values
+      if (Object.keys(customFieldValues).length > 0) {
+        await fetch("/api/custom-fields/values", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            entityId: updated.assetid,
+            entityType: "asset",
+            values: customFieldValues,
+          }),
+        });
+      }
       toast.success("Asset updated", { description: updated.assettag });
       router.push(`/assets/${updated.assetid}`);
     } catch (e) {
@@ -256,6 +276,14 @@ export default function AssetEditForm({ initial, categories, locations, manufact
                 <Label htmlFor="purchasedate">Purchase Date</Label>
                 <Input id="purchasedate" name="purchasedate" value={form.purchasedate ?? ""} onChange={onChange} type="date" />
               </div>
+              <div>
+                <Label htmlFor="warrantyMonths">Warranty (months)</Label>
+                <Input id="warrantyMonths" name="warrantyMonths" value={form.warrantyMonths ?? ""} onChange={onChange} type="number" min="0" />
+              </div>
+              <div>
+                <Label htmlFor="warrantyExpires">Warranty Expires</Label>
+                <Input id="warrantyExpires" name="warrantyExpires" value={form.warrantyExpires ?? ""} onChange={onChange} type="date" />
+              </div>
             </div>
           </section>
         </div>
@@ -306,6 +334,14 @@ export default function AssetEditForm({ initial, categories, locations, manufact
               </div>
             </div>
           </section>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <CustomFieldsSection
+            entityType="asset"
+            entityId={initial.assetid}
+            onChange={setCustomFieldValues}
+          />
         </div>
 
         {error && <p className="text-red-500 text-sm" role="alert">{error}</p>}

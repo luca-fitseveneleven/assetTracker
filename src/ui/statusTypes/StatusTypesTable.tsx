@@ -86,7 +86,6 @@ export default function StatusTypesTable({ items }) {
         keyExtractor={(item) => item.statustypeid}
         emptyMessage="No status types found"
         mobileCardView={true}
-        editUrl={(item) => `/statusTypes/${item.statustypeid}/edit`}
       />
       <div className="flex items-center justify-center gap-2">
         <Button

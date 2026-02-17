@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
     // If API key is masked, get the stored one
     if (apiKey === "********" || !apiKey) {
-      const storedApiKey = await prisma.systemSettings.findUnique({
+      const storedApiKey = await prisma.system_settings.findUnique({
         where: { settingKey: "freshdesk_api_key" },
       });
       apiKey = storedApiKey?.settingValue;

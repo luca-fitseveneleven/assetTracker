@@ -4,14 +4,19 @@ import { Prisma } from "@prisma/client";
 import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
 import { createConsumableSchema, updateConsumableSchema, uuidSchema } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
 
 // GET /api/consumable
 export async function GET() {
   try {
     // Require authentication to view consumables
     await requireApiAuth();
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
+    const where = scopeToOrganization({}, orgId);
     const items = await prisma.consumable.findMany({
+      where,
       orderBy: { consumablename: "asc" },
     });
     return NextResponse.json(items, { status: 200 });

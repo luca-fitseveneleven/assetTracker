@@ -13,6 +13,12 @@ import {
   Bell,
   Shield,
   Ticket,
+  Building2,
+  FolderTree,
+  Webhook,
+  KeyRound,
+  Server,
+  MessageSquare,
 } from "lucide-react";
 import EmailSettingsTab from "./EmailSettingsTab";
 import UsersSettingsTab from "./UsersSettingsTab";
@@ -22,6 +28,13 @@ import CustomFieldsTab from "./CustomFieldsTab";
 import NotificationSettingsTab from "./NotificationSettingsTab";
 import GeneralSettingsTab from "./GeneralSettingsTab";
 import FreshdeskSettingsTab from "./FreshdeskSettingsTab";
+import OrganizationsTab from "./OrganizationsTab";
+import DepartmentsTab from "./DepartmentsTab";
+import RolesTab from "./RolesTab";
+import WebhooksTab from "./WebhooksTab";
+import SSOSettingsTab from "./SSOSettingsTab";
+import LDAPSettingsTab from "./LDAPSettingsTab";
+import IntegrationsTab from "./IntegrationsTab";
 
 interface AdminSettingsPageProps {
   settings: Record<
@@ -103,7 +116,7 @@ export default function AdminSettingsPage({
       <Separator />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 h-auto p-1">
+        <TabsList className="flex flex-wrap gap-2 h-auto p-1">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">General</span>
@@ -135,6 +148,34 @@ export default function AdminSettingsPage({
           <TabsTrigger value="customFields" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Custom Fields</span>
+          </TabsTrigger>
+          <TabsTrigger value="organizations" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Organizations</span>
+          </TabsTrigger>
+          <TabsTrigger value="departments" className="flex items-center gap-2">
+            <FolderTree className="h-4 w-4" />
+            <span className="hidden sm:inline">Departments</span>
+          </TabsTrigger>
+          <TabsTrigger value="roles" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Roles</span>
+          </TabsTrigger>
+          <TabsTrigger value="webhooks" className="flex items-center gap-2">
+            <Webhook className="h-4 w-4" />
+            <span className="hidden sm:inline">Webhooks</span>
+          </TabsTrigger>
+          <TabsTrigger value="sso" className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4" />
+            <span className="hidden sm:inline">SSO</span>
+          </TabsTrigger>
+          <TabsTrigger value="ldap" className="flex items-center gap-2">
+            <Server className="h-4 w-4" />
+            <span className="hidden sm:inline">LDAP</span>
+          </TabsTrigger>
+          <TabsTrigger value="integrations" className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Integrations</span>
           </TabsTrigger>
         </TabsList>
 
@@ -169,6 +210,34 @@ export default function AdminSettingsPage({
 
           <TabsContent value="customFields">
             <CustomFieldsTab fields={customFields} />
+          </TabsContent>
+
+          <TabsContent value="organizations">
+            <OrganizationsTab />
+          </TabsContent>
+
+          <TabsContent value="departments">
+            <DepartmentsTab />
+          </TabsContent>
+
+          <TabsContent value="roles">
+            <RolesTab />
+          </TabsContent>
+
+          <TabsContent value="webhooks">
+            <WebhooksTab />
+          </TabsContent>
+
+          <TabsContent value="sso">
+            <SSOSettingsTab />
+          </TabsContent>
+
+          <TabsContent value="ldap">
+            <LDAPSettingsTab />
+          </TabsContent>
+
+          <TabsContent value="integrations">
+            <IntegrationsTab />
           </TabsContent>
         </div>
       </Tabs>

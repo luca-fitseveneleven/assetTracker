@@ -15,7 +15,12 @@ import {
   getSuppliers,
 } from "@/lib/data";
 import prisma from "@/lib/prisma";
+import { calculateDepreciation, formatCurrency, getMethodDisplayName, type DepreciationMethod } from "@/lib/depreciation";
 import AssetDetailHeader from "./ui/AssetDetailHeader";
+import AssetAttachments from "@/components/AssetAttachments";
+import AssetLifecycle from "./ui/AssetLifecycle";
+import AssetReservations from "./ui/AssetReservations";
+import AssetTransfers from "./ui/AssetTransfers";
 
 export const metadata = {
   title: "Asset Tracker - Asset Details",
@@ -75,6 +80,70 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       },
     },
   });
+
+  // Fetch depreciation settings for this asset's category
+  const depreciationSettings = asset.assetcategorytypeid
+    ? await prisma.depreciation_settings.findUnique({
+        where: { categoryId: asset.assetcategorytypeid },
+      })
+    : null;
+
+  // Compute depreciation if we have settings and a purchase price
+  let depreciationData: { currentValue: number; accumulatedDepreciation: number; percentDepreciated: number } | null = null;
+  if (depreciationSettings && asset.purchaseprice != null && asset.creation_date) {
+    const result = calculateDepreciation({
+      purchasePrice: asset.purchaseprice,
+      purchaseDate: new Date(asset.creation_date),
+      method: depreciationSettings.method as DepreciationMethod,
+      usefulLifeYears: depreciationSettings.usefulLifeYears,
+      salvagePercent: Number(depreciationSettings.salvagePercent),
+    });
+    depreciationData = result;
+  }
+
+  // Compute warranty status
+  let warrantyStatus: { label: string; color: string } | null = null;
+  if (asset.warrantyExpires) {
+    const now = new Date();
+    const expires = new Date(asset.warrantyExpires);
+    const daysUntilExpiry = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysUntilExpiry < 0) {
+      warrantyStatus = { label: "Expired", color: "bg-red-100 text-red-700" };
+    } else if (daysUntilExpiry <= 90) {
+      warrantyStatus = { label: `Expiring Soon (${daysUntilExpiry}d)`, color: "bg-yellow-100 text-yellow-700" };
+    } else {
+      warrantyStatus = { label: "Active", color: "bg-green-100 text-green-700" };
+    }
+  }
+
+  // Fetch maintenance schedules for this asset
+  const maintenanceSchedules = await prisma.maintenance_schedules.findMany({
+    where: { assetId: params.id },
+    include: {
+      user: {
+        select: { userid: true, firstname: true, lastname: true },
+      },
+    },
+    orderBy: { nextDueDate: "asc" },
+    take: 5,
+  });
+
+  // Fetch custom fields for this asset
+  const customFieldDefs = await prisma.custom_field_definitions.findMany({
+    where: { entityType: "asset", isActive: true },
+    orderBy: { displayOrder: "asc" },
+  });
+  const customFieldValues = customFieldDefs.length > 0
+    ? await prisma.custom_field_values.findMany({
+        where: { entityId: params.id },
+      })
+    : [];
+  const cfValueMap = new Map(customFieldValues.map((v) => [v.fieldId, v.value]));
+  const customFields = customFieldDefs.map((def) => ({
+    name: def.name,
+    fieldType: def.fieldType,
+    value: cfValueMap.get(def.id) ?? null,
+  }));
 
   const userByAsset = userAssets.find((ua) => ua.assetid === asset.assetid);
   const assignedUser = userByAsset ? users.find((u) => u.userid === userByAsset.userid) : null;
@@ -155,6 +224,140 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
               <div className="flex justify-between"><span className="text-foreground-500">Serial Number</span><span className="font-medium">{asset.serialnumber}</span></div>
             </div>
           </section>
+        </div>
+
+        {customFields.length > 0 && (
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+            <section className="col-span-1 rounded-lg border border-default-200 p-4">
+              <h2 className="text-sm font-semibold text-foreground-600 mb-3">Custom Fields</h2>
+              <dl className="grid grid-cols-1 gap-2 text-sm">
+                {customFields.map((cf) => (
+                  <div key={cf.name} className="flex justify-between">
+                    <dt className="text-foreground-500">{cf.name}</dt>
+                    <dd className="font-medium">
+                      {cf.fieldType === "checkbox"
+                        ? cf.value === "true" ? "Yes" : "No"
+                        : cf.value || "-"}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          </div>
+        )}
+
+        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+          <section className="col-span-1 rounded-lg border border-default-200 p-4">
+            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Warranty</h2>
+            <dl className="grid grid-cols-1 gap-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-foreground-500">Status</dt>
+                <dd className="font-medium">
+                  {warrantyStatus ? (
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${warrantyStatus.color}`}>
+                      {warrantyStatus.label}
+                    </span>
+                  ) : (
+                    <span className="text-foreground-400">No warranty</span>
+                  )}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-foreground-500">Duration</dt>
+                <dd className="font-medium">{asset.warrantyMonths ? `${asset.warrantyMonths} months` : "-"}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-foreground-500">Expires</dt>
+                <dd className="font-medium">{asset.warrantyExpires ? new Date(asset.warrantyExpires).toLocaleDateString() : "-"}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="col-span-1 rounded-lg border border-default-200 p-4">
+            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Depreciation</h2>
+            {depreciationData && depreciationSettings ? (
+              <dl className="grid grid-cols-1 gap-2 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-foreground-500">Method</dt>
+                  <dd className="font-medium">{getMethodDisplayName(depreciationSettings.method as DepreciationMethod)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-foreground-500">Useful Life</dt>
+                  <dd className="font-medium">{depreciationSettings.usefulLifeYears} years</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-foreground-500">Current Value</dt>
+                  <dd className="font-medium text-green-700">{formatCurrency(depreciationData.currentValue)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-foreground-500">Depreciated</dt>
+                  <dd className="font-medium text-red-600">{formatCurrency(depreciationData.accumulatedDepreciation)} ({depreciationData.percentDepreciated.toFixed(1)}%)</dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-sm text-foreground-500">
+                {asset.purchaseprice == null
+                  ? "No purchase price set."
+                  : "No depreciation settings for this category."}
+              </p>
+            )}
+          </section>
+
+          <section className="col-span-1 rounded-lg border border-default-200 p-4">
+            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Maintenance</h2>
+            {maintenanceSchedules.length > 0 ? (
+              <div className="space-y-2">
+                {maintenanceSchedules.map((schedule) => {
+                  const isDue = new Date(schedule.nextDueDate) <= new Date();
+                  return (
+                    <div key={schedule.id} className="flex items-center justify-between text-sm">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{schedule.title}</p>
+                        <p className="text-xs text-foreground-500">
+                          {schedule.frequency} &middot; {schedule.user ? `${schedule.user.firstname} ${schedule.user.lastname}` : "Unassigned"}
+                        </p>
+                      </div>
+                      <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${isDue ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                        {isDue ? "Due" : new Date(schedule.nextDueDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-foreground-500">No maintenance schedules.</p>
+            )}
+          </section>
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+          <section className="col-span-1 md:col-span-3 rounded-lg border border-default-200 p-4">
+            <AssetLifecycle
+              assetId={asset.assetid}
+              currentStatus={statusName}
+              statuses={status}
+            />
+          </section>
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <section className="rounded-lg border border-default-200 p-4">
+            <AssetReservations assetId={asset.assetid} assetName={asset.assetname} />
+          </section>
+          <section className="rounded-lg border border-default-200 p-4">
+            <AssetTransfers
+              assetId={asset.assetid}
+              currentUserId={userByAsset?.userid}
+              currentLocationId={asset.locationid ?? undefined}
+              currentOrgId={asset.organizationId ?? undefined}
+            />
+          </section>
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+          <div className="col-span-1 md:col-span-2">
+            <AssetAttachments assetId={asset.assetid} />
+          </div>
         </div>
 
         <div className="mt-10">

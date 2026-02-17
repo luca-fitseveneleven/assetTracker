@@ -86,7 +86,6 @@ export default function AssetCategoriesTable({ items }) {
         keyExtractor={(item) => item.assetcategorytypeid}
         emptyMessage="No asset categories found"
         mobileCardView={true}
-        editUrl={(item) => `/assetCategories/${item.assetcategorytypeid}/edit`}
       />
       <div className="flex items-center justify-center gap-2">
         <Button

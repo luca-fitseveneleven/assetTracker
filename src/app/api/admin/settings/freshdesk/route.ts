@@ -14,7 +14,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const settings = await prisma.systemSettings.findMany({
+    const settings = await prisma.system_settings.findMany({
       where: {
         settingKey: {
           startsWith: "freshdesk_",
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
     }
 
     for (const setting of settingsToUpsert) {
-      await prisma.systemSettings.upsert({
+      await prisma.system_settings.upsert({
         where: { settingKey: setting.key },
         update: {
           settingValue: setting.value,
@@ -102,6 +102,7 @@ export async function POST(req: Request) {
           category: setting.category,
           description: setting.description,
           isEncrypted: setting.isEncrypted,
+          updatedAt: new Date(),
         },
       });
     }

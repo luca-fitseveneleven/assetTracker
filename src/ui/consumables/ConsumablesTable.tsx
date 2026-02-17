@@ -121,6 +121,8 @@ export default function ConsumablesTable({
   const columns = [
     { key: 'consumablename', label: 'Name' },
     { key: 'category', label: 'Category' },
+    { key: 'quantity', label: 'Qty' },
+    { key: 'stockStatus', label: 'Stock' },
     { key: 'manufacturer', label: 'Manufacturer' },
     { key: 'supplier', label: 'Supplier' },
     { key: 'purchaseprice', label: 'Price' },
@@ -160,9 +162,29 @@ export default function ConsumablesTable({
   const renderCell = (item, columnKey) => {
     switch (columnKey) {
       case 'consumablename':
-        return item.consumablename;
+        return (
+          <Link href={`/consumables/${item.consumableid}`} className="text-primary hover:underline font-medium">
+            {item.consumablename}
+          </Link>
+        );
       case 'category':
         return categoryById.get(item.consumablecategorytypeid) ?? "-";
+      case 'quantity':
+        return item.quantity ?? 0;
+      case 'stockStatus': {
+        const qty = item.quantity ?? 0;
+        const min = item.minQuantity ?? 0;
+        if (min > 0 && qty <= 0) {
+          return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700">Out of Stock</span>;
+        }
+        if (min > 0 && qty <= min) {
+          return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700">Low Stock</span>;
+        }
+        if (min > 0) {
+          return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700">In Stock</span>;
+        }
+        return <span className="text-muted-foreground text-xs">-</span>;
+      }
       case 'manufacturer':
         return manufacturerById.get(item.manufacturerid) ?? "-";
       case 'supplier':

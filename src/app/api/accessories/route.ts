@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
+import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
 
 // GET /api/accessories
 export async function GET() {
   try {
-    const items = await prisma.accessories.findMany({});
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+    const where = scopeToOrganization({}, orgId);
+    const items = await prisma.accessories.findMany({ where });
     return NextResponse.json(items, { status: 200 });
   } catch (e) {
     console.error("GET /api/accessories error:", e);

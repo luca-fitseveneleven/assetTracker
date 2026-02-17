@@ -91,7 +91,6 @@ export default function ModelsTable({ items }) {
         keyExtractor={(item) => item.modelid}
         emptyMessage="No models found"
         mobileCardView={true}
-        editUrl={(item) => `/models/${item.modelid}/edit`}
       />
       <div className="flex items-center justify-center gap-2">
         <Button

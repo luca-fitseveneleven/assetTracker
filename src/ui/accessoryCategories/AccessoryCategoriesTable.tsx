@@ -86,7 +86,6 @@ export default function AccessoryCategoriesTable({ items }) {
         keyExtractor={(item) => item.accessoriecategorytypeid}
         emptyMessage="No accessory categories found"
         mobileCardView={true}
-        editUrl={(item) => `/accessoryCategories/${item.accessoriecategorytypeid}/edit`}
       />
       <div className="flex items-center justify-center gap-2">
         <Button

@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
+import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
 
 // GET /api/asset
 // Optional query: ?id=<assetid>
 export async function GET(req) {
   try {
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const id = req.nextUrl.searchParams.get("id");
 
     if (id) {
@@ -19,7 +23,8 @@ export async function GET(req) {
       return NextResponse.json(asset, { status: 200 });
     }
 
-    const assets = await prisma.asset.findMany({});
+    const where = scopeToOrganization({}, orgId);
+    const assets = await prisma.asset.findMany({ where });
     return NextResponse.json(assets, { status: 200 });
   } catch (error) {
     console.error("GET /api/asset error:", error);
@@ -48,6 +53,8 @@ export async function POST(req) {
       supplierid,
       locationid,
       manufacturerid,
+      warrantyMonths,
+      warrantyExpires,
     } = body || {};
 
     if (!assetname || !assettag || !serialnumber) {
@@ -74,6 +81,8 @@ export async function POST(req) {
         supplierid: supplierid ?? null,
         locationid: locationid ?? null,
         manufacturerid: manufacturerid ?? null,
+        warrantyMonths: warrantyMonths != null ? Number(warrantyMonths) : null,
+        warrantyExpires: warrantyExpires ? new Date(warrantyExpires) : null,
         creation_date: new Date(),
       } as Prisma.assetUncheckedCreateInput,
     });
@@ -108,6 +117,12 @@ export async function PUT(req) {
     }
     if (Object.prototype.hasOwnProperty.call(data, "requestable")) {
       data.requestable = typeof data.requestable === "boolean" ? data.requestable : null;
+    }
+    if (Object.prototype.hasOwnProperty.call(data, "warrantyExpires") && data.warrantyExpires) {
+      data.warrantyExpires = new Date(data.warrantyExpires);
+    }
+    if (Object.prototype.hasOwnProperty.call(data, "warrantyMonths")) {
+      data.warrantyMonths = data.warrantyMonths != null ? Number(data.warrantyMonths) : null;
     }
 
     const updated = await prisma.asset.update({

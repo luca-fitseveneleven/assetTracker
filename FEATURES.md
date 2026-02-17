@@ -145,6 +145,18 @@ This document tracks the development status of all features in the Asset Managem
 - [x] Toast notifications for CRUD actions
 - [x] Optimistic UI updates for status/assignment changes
 
+#### Production Readiness
+- [x] Global error handling and error pages (404/500/maintenance)
+- [x] Health check endpoints (health/ready/live)
+- [x] Environment validation for required config
+- [x] Feature flags system for gradual rollout
+- [x] Structured logging with correlation IDs
+- [x] Database resilience and retry helpers
+- [x] Rate limiting for auth and API endpoints
+- [x] Account lockout after failed logins
+- [x] Password complexity validation
+- [x] Session timeout for inactive users
+
 ---
 
 ### 🚧 In Progress
@@ -186,6 +198,7 @@ This document tracks the development status of all features in the Asset Managem
 - [ ] REST API documentation (OpenAPI spec + endpoint only)
 - [ ] Cost analysis reports (basic totals only)
 - [ ] User preferences (sidebar collapsed cookie only)
+- [ ] Bulk import (API only)
 
 ---
 
@@ -196,12 +209,24 @@ This document tracks the development status of all features in the Asset Managem
 - [ ] Department/team management (DB/API only)
 - [ ] Role-based access control (RBAC) expansion (helpers only)
 - [ ] Custom permission configurations
+- [ ] White-labeling support
+- [ ] Per-tenant billing
 
 #### Integration & APIs
 - [ ] Webhook support (API only)
 - [ ] Third-party integrations (Slack, Teams, etc.)
 - [ ] SSO/SAML authentication
 - [ ] LDAP/Active Directory integration
+- [ ] GraphQL API (optional)
+
+#### Notifications (Future)
+- [ ] In-app notifications center
+- [ ] Scheduled reports via email
+
+#### Reporting & Analytics (Future)
+- [ ] Report builder (custom reports)
+- [ ] Excel export
+- [ ] Compliance reports
 
 #### Advanced Features
 - [ ] Asset reservations/booking system (DB/API only)
@@ -230,6 +255,14 @@ This document tracks the development status of all features in the Asset Managem
 - [ ] Rate limiting for API endpoints
 - [ ] Server-side pagination + filtering endpoints
 - [ ] Database transactions for complex workflows
+- [ ] Response compression
+- [ ] Cursor-based pagination
+- [ ] Streaming exports for large datasets
+- [ ] Batch operations for bulk updates
+- [ ] Virtualized lists for large tables
+- [ ] Frontend bundle analysis + code splitting
+- [ ] Image optimization and lazy loading
+- [ ] Stale-while-revalidate caching patterns
 
 #### Compliance & Security
 - [ ] Data encryption at rest
@@ -238,6 +271,43 @@ This document tracks the development status of all features in the Asset Managem
 - [ ] Data retention policies
 - [ ] GDPR compliance features
 - [ ] Security hardening beyond current feature flags
+- [ ] MFA/2FA
+- [ ] Password reset flow
+- [ ] Concurrent session management
+- [ ] CAPTCHA for login
+- [ ] Suspicious activity detection
+- [ ] Security headers audit and CSP reporting
+- [ ] Request signing for sensitive operations
+- [ ] API key management for integrations
+- [ ] Field-level encryption for PII
+- [ ] Data masking for logs
+
+#### Observability & Monitoring
+- [ ] Centralized log aggregation
+- [ ] Application performance monitoring (APM)
+- [ ] Alerting on errors, latency, and DB failures
+- [ ] Synthetic monitoring checks
+- [ ] Business metrics dashboards
+
+#### Testing & Quality
+- [ ] Unit test framework (Jest/Vitest)
+- [ ] Component tests (React Testing Library)
+- [ ] API integration tests
+- [ ] Test data factories/fixtures
+- [ ] Accessibility testing (axe-core)
+- [ ] Code coverage targets and reporting
+- [ ] Pre-commit hooks and lint gates
+- [ ] Code formatting (Prettier)
+- [ ] Commit message linting
+- [ ] PR templates and review checklists
+- [ ] CI/CD pipeline with quality gates
+
+#### Infrastructure & Ops
+- [ ] Secret management integration (Vault/Secrets Manager)
+- [ ] Automated DB backups with PITR
+- [ ] Read replicas for scale
+- [ ] CDN/WAF deployment recommendations
+- [ ] Database maintenance scripts
 
 #### UI/UX Improvements
 - [ ] Drag-and-drop file uploads

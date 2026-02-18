@@ -53,6 +53,12 @@ export async function PATCH(req) {
     );
   } catch (error) {
     console.error("PATCH /api/admin/users/bulk-permissions error:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
 
     if (error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

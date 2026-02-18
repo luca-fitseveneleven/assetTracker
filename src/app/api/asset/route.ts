@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
+import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
 import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
 import {
   parsePaginationParams,
@@ -23,6 +24,7 @@ const ASSET_SORT_FIELDS = [
 // Pagination: ?page=1&pageSize=25&sortBy=assetname&sortOrder=asc&search=keyword&statusId=<id>
 export async function GET(req) {
   try {
+    await requireApiAuth();
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
@@ -79,6 +81,9 @@ export async function GET(req) {
     );
   } catch (error) {
     console.error("GET /api/asset error:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json({ error: "Failed to fetch assets" }, { status: 500 });
   }
 }
@@ -86,6 +91,7 @@ export async function GET(req) {
 // POST /api/asset
 export async function POST(req) {
   try {
+    await requireApiAdmin();
     const body = await req.json();
     const d = validateBody(createAssetSchema, body);
     if (d instanceof NextResponse) return d;
@@ -116,6 +122,12 @@ export async function POST(req) {
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("POST /api/asset error:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     return NextResponse.json({ error: "Failed to create asset" }, { status: 500 });
   }
 }
@@ -124,6 +136,7 @@ export async function POST(req) {
 // Body must include assetid; any provided fields will be updated
 export async function PUT(req) {
   try {
+    await requireApiAdmin();
     const body = await req.json();
     const validated = validateBody(updateAssetSchema, body);
     if (validated instanceof NextResponse) return validated;
@@ -149,6 +162,12 @@ export async function PUT(req) {
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     console.error("PUT /api/asset error:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     return NextResponse.json({ error: "Failed to update asset" }, { status: 500 });
   }
 }

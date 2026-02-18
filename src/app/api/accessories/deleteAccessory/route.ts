@@ -1,10 +1,12 @@
 import prisma from "../../../../lib/prisma";
 import { logger } from "@/lib/logger";
+import { requireApiAdmin } from "@/lib/api-auth";
 
 export async function DELETE(req) {
   const startTime = Date.now();
   
   try {
+    await requireApiAdmin();
     const { accessoryId } = await req.json();
 
     if (!accessoryId) {
@@ -44,6 +46,19 @@ export async function DELETE(req) {
     logger.apiError("DELETE", "/api/accessories/deleteAccessory", error, {
       duration,
     });
+
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     
     return new Response(JSON.stringify({ error: "Error deleting accessory" }), {
       status: 500,

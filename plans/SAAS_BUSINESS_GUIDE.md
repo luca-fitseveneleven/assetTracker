@@ -1,5 +1,7 @@
 # Asset Tracker SaaS Business Guide
 
+**Status Update (2026-02-18):** Product feature scope and delivery status are tracked in `FEATURES.md`. This guide focuses on business considerations.
+
 This comprehensive guide provides everything you need to offer Asset Tracker as a paid Software-as-a-Service (SaaS) while also providing customers with a self-hosting option.
 
 ---

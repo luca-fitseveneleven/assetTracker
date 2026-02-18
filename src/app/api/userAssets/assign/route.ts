@@ -1,8 +1,10 @@
 import { Prisma } from "@prisma/client";
 import prisma from "../../../../lib/prisma";
+import { requireApiAdmin } from "@/lib/api-auth";
 
 export async function POST(req) {
   try {
+    await requireApiAdmin();
     const { assetId, userId } = await req.json();
 
     if (!assetId || !userId) {
@@ -67,6 +69,12 @@ export async function POST(req) {
     );
   } catch (error) {
     console.error("Error assigning asset:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return new Response(JSON.stringify({ error: error.message }), { status: 403 });
+    }
     return new Response(JSON.stringify({ error: "Error assigning asset" }), {
       status: 500,
     });

@@ -1,5 +1,7 @@
 # 🔐 NextAuth.js Security Implementation - Summary
 
+**Status Update (2026-02-18):** Core auth and security features are implemented. Additional API hardening work has been applied (see `docs/SECURITY_GUIDE.md` and `plans/PROGRESS.md`).
+
 ## Overview
 
 Successfully implemented a comprehensive, enterprise-grade security and authentication system for the Asset Tracker application using NextAuth.js v5 (Auth.js).

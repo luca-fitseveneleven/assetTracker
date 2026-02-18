@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
+import { requireApiAuth } from "@/lib/api-auth";
+import { updateUserSchema } from "@/lib/validation";
+import { hashPassword } from "@/lib/auth-utils";
 import {
   parsePaginationParams,
   buildPrismaArgs,
@@ -8,15 +11,26 @@ import {
 
 const USER_SORT_FIELDS = ["firstname", "lastname", "email", "creation_date"];
 
+const stripPassword = (user) => {
+  if (!user) return user;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { password, ...rest } = user;
+  return rest;
+};
+
 // GET /api/user
 // Optional query: ?id=<userid>
 // Pagination: ?page=1&pageSize=25&sortBy=lastname&sortOrder=asc&search=keyword
 export async function GET(req) {
   try {
+    const authUser = await requireApiAuth();
     const searchParams = req.nextUrl.searchParams;
     const id = searchParams.get("id");
 
     if (id) {
+      if (!authUser.isAdmin && authUser.id !== id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
       const user = await prisma.user.findUnique({ where: { userid: id } });
       if (!user) {
         return NextResponse.json(
@@ -24,13 +38,17 @@ export async function GET(req) {
           { status: 404 }
         );
       }
-      return NextResponse.json(user, { status: 200 });
+      return NextResponse.json(stripPassword(user), { status: 200 });
+    }
+
+    if (!authUser.isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // If no `page` param, return all results for backward compatibility
     if (!searchParams.has("page")) {
       const users = await prisma.user.findMany({});
-      return NextResponse.json(users, { status: 200 });
+      return NextResponse.json(users.map(stripPassword), { status: 200 });
     }
 
     // Paginated path
@@ -55,11 +73,14 @@ export async function GET(req) {
     ]);
 
     return NextResponse.json(
-      buildPaginatedResponse(users, total, params),
+      buildPaginatedResponse(users.map(stripPassword), total, params),
       { status: 200 },
     );
   } catch (error) {
     console.error("GET /api/user error:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
   }
 }
@@ -68,6 +89,7 @@ export async function GET(req) {
 // Body must include userid; any provided fields will be updated
 export async function PUT(req) {
   try {
+    const authUser = await requireApiAuth();
     const body = await req.json();
     const { userid, password, ...data } = body || {};
 
@@ -78,32 +100,49 @@ export async function PUT(req) {
       );
     }
 
-    // Normalize booleans
-    if (Object.prototype.hasOwnProperty.call(data, "isadmin")) {
-      data.isadmin = Boolean(data.isadmin);
-    }
-    if (Object.prototype.hasOwnProperty.call(data, "canrequest")) {
-      data.canrequest = Boolean(data.canrequest);
+    if (!authUser.isAdmin && authUser.id !== userid) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Attach password if provided (blank means no change)
-    if (typeof password === "string" && password.length > 0) {
-      data.password = password;
+    const schema = authUser.isAdmin
+      ? updateUserSchema
+      : updateUserSchema.omit({ isadmin: true, canrequest: true });
+
+    const validationResult = schema.strict().safeParse({
+      ...data,
+      ...(typeof password === "string" && password.length > 0 ? { password } : {}),
+    });
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: validationResult.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const updateData = { ...validationResult.data } as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(updateData, "password")) {
+      updateData.password = await hashPassword(updateData.password as string);
     }
 
     const updated = await prisma.user.update({
       where: { userid },
       data: {
-        ...data,
+        ...updateData,
         change_date: new Date(),
       },
     });
-    return NextResponse.json(updated, { status: 200 });
+    return NextResponse.json(stripPassword(updated), { status: 200 });
   } catch (error) {
     console.error("PUT /api/user error:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
   }
 }
 
 export const dynamic = "force-dynamic";
-

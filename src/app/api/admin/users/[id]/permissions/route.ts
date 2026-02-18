@@ -4,7 +4,7 @@ import { requireApiAdmin } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 // PATCH /api/admin/users/[id]/permissions
-export async function PATCH(req, { params }) {
+export async function PATCH(req, { params }: { params: Promise<{ id: string }> }) {
   const startTime = Date.now();
 
   try {
@@ -71,14 +71,13 @@ export async function PATCH(req, { params }) {
   } catch (error) {
     const duration = Date.now() - startTime;
     logger.apiError("PATCH", "/api/admin/users/[id]/permissions", error, {
-      userId: params.id,
       duration,
     });
-    
-    if (error.message === "Unauthorized") {
+
+    if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (error.message?.startsWith("Forbidden")) {
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
     if (error.code === "P2025") {

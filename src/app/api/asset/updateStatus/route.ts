@@ -1,5 +1,6 @@
 import prisma from "../../../../lib/prisma";
 import { logger } from "@/lib/logger";
+import { requireApiAdmin } from "@/lib/api-auth";
 
 // PUT /api/asset/updateStatus
 // Body: { assetId: string, statusTypeId?: string, statusName?: string }
@@ -7,6 +8,7 @@ export async function PUT(req) {
   const startTime = Date.now();
   
   try {
+    await requireApiAdmin();
     const { assetId, statusTypeId, statusName } = await req.json();
 
     if (!assetId || (!statusTypeId && !statusName)) {
@@ -57,6 +59,19 @@ export async function PUT(req) {
   } catch (error) {
     const duration = Date.now() - startTime;
     logger.apiError("PUT", "/api/asset/updateStatus", error, { duration });
+
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     
     // Handle Prisma-specific errors
     let errorMessage = "Failed to update status";
@@ -86,4 +101,3 @@ export async function PUT(req) {
 }
 
 export const dynamic = "force-dynamic";
-

@@ -1,7 +1,9 @@
 import prisma from "../../../../lib/prisma";
+import { requireApiAdmin } from "@/lib/api-auth";
 
 export async function PUT(req) {
   try {
+    await requireApiAdmin();
     const { userAssetsId, userId } = await req.json();
 
     if (!userAssetsId || !userId) {
@@ -35,6 +37,12 @@ export async function PUT(req) {
     );
   } catch (error) {
     console.error("Error updating UserAsset:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return new Response(JSON.stringify({ error: error.message }), { status: 403 });
+    }
     return new Response(JSON.stringify({ error: "Error updating UserAsset" }), {
       status: 500,
     });

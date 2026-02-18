@@ -1,8 +1,10 @@
 import prisma from "../../../../lib/prisma";
+import { requireApiAuth } from "@/lib/api-auth";
 
 // GET /api/userAssets/findByAssetId?assetId=<id>
 export async function GET(req) {
   try {
+    const user = await requireApiAuth();
     const assetId = req.nextUrl.searchParams.get("assetId");
 
     if (!assetId) {
@@ -11,9 +13,11 @@ export async function GET(req) {
       });
     }
 
-    const userAsset = await prisma.userAssets.findFirst({
-      where: { assetid: assetId },
-    });
+    const where = user.isAdmin
+      ? { assetid: assetId }
+      : { assetid: assetId, userid: user.id };
+
+    const userAsset = await prisma.userAssets.findFirst({ where });
 
     if (!userAsset) {
       return new Response(JSON.stringify({ error: "UserAsset not found" }), {
@@ -26,6 +30,9 @@ export async function GET(req) {
     });
   } catch (error) {
     console.error("Error finding UserAsset:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
     return new Response(JSON.stringify({ error: "Error finding UserAsset" }), {
       status: 500,
     });

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { requireApiAdmin } from "@/lib/api-auth";
 
 // PATCH /api/admin/users/[id]/permissions
 export async function PATCH(req, { params }) {
   const startTime = Date.now();
   
   try {
+    await requireApiAdmin();
     const { id } = params;
     const body = await req.json();
     const { isadmin, canrequest } = body;
@@ -72,6 +74,13 @@ export async function PATCH(req, { params }) {
       userId: params.id,
       duration,
     });
+
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     
     if (error.code === "P2025") {
       return NextResponse.json(

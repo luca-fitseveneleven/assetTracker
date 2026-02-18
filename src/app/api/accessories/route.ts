@@ -1,14 +1,45 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
+import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
+import { createAccessorySchema } from "@/lib/validation";
+
+const accessorySchema = createAccessorySchema.extend({
+  purchaseprice: z.number().nonnegative().nullable().optional(),
+}).strict();
+
+const updateSchema = accessorySchema.partial().strict();
+
+const normalizeDateInput = (value: unknown) => {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return `${trimmed}T00:00:00.000Z`;
+  }
+  return trimmed;
+};
+
+const normalizeNumberInput = (value: unknown) => {
+  if (value === "" || value === null || value === undefined) return undefined;
+  if (typeof value === "number") return value;
+  const num = Number(value);
+  return Number.isNaN(num) ? value : num;
+};
 
 // GET /api/accessories
 export async function GET() {
   try {
+    await requireApiAuth();
     const items = await prisma.accessories.findMany({});
     return NextResponse.json(items, { status: 200 });
   } catch (e) {
     console.error("GET /api/accessories error:", e);
+    if (e instanceof Error && e.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json({ error: "Failed to fetch accessories" }, { status: 500 });
   }
 }
@@ -16,7 +47,22 @@ export async function GET() {
 // POST /api/accessories
 export async function POST(req) {
   try {
+    await requireApiAdmin();
     const body = await req.json();
+    const normalized = {
+      ...body,
+      purchaseprice: normalizeNumberInput(body?.purchaseprice),
+      purchasedate: normalizeDateInput(body?.purchasedate),
+    };
+
+    const validationResult = accessorySchema.safeParse(normalized);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: validationResult.error.issues },
+        { status: 400 }
+      );
+    }
+
     const {
       accessoriename,
       accessorietag,
@@ -29,26 +75,7 @@ export async function POST(req) {
       purchaseprice,
       purchasedate,
       requestable,
-    } = body || {};
-
-    if (
-      !accessoriename ||
-      !accessorietag ||
-      !manufacturerid ||
-      !statustypeid ||
-      !accessoriecategorytypeid ||
-      !locationid ||
-      !supplierid ||
-      !modelid
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "accessoriename, accessorietag, manufacturerid, statustypeid, accessoriecategorytypeid, locationid, supplierid and modelid are required",
-        },
-        { status: 400 }
-      );
-    }
+    } = validationResult.data;
 
     const created = await prisma.accessories.create({
       data: {
@@ -60,10 +87,7 @@ export async function POST(req) {
         locationid,
         supplierid,
         modelid,
-        purchaseprice:
-          purchaseprice === undefined || purchaseprice === null || purchaseprice === ""
-            ? null
-            : Number(purchaseprice),
+        purchaseprice: purchaseprice ?? null,
         purchasedate: purchasedate ? new Date(purchasedate) : null,
         requestable: typeof requestable === "boolean" ? requestable : null,
         creation_date: new Date(),
@@ -73,6 +97,12 @@ export async function POST(req) {
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
     console.error("POST /api/accessories error:", e);
+    if (e instanceof Error && e.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (e instanceof Error && e.message.startsWith("Forbidden")) {
+      return NextResponse.json({ error: e.message }, { status: 403 });
+    }
     return NextResponse.json({ error: "Failed to create accessory" }, { status: 500 });
   }
 }
@@ -80,43 +110,37 @@ export async function POST(req) {
 // PUT /api/accessories
 export async function PUT(req) {
   try {
+    await requireApiAdmin();
     const body = await req.json();
-    const {
-      accessorieid,
-      accessoriename,
-      accessorietag,
-      manufacturerid,
-      statustypeid,
-      accessoriecategorytypeid,
-      locationid,
-      supplierid,
-      modelid,
-      purchaseprice,
-      purchasedate,
-      requestable,
-    } = body || {};
+    const { accessorieid, ...data } = body || {};
 
     if (!accessorieid) {
       return NextResponse.json({ error: "accessorieid is required" }, { status: 400 });
     }
 
+    const normalized = {
+      ...data,
+      purchaseprice: normalizeNumberInput(data?.purchaseprice),
+      purchasedate: normalizeDateInput(data?.purchasedate),
+    };
+
+    const validationResult = updateSchema.safeParse(normalized);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: validationResult.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const updateData = { ...validationResult.data } as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(updateData, "purchasedate") && updateData.purchasedate) {
+      updateData.purchasedate = new Date(updateData.purchasedate as string);
+    }
+
     const updated = await prisma.accessories.update({
       where: { accessorieid },
       data: {
-        accessoriename,
-        accessorietag,
-        manufacturerid,
-        statustypeid,
-        accessoriecategorytypeid,
-        locationid,
-        supplierid,
-        modelid,
-        purchaseprice:
-          purchaseprice === undefined || purchaseprice === null || purchaseprice === ""
-            ? null
-            : Number(purchaseprice),
-        purchasedate: purchasedate ? new Date(purchasedate) : null,
-        requestable: typeof requestable === "boolean" ? requestable : null,
+        ...updateData,
         change_date: new Date(),
       },
     });
@@ -124,6 +148,12 @@ export async function PUT(req) {
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
     console.error("PUT /api/accessories error:", e);
+    if (e instanceof Error && e.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (e instanceof Error && e.message.startsWith("Forbidden")) {
+      return NextResponse.json({ error: e.message }, { status: 403 });
+    }
     return NextResponse.json({ error: "Failed to update accessory" }, { status: 500 });
   }
 }

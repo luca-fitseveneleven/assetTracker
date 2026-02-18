@@ -1,7 +1,9 @@
 import prisma from "../../../../lib/prisma";
+import { requireApiAdmin } from "@/lib/api-auth";
 
 export async function DELETE(req) {
   try {
+    await requireApiAdmin();
     const { assetId, userId } = await req.json();
 
     if (!assetId || !userId) {
@@ -47,6 +49,12 @@ export async function DELETE(req) {
     );
   } catch (error) {
     console.error("Error unassigning asset:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return new Response(JSON.stringify({ error: error.message }), { status: 403 });
+    }
     return new Response(JSON.stringify({ error: "Error unassigning asset" }), {
       status: 500,
     });

@@ -1,12 +1,14 @@
 # Security & Authentication Implementation Plan
 ## NextAuth.js Integration for Asset Tracker
 
+**Status Update (2026-02-18):** NextAuth credential auth is implemented, rate limiting and session timeout are active, and core asset/user/accessory/assignment APIs are now protected. Remaining work is focused on org scoping, upload hardening, CSRF, security headers, and MFA/reset flows. See `docs/SECURITY_GUIDE.md` and `FEATURES.md` for current status.
+
 **Current State Analysis:**
 - Next.js 16.1.5 (App Router)
 - Prisma 7.3.0 with PostgreSQL
 - Existing user table with: `username`, `password`, `email`, `isadmin`, `canrequest`
-- No authentication currently implemented
-- API routes are publicly accessible
+- NextAuth credential auth implemented with JWT sessions
+- Core API routes protected; remaining legacy endpoints are being hardened
 
 **Target State:**
 - NextAuth.js v5 (Auth.js) with credential-based authentication

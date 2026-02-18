@@ -75,6 +75,17 @@ This document tracks the implementation progress of production readiness feature
 | Session timeout for inactivity | ✅ Complete | `src/lib/session-timeout.ts` - 30 min inactivity |
 | Concurrent session management | ⏸️ Deferred | Future enhancement |
 
+### 2.3 API Endpoint Hardening
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Protect core asset APIs | ✅ Complete | `/api/asset*` now require auth/admin |
+| Protect user read/write APIs | ✅ Complete | `/api/user*` now require auth/admin |
+| Protect assignment APIs | ✅ Complete | `userAssets`/`userAccessoires` now require auth/admin |
+| Protect licence assignment APIs | ✅ Complete | `/api/licence/(un)assign` now require admin |
+| Prevent password plaintext updates | ✅ Complete | Hash on update, strip from responses |
+| Strict input validation | ✅ Complete | Zod schemas + allowlist for asset/accessory/user updates |
+
 ---
 
 ## Files Created/Modified
@@ -148,4 +159,4 @@ This document tracks the implementation progress of production readiness feature
 
 ---
 
-**Last Updated:** January 2026
+**Last Updated:** February 18, 2026

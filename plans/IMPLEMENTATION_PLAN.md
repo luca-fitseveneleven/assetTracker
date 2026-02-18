@@ -1,5 +1,7 @@
 # Asset Management System - Implementation Plan
 
+**Status Update (2026-02-18):** This plan is historical. Current scope and status are tracked in `FEATURES.md` and `plans/PROGRESS.md`. Security hardening is underway; core API endpoints are now protected.
+
 ## Executive Summary
 
 This document outlines the implementation plan for modernizing the Asset Management System based on `newplan.md`. The plan covers 6 major phases with a focus on code quality, responsive design, dependency updates, and automated testing.

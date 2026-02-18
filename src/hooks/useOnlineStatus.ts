@@ -15,9 +15,9 @@ interface OnlineStatus {
  *   allowing the UI to show a "back online" message before it disappears.
  */
 export function useOnlineStatus(): OnlineStatus {
-  const [isOnline, setIsOnline] = useState<boolean>(
-    typeof navigator !== "undefined" ? navigator.onLine : true
-  );
+  // Always default to true to avoid SSR/hydration mismatch.
+  // The real browser value is synced after mount in the useEffect below.
+  const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
   const wasOfflineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -48,6 +48,9 @@ export function useOnlineStatus(): OnlineStatus {
   }, []);
 
   useEffect(() => {
+    // Sync with actual browser state after mount
+    setIsOnline(navigator.onLine);
+
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 

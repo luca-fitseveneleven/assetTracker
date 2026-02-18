@@ -13,13 +13,13 @@ import { isFeatureEnabled } from "@/lib/feature-flags";
 
 const { auth } = NextAuth(authConfig);
 
-export default auth((req) => {
+export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
 
   // Generate correlation ID for request tracing
   const correlationId = req.headers.get("x-correlation-id") || generateCorrelationId();
-  
+
   // Public routes that don't require authentication
   const isPublicRoute = pathname === "/login";
 
@@ -49,7 +49,7 @@ export default auth((req) => {
   if (isFeatureEnabled("rateLimiting") && isApiRoute) {
     const clientIP = getClientIP(req);
     const isWriteOperation = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
-    
+
     // Choose rate limiter based on endpoint and method
     let limiterConfig = rateLimiters.api;
     if (pathname === "/api/auth/callback/credentials") {
@@ -57,14 +57,14 @@ export default auth((req) => {
     } else if (isWriteOperation) {
       limiterConfig = rateLimiters.write;
     }
-    
+
     const identifier = `${clientIP}:${pathname}`;
     const rateLimitResult = checkRateLimit(identifier, limiterConfig);
-    
+
     if (!rateLimitResult.success) {
       return createRateLimitResponse(rateLimitResult, limiterConfig.message);
     }
-    
+
     // Add rate limit headers to response for API routes
     const response = NextResponse.next();
     const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
@@ -72,13 +72,13 @@ export default auth((req) => {
       response.headers.set(key, value);
     });
     response.headers.set("x-correlation-id", correlationId);
-    
+
     // If we got here with auth, continue to auth check
     if (isApiRoute && !isLoggedIn && !isPublicRoute) {
       // API routes handle their own auth, just return with headers
       return response;
     }
-    
+
     return response;
   }
 

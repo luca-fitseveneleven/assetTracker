@@ -33,7 +33,9 @@ import {
   Shield,
   ShieldCheck,
   ScrollText,
+  ChevronDown,
 } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { PlusIcon as SidebarPlusIcon } from "../ui/Icons";
 import SearchTypeahead from "./SearchTypeahead";
 
@@ -59,6 +61,7 @@ const navSections = [
   },
   {
     title: "Categories",
+    collapsible: true,
     items: [
       { label: "Asset Categories", href: "/assetCategories", icon: Layers },
       { label: "Accessory Categories", href: "/accessoryCategories", icon: Layers },
@@ -78,6 +81,7 @@ const navSections = [
   },
   {
     title: "Administration",
+    collapsible: true,
     items: [
       { label: "Reports", href: "/reports", icon: LayoutDashboard },
       { label: "Workflows", href: "/admin/workflows", icon: Zap, adminOnly: true },
@@ -165,14 +169,11 @@ const Sidebar = ({ initialCollapsed = false }) => {
             <SearchTypeahead />
           </div>
         )}
-        <div className="flex-1 px-2 py-4 scroll-shadow">
-          {navSections.map((section) => (
-            <div key={section.title} className="mb-6">
-              {!collapsed && (
-                <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-foreground-400">
-                  {section.title}
-                </p>
-              )}
+        <div className="flex-1 overflow-y-scroll px-2 py-4">
+          {navSections.map((section) => {
+            const hasActiveChild = section.items.some((item) => activeMap.get(item.href));
+
+            const renderItems = () => (
               <div className="space-y-1">
                 {section.items.map((item) => {
                   const Icon = item.icon;
@@ -207,8 +208,33 @@ const Sidebar = ({ initialCollapsed = false }) => {
                   return <React.Fragment key={item.href}>{content}</React.Fragment>;
                 })}
               </div>
-            </div>
-          ))}
+            );
+
+            if (section.collapsible && !collapsed) {
+              return (
+                <Collapsible key={section.title} defaultOpen={hasActiveChild} className="mb-4">
+                  <CollapsibleTrigger className="group flex w-full items-center justify-between px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-foreground-400 hover:text-foreground-600 transition-colors">
+                    {section.title}
+                    <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    {renderItems()}
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            }
+
+            return (
+              <div key={section.title} className="mb-4">
+                {!collapsed && (
+                  <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-foreground-400">
+                    {section.title}
+                  </p>
+                )}
+                {renderItems()}
+              </div>
+            );
+          })}
         </div>
         <div className="p-3">
           <p className={cx("text-xs text-foreground-400", collapsed && "sr-only")}>Quick actions</p>

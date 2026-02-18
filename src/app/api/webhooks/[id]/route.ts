@@ -5,6 +5,7 @@ import { updateWebhookSchema } from '@/lib/validation-organization';
 import { getWebhookEvents } from '@/lib/webhooks';
 import { createAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 import { z } from 'zod';
+import { encrypt } from '@/lib/encryption';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -71,12 +72,18 @@ export async function PUT(
       }
     }
 
+    // Encrypt the secret if it is being updated
+    const data: Record<string, unknown> = {
+      ...validated,
+      updatedAt: new Date(),
+    };
+    if (validated.secret) {
+      data.secret = encrypt(validated.secret);
+    }
+
     const webhook = await prisma.webhook.update({
       where: { id },
-      data: {
-        ...validated,
-        updatedAt: new Date(),
-      }
+      data,
     });
 
     await createAuditLog({

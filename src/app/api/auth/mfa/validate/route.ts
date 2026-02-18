@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyMfaToken, verifyBackupCode } from "@/lib/mfa";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { decrypt, decryptArray, encryptArray } from "@/lib/encryption";
 
 /**
  * POST /api/auth/mfa/validate
@@ -47,21 +48,25 @@ export async function POST(req: Request) {
 
     let isValid = false;
 
+    // Decrypt the stored secret and backup codes (handles legacy unencrypted data too)
+    const decryptedSecret = decrypt(user.mfaSecret);
+    const decryptedBackupCodes = decryptArray(user.mfaBackupCodes);
+
     if (isBackupCode) {
-      // Verify backup code
-      const result = verifyBackupCode(user.mfaBackupCodes, token);
+      // Verify backup code against decrypted codes
+      const result = verifyBackupCode(decryptedBackupCodes, token);
       isValid = result.valid;
 
       if (isValid) {
-        // Remove used backup code
+        // Re-encrypt the remaining backup codes and persist
         await prisma.user.update({
           where: { userid: user.userid },
-          data: { mfaBackupCodes: result.remainingCodes },
+          data: { mfaBackupCodes: encryptArray(result.remainingCodes) },
         });
       }
     } else {
-      // Verify TOTP token
-      isValid = verifyMfaToken(user.mfaSecret, token);
+      // Verify TOTP token against decrypted secret
+      isValid = verifyMfaToken(decryptedSecret, token);
     }
 
     if (!isValid) {

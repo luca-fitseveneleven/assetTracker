@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { encrypt } from "@/lib/encryption";
 
 /**
  * GET /api/admin/settings/sso
@@ -64,23 +65,31 @@ export async function PUT(req: Request) {
     const encryptedKeys = ["sso.clientSecret"];
 
     await prisma.$transaction(
-      settings.map((setting: { key: string; value: string }) =>
-        prisma.system_settings.upsert({
+      settings.map((setting: { key: string; value: string }) => {
+        const isSensitive = encryptedKeys.includes(setting.key);
+        const isUnchanged = setting.value === "********";
+        const storedValue = isUnchanged
+          ? setting.value
+          : isSensitive
+            ? encrypt(setting.value)
+            : setting.value;
+
+        return prisma.system_settings.upsert({
           where: { settingKey: setting.key },
           update: {
-            settingValue: setting.value === "********" ? undefined : setting.value,
+            settingValue: isUnchanged ? undefined : storedValue,
             updatedAt: new Date(),
           },
           create: {
             settingKey: setting.key,
-            settingValue: setting.value,
+            settingValue: storedValue,
             settingType: "string",
             category: "sso",
-            isEncrypted: encryptedKeys.includes(setting.key),
+            isEncrypted: isSensitive,
             updatedAt: new Date(),
           },
-        })
-      )
+        });
+      })
     );
 
     return NextResponse.json({ success: true });

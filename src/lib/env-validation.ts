@@ -130,6 +130,17 @@ export const ENV_CONFIG: EnvVarConfig[] = [
     description: "Default sender name for emails",
   },
 
+  // Encryption
+  {
+    name: "ENCRYPTION_KEY",
+    required: false,
+    description:
+      "64-character hex string (32 bytes) for AES-256-GCM encryption of sensitive data at rest. Generate with: openssl rand -hex 32",
+    sensitive: true,
+    validate: (v) => /^[0-9a-fA-F]{64}$/.test(v),
+    validateMessage: "Must be a 64-character hex string (32 bytes)",
+  },
+
   // Feature Flags
   {
     name: "FEATURE_RATE_LIMITING",

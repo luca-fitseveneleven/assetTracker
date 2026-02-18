@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *   to the URL via `router.replace` (shallow navigation).
  * - Parameters whose value matches the default are omitted from the URL to
  *   keep it clean.
- * - URL writes are debounced by 100 ms to avoid rapid rewrites while the
+ * - URL writes are debounced by 300 ms to avoid rapid rewrites while the
  *   user is typing.
  */
 export function useUrlState<T extends Record<string, string>>(
@@ -86,13 +86,13 @@ export function useUrlState<T extends Record<string, string>>(
         return next;
       });
 
-      // Debounce the actual URL write by 100 ms.
+      // Debounce the actual URL write by 300 ms.
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
       timerRef.current = setTimeout(() => {
         flushToUrl();
-      }, 100);
+      }, 300);
     },
     [flushToUrl]
   );

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import AccessoriesTable from "../../ui/accessories/AccessoriesTable";
 import {
   getAccessories,
@@ -36,24 +36,26 @@ export default async function Page() {
 
   return (
     <div>
-      <AccessoriesTable
-        items={accessoriesRaw.map((item) => ({
-          ...item,
-          purchaseprice:
-            item.purchaseprice !== null && item.purchaseprice !== undefined
-              ? Number(item.purchaseprice)
-              : null,
-          purchasedate: item.purchasedate ? item.purchasedate.toISOString() : null,
-          creation_date: item.creation_date ? item.creation_date.toISOString() : null,
-          change_date: item.change_date ? item.change_date.toISOString() : null,
-        }))}
-        manufacturers={manufacturers}
-        models={models}
-        statuses={statuses}
-        categories={categories}
-        locations={locations}
-        suppliers={suppliers}
-      />
+      <Suspense fallback={null}>
+        <AccessoriesTable
+          items={accessoriesRaw.map((item) => ({
+            ...item,
+            purchaseprice:
+              item.purchaseprice !== null && item.purchaseprice !== undefined
+                ? Number(item.purchaseprice)
+                : null,
+            purchasedate: item.purchasedate ? item.purchasedate.toISOString() : null,
+            creation_date: item.creation_date ? item.creation_date.toISOString() : null,
+            change_date: item.change_date ? item.change_date.toISOString() : null,
+          }))}
+          manufacturers={manufacturers}
+          models={models}
+          statuses={statuses}
+          categories={categories}
+          locations={locations}
+          suppliers={suppliers}
+        />
+      </Suspense>
     </div>
   );
 }

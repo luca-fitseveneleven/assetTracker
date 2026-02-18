@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
+import { useUrlState } from "@/hooks/useUrlState";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,13 +50,56 @@ export default function LicencesTable({
   manufacturers,
   suppliers,
 }) {
-  const [searchValue, setSearchValue] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [manufacturerFilter, setManufacturerFilter] = useState("all");
-  const [supplierFilter, setSupplierFilter] = useState("all");
-  const [expirationFilter, setExpirationFilter] = useState("all");
-  const [rowsPerPage, setRowsPerPage] = useState(Number(ROWS_PER_PAGE_OPTIONS[0]));
-  const [page, setPage] = useState(1);
+  // -- URL-synced state for shareable filter / pagination URLs --
+  const [urlState, setUrlState] = useUrlState({
+    search: "",
+    category: "all",
+    manufacturer: "all",
+    supplier: "all",
+    expiration: "all",
+    pageSize: ROWS_PER_PAGE_OPTIONS[0],
+    page: "1",
+  });
+
+  // Derived values from URL state
+  const searchValue = urlState.search;
+  const categoryFilter = urlState.category;
+  const manufacturerFilter = urlState.manufacturer;
+  const supplierFilter = urlState.supplier;
+  const expirationFilter = urlState.expiration;
+  const rowsPerPage = Number(urlState.pageSize) || Number(ROWS_PER_PAGE_OPTIONS[0]);
+  const page = Number(urlState.page) || 1;
+
+  // Convenience setters that update URL state
+  const setSearchValue = useCallback(
+    (v: string) => setUrlState({ search: v, page: "1" }),
+    [setUrlState]
+  );
+  const setCategoryFilter = useCallback(
+    (v: string) => setUrlState({ category: v, page: "1" }),
+    [setUrlState]
+  );
+  const setManufacturerFilter = useCallback(
+    (v: string) => setUrlState({ manufacturer: v, page: "1" }),
+    [setUrlState]
+  );
+  const setSupplierFilter = useCallback(
+    (v: string) => setUrlState({ supplier: v, page: "1" }),
+    [setUrlState]
+  );
+  const setExpirationFilter = useCallback(
+    (v: string) => setUrlState({ expiration: v, page: "1" }),
+    [setUrlState]
+  );
+  const setRowsPerPage = useCallback(
+    (n: number) => setUrlState({ pageSize: String(n), page: "1" }),
+    [setUrlState]
+  );
+  const setPage = useCallback(
+    (p: number) => setUrlState({ page: String(p) }),
+    [setUrlState]
+  );
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedLicence, setSelectedLicence] = useState(null);
   const [licencesData, setLicencesData] = useState(items);
@@ -72,10 +116,6 @@ export default function LicencesTable({
     () => new Map(suppliers.map((s) => [s.supplierid, s.suppliername])),
     [suppliers]
   );
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchValue, categoryFilter, manufacturerFilter, supplierFilter, expirationFilter, rowsPerPage]);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchValue.trim().toLowerCase();

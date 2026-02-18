@@ -1,15 +1,16 @@
 /**
  * Email Service
  * Main service for sending emails through configured provider
- * 
- * NOTE: API keys and secrets stored in the database are marked with isEncrypted flag
- * but are stored as plain text. In a production environment, consider implementing
- * actual encryption using environment-based encryption keys or a secrets manager.
+ *
+ * API keys and secrets stored in the database are encrypted at rest using
+ * AES-256-GCM via the encryption module. They are decrypted on-the-fly
+ * when read for sending emails.
  */
 
 import prisma from '../prisma';
 import { createEmailProvider } from './providers';
 import type { EmailOptions, EmailProvider, EmailSendResult } from './types';
+import { decrypt } from '../encryption';
 
 interface EmailConfig {
   provider: EmailProvider;
@@ -32,7 +33,13 @@ async function getEmailConfig(): Promise<EmailConfig | null> {
       where: { category: 'email' },
     });
 
-    const configMap = new Map(settings.map(s => [s.settingKey, s.settingValue]));
+    // Decrypt encrypted settings (API keys, secrets) on the fly
+    const configMap = new Map(
+      settings.map(s => [
+        s.settingKey,
+        s.isEncrypted && s.settingValue ? decrypt(s.settingValue) : s.settingValue,
+      ])
+    );
 
     const provider = configMap.get('email_provider') as EmailProvider | undefined;
     const apiKey = configMap.get('email_api_key');

@@ -6,6 +6,7 @@ import { getWebhookEvents } from '@/lib/webhooks';
 import { createAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 import { z } from 'zod';
 import crypto from 'crypto';
+import { encrypt } from '@/lib/encryption';
 import {
   parsePaginationParams,
   buildPrismaArgs,
@@ -116,14 +117,14 @@ export async function POST(req: NextRequest) {
       select: { organizationId: true }
     });
 
-    // Generate a secret if not provided
+    // Generate a secret if not provided, then encrypt before storing
     const secret = validated.secret || crypto.randomBytes(32).toString('hex');
 
     const webhook = await prisma.webhook.create({
       data: {
         name: validated.name,
         url: validated.url,
-        secret,
+        secret: encrypt(secret),
         events: validated.events,
         isActive: validated.isActive,
         retryAttempts: validated.retryAttempts,

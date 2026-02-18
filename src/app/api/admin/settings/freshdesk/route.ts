@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { createFreshdeskClient } from "@/lib/freshdesk";
+import { encrypt } from "@/lib/encryption";
 
 /**
  * GET /api/admin/settings/freshdesk
@@ -89,15 +90,20 @@ export async function POST(req: Request) {
     }
 
     for (const setting of settingsToUpsert) {
+      // Encrypt sensitive settings (e.g. API keys) before persisting
+      const storedValue = setting.isEncrypted
+        ? encrypt(setting.value)
+        : setting.value;
+
       await prisma.system_settings.upsert({
         where: { settingKey: setting.key },
         update: {
-          settingValue: setting.value,
+          settingValue: storedValue,
           updatedAt: new Date(),
         },
         create: {
           settingKey: setting.key,
-          settingValue: setting.value,
+          settingValue: storedValue,
           settingType: setting.type,
           category: setting.category,
           description: setting.description,

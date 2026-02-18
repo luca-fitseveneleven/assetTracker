@@ -54,6 +54,8 @@ model Department {
   // Relationships
   users user[]
 
+  @@index([organizationId])
+  @@index([parentId])
   @@map("departments")
 }
 
@@ -72,6 +74,7 @@ model Role {
   userRoles UserRole[]
 
   @@unique([name, organizationId])
+  @@index([organizationId])
   @@map("roles")
 }
 
@@ -105,6 +108,9 @@ model Webhook {
 
   deliveries WebhookDelivery[]
 
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([organizationId, isActive])
   @@map("webhooks")
 }
 
@@ -122,6 +128,7 @@ model WebhookDelivery {
   error       String?
 
   @@index([webhookId])
+  @@index([deliveredAt])
   @@map("webhook_deliveries")
 }
 
@@ -143,6 +150,8 @@ model AssetReservation {
 
   @@index([assetId])
   @@index([userId])
+  @@index([status])
+  @@index([assetId, status])
   @@map("asset_reservations")
 }
 
@@ -163,6 +172,7 @@ model AssetTransfer {
   transferredAt   DateTime  @default(now()) @db.Timestamp(6)
 
   @@index([assetId])
+  @@index([transferredAt])
   @@map("asset_transfers")
 }
 
@@ -183,6 +193,7 @@ model ApprovalRequest {
 
   @@index([requesterId])
   @@index([status])
+  @@index([approverId])
   @@map("approval_requests")
 }
 
@@ -275,6 +286,14 @@ model accessories {
   statusType               statusType             @relation(fields: [statustypeid], references: [statustypeid], onDelete: NoAction, onUpdate: NoAction, map: "fk_accessories_statustype_c_statustypeid")
   supplier                 supplier               @relation(fields: [supplierid], references: [supplierid], onDelete: NoAction, onUpdate: NoAction, map: "fk_accessories_supplier_c_supplierid")
   userAccessoires          userAccessoires[]
+
+  @@index([organizationId])
+  @@index([manufacturerid])
+  @@index([statustypeid])
+  @@index([accessoriecategorytypeid])
+  @@index([locationid])
+  @@index([supplierid])
+  @@index([modelid])
 }
 
 model accounts {
@@ -293,6 +312,7 @@ model accounts {
   user              user    @relation(fields: [userId], references: [userid], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model asset {
@@ -337,6 +357,10 @@ model asset {
   @@index([locationid])
   @@index([organizationId])
   @@index([creation_date])
+  @@index([modelid])
+  @@index([supplierid])
+  @@index([manufacturerid])
+  @@index([organizationId, creation_date])
 }
 
 model assetCategoryType {
@@ -359,6 +383,8 @@ model asset_attachments {
   createdAt    DateTime @default(now()) @db.Timestamp(6)
   asset        asset    @relation(fields: [assetId], references: [assetid], onDelete: Cascade)
   user         user?    @relation(fields: [uploadedBy], references: [userid])
+
+  @@index([assetId])
 }
 
 model audit_logs {
@@ -375,6 +401,9 @@ model audit_logs {
 
   @@index([entity, entityId])
   @@index([createdAt])
+  @@index([userId])
+  @@index([action])
+  @@index([userId, createdAt])
 }
 
 model consumable {
@@ -398,6 +427,11 @@ model consumable {
   consumable_checkouts     consumable_checkouts[]
 
   @@index([consumablename])
+  @@index([organizationId])
+  @@index([manufacturerid])
+  @@index([supplierid])
+  @@index([consumablecategorytypeid])
+  @@index([organizationId, consumablename])
 }
 
 model consumableCategoryType {
@@ -418,6 +452,9 @@ model custom_field_definitions {
   createdAt           DateTime              @default(now()) @db.Timestamp(6)
   updatedAt           DateTime              @db.Timestamp(6)
   custom_field_values custom_field_values[]
+
+  @@index([entityType])
+  @@index([isActive])
 }
 
 model custom_field_values {
@@ -430,6 +467,7 @@ model custom_field_values {
   custom_field_definitions custom_field_definitions @relation(fields: [fieldId], references: [id], onDelete: Cascade)
 
   @@unique([fieldId, entityId])
+  @@index([entityId])
 }
 
 model depreciation_settings {
@@ -489,6 +527,14 @@ model licence {
   organization          Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   supplier              supplier            @relation(fields: [supplierid], references: [supplierid], onDelete: NoAction, onUpdate: NoAction, map: "fk_licence_supplier_c_supplierid")
   user                  user?               @relation(fields: [licenceduserid], references: [userid], onDelete: NoAction, onUpdate: NoAction, map: "fk_licence_user_c_licenceduser_userid")
+
+  @@index([organizationId])
+  @@index([licenceduserid])
+  @@index([manufacturerid])
+  @@index([supplierid])
+  @@index([licencecategorytypeid])
+  @@index([expirationdate])
+  @@index([organizationId, expirationdate])
 }
 
 model licenceCategoryType {
@@ -520,6 +566,9 @@ model maintenance_logs {
   createdAt             DateTime              @default(now()) @db.Timestamp(6)
   user                  user?                 @relation(fields: [completedBy], references: [userid])
   maintenance_schedules maintenance_schedules @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleId])
+  @@index([completedBy])
 }
 
 model maintenance_schedules {
@@ -540,6 +589,10 @@ model maintenance_schedules {
   user             user?              @relation(fields: [assignedTo], references: [userid])
 
   @@index([nextDueDate])
+  @@index([assetId])
+  @@index([assignedTo])
+  @@index([isActive])
+  @@index([isActive, nextDueDate])
 }
 
 model manufacturer {
@@ -593,6 +646,10 @@ model notification_queue {
   sentAt      DateTime? @db.Timestamp(6)
   createdAt   DateTime  @default(now()) @db.Timestamp(6)
   user        user?     @relation(fields: [userId], references: [userid])
+
+  @@index([userId])
+  @@index([status])
+  @@index([status, scheduledAt])
 }
 
 model saved_filters {
@@ -606,6 +663,8 @@ model saved_filters {
   createdAt DateTime @default(now()) @db.Timestamp(6)
   updatedAt DateTime @db.Timestamp(6)
   user      user     @relation(fields: [userId], references: [userid], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model sessions {
@@ -668,6 +727,9 @@ model ticket_comments {
   createdAt DateTime @default(now()) @db.Timestamp(6)
   tickets   tickets  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   user      user     @relation(fields: [userId], references: [userid], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([userId])
 }
 
 model tickets {
@@ -683,6 +745,11 @@ model tickets {
   ticket_comments               ticket_comments[]
   user_tickets_assignedToTouser user?             @relation("tickets_assignedToTouser", fields: [assignedTo], references: [userid])
   user_tickets_createdByTouser  user              @relation("tickets_createdByTouser", fields: [createdBy], references: [userid], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdBy])
+  @@index([assignedTo])
+  @@index([createdAt])
 }
 
 model user {
@@ -730,6 +797,9 @@ model user {
   automationRules                  AutomationRule[]          @relation("automation_creator")
 
   @@index([firstname, lastname])
+  @@index([organizationId])
+  @@index([departmentId])
+  @@index([organizationId, lastname, firstname])
 }
 
 model userAccessoires {
@@ -740,6 +810,9 @@ model userAccessoires {
   change_date       DateTime?   @db.Timestamp(6)
   accessories       accessories @relation(fields: [accessorieid], references: [accessorieid], onDelete: NoAction, onUpdate: NoAction, map: "fk_useraccessoires_accessories_c_accessorieid")
   user              user        @relation(fields: [userid], references: [userid], onDelete: NoAction, onUpdate: NoAction, map: "fk_useraccessoires_user_c_userid")
+
+  @@index([userid])
+  @@index([accessorieid])
 }
 
 model userAssets {
@@ -750,6 +823,9 @@ model userAssets {
   change_date   DateTime? @db.Timestamp(6)
   asset         asset     @relation(fields: [assetid], references: [assetid], onDelete: NoAction, onUpdate: NoAction, map: "fk_userassets_asset_c_assetid")
   user          user      @relation(fields: [userid], references: [userid], onDelete: NoAction, onUpdate: NoAction, map: "fk_userassets_user_c_userid")
+
+  @@index([userid])
+  @@index([assetid])
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -765,6 +841,10 @@ model userHistory {
   creation_date  DateTime  @db.Timestamp(6)
   change_date    DateTime? @db.Timestamp(6)
   user           user      @relation(fields: [userid], references: [userid], onDelete: NoAction, onUpdate: NoAction, map: "fk_userhistory_user_c_userid")
+
+  @@index([userid])
+  @@index([referenceid])
+  @@index([creation_date])
 }
 
 model user_preferences {
@@ -790,6 +870,9 @@ model consumable_checkouts {
   createdAt    DateTime   @default(now()) @db.Timestamp(6)
   consumable   consumable @relation(fields: [consumableId], references: [consumableid], onDelete: Cascade)
   user         user       @relation(fields: [userId], references: [userid])
+
+  @@index([consumableId])
+  @@index([userId])
 }
 
 model verification_tokens {

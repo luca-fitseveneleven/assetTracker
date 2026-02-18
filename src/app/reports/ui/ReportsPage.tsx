@@ -29,6 +29,7 @@ import {
 import {
   Download,
   FileText,
+  FileSpreadsheet,
   TrendingUp,
   Package,
   Users,
@@ -173,6 +174,26 @@ export default function ReportsPage({ data, warrantyAssets, depreciationAssets }
     toast.success("Report exported to CSV");
   };
 
+  const exportToExcel = async () => {
+    try {
+      const res = await fetch("/api/export?entity=assets&format=xlsx");
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `asset-report-${new Date().toISOString().split("T")[0]}.xlsx`;
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Report exported to Excel");
+    } catch {
+      toast.error("Failed to export Excel report");
+    }
+  };
+
   const exportToPDF = async () => {
     // For PDF export, we'll generate a printable HTML and use browser print
     const printWindow = window.open("", "_blank");
@@ -266,6 +287,10 @@ export default function ReportsPage({ data, warrantyAssets, depreciationAssets }
           <Button variant="outline" onClick={exportToCSV}>
             <Download className="h-4 w-4 mr-2" />
             Export CSV
+          </Button>
+          <Button variant="outline" onClick={exportToExcel}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Export Excel
           </Button>
           <Button variant="outline" onClick={exportToPDF}>
             <FileText className="h-4 w-4 mr-2" />

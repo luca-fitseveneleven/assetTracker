@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
 import { createFreshdeskClient, SUPPORTED_TICKET_TYPES } from "@/lib/freshdesk";
+import { decrypt } from "@/lib/encryption";
 import {
   parsePaginationParams,
   buildPrismaArgs,
@@ -156,9 +157,10 @@ async function getFreshdeskTickets(req: Request, url: URL) {
     const page = parseInt(url.searchParams.get("page") || "1", 10);
     const typeFilter = url.searchParams.get("type");
 
+    // Decrypt the API key (may be encrypted at rest)
     const client = createFreshdeskClient({
       domain: domainSetting.settingValue,
-      apiKey: apiKeySetting.settingValue,
+      apiKey: decrypt(apiKeySetting.settingValue),
     });
 
     // Determine which types to filter

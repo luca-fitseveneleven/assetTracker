@@ -28,6 +28,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Download,
+  FileSpreadsheet,
   Loader2,
   Search,
   X,
@@ -222,28 +223,33 @@ function DetailPanel({ details }: { details: string | null }) {
 // CSV Export
 // ---------------------------------------------------------------------------
 
-function exportToCsv(logs: AuditLogEntry[]) {
-  const headers = [
-    "Date",
-    "User",
-    "Action",
-    "Entity",
-    "Entity ID",
-    "IP Address",
-    "User Agent",
-    "Details",
-  ];
+function buildAuditExportRows(logs: AuditLogEntry[]) {
+  return {
+    headers: [
+      "Date",
+      "User",
+      "Action",
+      "Entity",
+      "Entity ID",
+      "IP Address",
+      "User Agent",
+      "Details",
+    ],
+    rows: logs.map((log) => [
+      formatDate(log.createdAt),
+      log.user ? `${log.user.firstname} ${log.user.lastname}` : "System",
+      log.action,
+      log.entity,
+      log.entityId || "",
+      log.ipAddress || "",
+      log.userAgent || "",
+      log.details || "",
+    ]),
+  };
+}
 
-  const rows = logs.map((log) => [
-    formatDate(log.createdAt),
-    log.user ? `${log.user.firstname} ${log.user.lastname}` : "System",
-    log.action,
-    log.entity,
-    log.entityId || "",
-    log.ipAddress || "",
-    log.userAgent || "",
-    log.details || "",
-  ]);
+function exportToCsv(logs: AuditLogEntry[]) {
+  const { headers, rows } = buildAuditExportRows(logs);
 
   const csvContent = [
     headers.join(","),
@@ -259,6 +265,22 @@ function exportToCsv(logs: AuditLogEntry[]) {
   link.download = `audit-logs-${new Date().toISOString().split("T")[0]}.csv`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+async function exportToExcel(logs: AuditLogEntry[]) {
+  const XLSX = await import("xlsx");
+  const { headers, rows } = buildAuditExportRows(logs);
+  const aoaData = [headers, ...rows];
+
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet(aoaData);
+  worksheet["!cols"] = headers.map((h) => ({ wch: Math.max(h.length, 15) }));
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Audit Logs");
+
+  XLSX.writeFile(
+    workbook,
+    `audit-logs-${new Date().toISOString().split("T")[0]}.xlsx`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -354,15 +376,26 @@ export default function AuditLogViewer() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Audit Logs</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => exportToCsv(logs)}
-            disabled={logs.length === 0}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToCsv(logs)}
+              disabled={logs.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToExcel(logs)}
+              disabled={logs.length === 0}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

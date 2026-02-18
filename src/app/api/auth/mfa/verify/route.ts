@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
 import { verifyMfaToken, generateBackupCodes } from "@/lib/mfa";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { decrypt, encryptArray } from "@/lib/encryption";
 
 export async function POST(req: Request) {
   try {
@@ -45,8 +46,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verify the TOTP token against the stored secret
-    const isValid = verifyMfaToken(user.mfaSecret, token);
+    // Decrypt the secret before TOTP verification (handles legacy unencrypted data too)
+    const isValid = verifyMfaToken(decrypt(user.mfaSecret), token);
 
     if (!isValid) {
       return NextResponse.json(
@@ -55,15 +56,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate backup codes
+    // Generate backup codes and encrypt them before persisting
     const backupCodes = generateBackupCodes();
 
-    // Enable MFA on the user
+    // Enable MFA on the user — store encrypted backup codes in the database
     await prisma.user.update({
       where: { userid: authUser.id },
       data: {
         mfaEnabled: true,
-        mfaBackupCodes: backupCodes,
+        mfaBackupCodes: encryptArray(backupCodes),
       },
     });
 

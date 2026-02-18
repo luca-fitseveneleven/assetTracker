@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import LicencesTable from "../../ui/licences/LicencesTable";
 import { getLicences, getLicenceCategories, getManufacturers, getSuppliers } from "@/lib/data";
 
@@ -29,12 +29,14 @@ export default async function Page() {
 
   return (
     <div>
-      <LicencesTable
-        items={licences}
-        categories={categories}
-        manufacturers={manufacturers}
-        suppliers={suppliers}
-      />
+      <Suspense fallback={null}>
+        <LicencesTable
+          items={licences}
+          categories={categories}
+          manufacturers={manufacturers}
+          suppliers={suppliers}
+        />
+      </Suspense>
     </div>
   );
 }

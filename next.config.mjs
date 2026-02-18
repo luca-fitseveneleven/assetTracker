@@ -5,6 +5,9 @@ const nextConfig = {
   // Enable standalone output for Docker deployment
   output: "standalone",
 
+  // Enable gzip compression for responses (enabled by default, explicit for clarity)
+  compress: true,
+
   async headers() {
     // Security headers applied to every route.
     // The HSTS header is only included when NOT running on localhost (checked
@@ -21,6 +24,22 @@ const nextConfig = {
       {
         key: "Permissions-Policy",
         value: "camera=(), microphone=(), geolocation=()",
+      },
+      {
+        key: "Content-Security-Policy",
+        value: [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+          "style-src 'self' 'unsafe-inline'",
+          "img-src 'self' data: blob: https:",
+          "font-src 'self' data:",
+          "connect-src 'self' https://*.sentry.io https://*.stripe.com",
+          "frame-src 'self' https://*.stripe.com",
+          "object-src 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+          "frame-ancestors 'none'",
+        ].join("; "),
       },
     ];
 

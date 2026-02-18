@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { createFreshdeskClient } from "@/lib/freshdesk";
+import { decrypt } from "@/lib/encryption";
 
 /**
  * POST /api/admin/settings/freshdesk/test
@@ -17,12 +18,12 @@ export async function POST(req: Request) {
     const body = await req.json();
     let { domain, apiKey } = body;
 
-    // If API key is masked, get the stored one
+    // If API key is masked, get the stored one and decrypt it
     if (apiKey === "********" || !apiKey) {
       const storedApiKey = await prisma.system_settings.findUnique({
         where: { settingKey: "freshdesk_api_key" },
       });
-      apiKey = storedApiKey?.settingValue;
+      apiKey = storedApiKey?.settingValue ? decrypt(storedApiKey.settingValue) : undefined;
     }
 
     if (!domain || !apiKey) {

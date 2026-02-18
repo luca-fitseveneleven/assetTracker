@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
 import { generateMfaSecret, generateMfaUri } from "@/lib/mfa";
+import { encrypt } from "@/lib/encryption";
 
 export async function POST() {
   try {
@@ -35,9 +36,10 @@ export async function POST() {
     const uri = generateMfaUri(secret, identifier);
 
     // Store the secret on the user (mfaEnabled remains false until verification)
+    // Encrypt the secret before persisting to the database.
     await prisma.user.update({
       where: { userid: authUser.id },
-      data: { mfaSecret: secret },
+      data: { mfaSecret: encrypt(secret) },
     });
 
     // Generate QR code as data URI

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import ConsumablesTable from "../../ui/consumables/ConsumablesTable";
 import { getConsumables, getConsumableCategories, getManufacturers, getSuppliers } from "@/lib/data";
 
@@ -28,12 +28,14 @@ export default async function Page() {
 
   return (
     <div>
-      <ConsumablesTable
-        items={items}
-        categories={categories}
-        manufacturers={manufacturers}
-        suppliers={suppliers}
-      />
+      <Suspense fallback={null}>
+        <ConsumablesTable
+          items={items}
+          categories={categories}
+          manufacturers={manufacturers}
+          suppliers={suppliers}
+        />
+      </Suspense>
     </div>
   );
 }

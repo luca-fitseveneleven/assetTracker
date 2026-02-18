@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
+import { useUrlState } from "@/hooks/useUrlState";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,13 +48,56 @@ export default function AccessoriesTable({
   locations,
   suppliers,
 }) {
-  const [searchValue, setSearchValue] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [locationFilter, setLocationFilter] = useState("all");
-  const [requestableFilter, setRequestableFilter] = useState("all");
-  const [rowsPerPage, setRowsPerPage] = useState(Number(ROWS_PER_PAGE_OPTIONS[0]));
-  const [page, setPage] = useState(1);
+  // -- URL-synced state for shareable filter / pagination URLs --
+  const [urlState, setUrlState] = useUrlState({
+    search: "",
+    status: "all",
+    category: "all",
+    location: "all",
+    requestable: "all",
+    pageSize: ROWS_PER_PAGE_OPTIONS[0],
+    page: "1",
+  });
+
+  // Derived values from URL state
+  const searchValue = urlState.search;
+  const statusFilter = urlState.status;
+  const categoryFilter = urlState.category;
+  const locationFilter = urlState.location;
+  const requestableFilter = urlState.requestable;
+  const rowsPerPage = Number(urlState.pageSize) || Number(ROWS_PER_PAGE_OPTIONS[0]);
+  const page = Number(urlState.page) || 1;
+
+  // Convenience setters that update URL state
+  const setSearchValue = useCallback(
+    (v: string) => setUrlState({ search: v, page: "1" }),
+    [setUrlState]
+  );
+  const setStatusFilter = useCallback(
+    (v: string) => setUrlState({ status: v, page: "1" }),
+    [setUrlState]
+  );
+  const setCategoryFilter = useCallback(
+    (v: string) => setUrlState({ category: v, page: "1" }),
+    [setUrlState]
+  );
+  const setLocationFilter = useCallback(
+    (v: string) => setUrlState({ location: v, page: "1" }),
+    [setUrlState]
+  );
+  const setRequestableFilter = useCallback(
+    (v: string) => setUrlState({ requestable: v, page: "1" }),
+    [setUrlState]
+  );
+  const setRowsPerPage = useCallback(
+    (n: number) => setUrlState({ pageSize: String(n), page: "1" }),
+    [setUrlState]
+  );
+  const setPage = useCallback(
+    (p: number) => setUrlState({ page: String(p) }),
+    [setUrlState]
+  );
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedAccessory, setSelectedAccessory] = useState(null);
   const [accessoriesData, setAccessoriesData] = useState(items);
@@ -85,10 +129,6 @@ export default function AccessoriesTable({
     () => new Map(suppliers.map((s) => [s.supplierid, s.suppliername])),
     [suppliers]
   );
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchValue, statusFilter, categoryFilter, locationFilter, requestableFilter, rowsPerPage]);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchValue.trim().toLowerCase();

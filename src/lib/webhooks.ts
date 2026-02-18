@@ -1,5 +1,6 @@
 import prisma from './prisma';
 import crypto from 'crypto';
+import { decrypt } from './encryption';
 
 /**
  * Available webhook events
@@ -104,7 +105,9 @@ async function deliverWebhook(
   };
 
   if (webhook.secret) {
-    headers['X-Webhook-Signature'] = generateSignature(payloadString, webhook.secret);
+    // Decrypt the stored secret before using it for HMAC signing
+    const plaintextSecret = decrypt(webhook.secret);
+    headers['X-Webhook-Signature'] = generateSignature(payloadString, plaintextSecret);
   }
 
   try {

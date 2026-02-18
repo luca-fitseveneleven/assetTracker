@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { encrypt } from "@/lib/encryption";
 
 export async function POST(req: Request) {
   try {
@@ -74,18 +75,21 @@ export async function POST(req: Request) {
     }
 
     for (const setting of settingsToUpsert) {
+      const isSensitive = setting.key.includes("api_key") || setting.key.includes("secret");
+      const storedValue = isSensitive ? encrypt(setting.value) : setting.value;
+
       await prisma.system_settings.upsert({
         where: { settingKey: setting.key },
         update: {
-          settingValue: setting.value,
+          settingValue: storedValue,
           updatedAt: new Date(),
         },
         create: {
           settingKey: setting.key,
-          settingValue: setting.value,
+          settingValue: storedValue,
           settingType: setting.type,
           category: setting.category,
-          isEncrypted: setting.key.includes("api_key") || setting.key.includes("secret"),
+          isEncrypted: isSensitive,
           updatedAt: new Date(),
         },
       });

@@ -94,6 +94,12 @@ interface AdminSettingsPageProps {
       assetcategorytypename: string;
     };
   }>;
+  envEmailConfig?: {
+    provider: string;
+    fromEmail: string;
+    fromName: string;
+    hasApiKey: boolean;
+  } | null;
 }
 
 export default function AdminSettingsPage({
@@ -103,6 +109,7 @@ export default function AdminSettingsPage({
   labelTemplates,
   customFields,
   depreciationSettings,
+  envEmailConfig,
 }: AdminSettingsPageProps) {
   const [activeTab, setActiveTab] = useState("general");
 
@@ -191,7 +198,7 @@ export default function AdminSettingsPage({
           </TabsContent>
 
           <TabsContent value="email">
-            <EmailSettingsTab settings={settings.email || []} />
+            <EmailSettingsTab settings={settings.email || []} envEmailConfig={envEmailConfig} />
           </TabsContent>
 
           <TabsContent value="freshdesk">

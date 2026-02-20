@@ -28,6 +28,7 @@ import {
   Send,
   Eye,
   EyeOff,
+  Info,
 } from "lucide-react";
 import { EMAIL_PROVIDERS } from "@/lib/email/types";
 
@@ -40,9 +41,15 @@ interface EmailSettingsTabProps {
     description: string | null;
     isEncrypted: boolean;
   }>;
+  envEmailConfig?: {
+    provider: string;
+    fromEmail: string;
+    fromName: string;
+    hasApiKey: boolean;
+  } | null;
 }
 
-export default function EmailSettingsTab({ settings }: EmailSettingsTabProps) {
+export default function EmailSettingsTab({ settings, envEmailConfig }: EmailSettingsTabProps) {
   const getSettingValue = (key: string) =>
     settings.find((s) => s.key === key)?.value || "";
 
@@ -61,6 +68,10 @@ export default function EmailSettingsTab({ settings }: EmailSettingsTabProps) {
   const [connectionStatus, setConnectionStatus] = useState<"unknown" | "connected" | "failed">("unknown");
 
   const selectedProvider = EMAIL_PROVIDERS.find((p) => p.id === provider);
+
+  // Determine if config is coming from DB or env
+  const hasDbConfig = settings.some((s) => s.key === "email_provider" && s.value);
+  const isUsingEnvConfig = !hasDbConfig && !!envEmailConfig;
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -121,6 +132,31 @@ export default function EmailSettingsTab({ settings }: EmailSettingsTabProps) {
 
   return (
     <div className="space-y-6">
+      {isUsingEnvConfig && envEmailConfig && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Email is configured via environment variables.{" "}
+            <span className="font-medium">Provider:</span>{" "}
+            {envEmailConfig.provider.charAt(0).toUpperCase() + envEmailConfig.provider.slice(1)},{" "}
+            <span className="font-medium">From:</span>{" "}
+            {envEmailConfig.fromName} &lt;{envEmailConfig.fromEmail || "not set"}&gt;,{" "}
+            <span className="font-medium">API Key:</span>{" "}
+            {envEmailConfig.hasApiKey ? "configured" : "missing"}.
+            {" "}Saving settings below will override the environment configuration.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {hasDbConfig && envEmailConfig && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Email is configured in both the database and environment variables. The database settings below take priority.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">

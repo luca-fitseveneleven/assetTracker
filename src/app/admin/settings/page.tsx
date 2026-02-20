@@ -101,6 +101,21 @@ export default async function Page() {
       getDepreciationSettings(),
     ]);
 
+  // Detect if email is configured via environment variables
+  const envEmailConfig = process.env.EMAIL_PROVIDER
+    ? {
+        provider: process.env.EMAIL_PROVIDER,
+        fromEmail: process.env.EMAIL_FROM || "",
+        fromName: process.env.EMAIL_FROM_NAME || "Asset Tracker",
+        hasApiKey: !!(
+          process.env.BREVO_API_KEY ||
+          process.env.SENDGRID_API_KEY ||
+          process.env.MAILGUN_API_KEY ||
+          process.env.POSTMARK_API_KEY
+        ),
+      }
+    : null;
+
   const breadcrumbOptions = [
     { label: "Home", href: "/" },
     { label: "Admin Settings", href: "/admin/settings" },
@@ -116,6 +131,7 @@ export default async function Page() {
         labelTemplates={labelTemplates}
         customFields={customFields}
         depreciationSettings={depreciationSettings}
+        envEmailConfig={envEmailConfig}
       />
     </>
   );

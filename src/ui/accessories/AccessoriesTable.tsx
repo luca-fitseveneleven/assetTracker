@@ -30,6 +30,7 @@ import {
 import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { PlusIcon, SearchIcon, EditIcon, DeleteIcon, MoreVertical } from "../Icons";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
 
@@ -101,6 +102,9 @@ export default function AccessoriesTable({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedAccessory, setSelectedAccessory] = useState(null);
   const [accessoriesData, setAccessoriesData] = useState(items);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
 
   const manufacturerById = useMemo(
     () => new Map(manufacturers.map((m) => [m.manufacturerid, m.manufacturername])),
@@ -200,6 +204,28 @@ export default function AccessoriesTable({
     }
   };
 
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedKeys);
+      for (const id of ids) {
+        await fetch("/api/accessories/deleteAccessory/", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accessoryId: id }),
+        });
+      }
+      setAccessoriesData((prev) => prev.filter((item) => !selectedKeys.has(item.accessorieid)));
+      toast.success(`Deleted ${ids.length} accessory(ies)`);
+      setSelectedKeys(new Set());
+      setShowBulkDelete(false);
+    } catch (error) {
+      toast.error("Failed to delete some accessories");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const columns = [
     { key: 'accessoriename', label: 'Name' },
     { key: 'accessorietag', label: 'Tag' },
@@ -210,7 +236,7 @@ export default function AccessoriesTable({
     { key: 'location', label: 'Location' },
     { key: 'supplier', label: 'Supplier' },
     { key: 'requestable', label: 'Requestable' },
-    { key: 'actions', label: 'Actions' },
+    { key: 'actions', label: 'Actions', hideable: false },
   ];
 
   const renderCell = (item: Record<string, unknown>, columnKey: string) => {
@@ -378,6 +404,19 @@ export default function AccessoriesTable({
         keyExtractor={(item) => (item as Record<string, unknown>).accessorieid as number}
         emptyMessage="No accessories found"
         mobileCardView={true}
+        storageKey="columns:accessories"
+        selectable
+        selectedKeys={selectedKeys}
+        onSelectionChange={setSelectedKeys}
+        bulkActions={
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowBulkDelete(true)}
+          >
+            Delete ({selectedKeys.size})
+          </Button>
+        }
       />
       <div className="flex items-center justify-center gap-2">
         <Button
@@ -428,6 +467,15 @@ export default function AccessoriesTable({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={showBulkDelete}
+        onOpenChange={setShowBulkDelete}
+        title={`Delete ${selectedKeys.size} accessory(ies)?`}
+        description="This will permanently delete the selected accessories. This cannot be undone."
+        confirmLabel="Delete All"
+        onConfirm={handleBulkDelete}
+        loading={bulkDeleting}
+      />
     </div>
   );
 }

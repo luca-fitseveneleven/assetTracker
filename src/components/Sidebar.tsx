@@ -29,6 +29,7 @@ import {
   FileJson,
   ClipboardCheck,
   QrCode,
+  Upload,
   Wrench,
   Zap,
   Shield,
@@ -79,6 +80,7 @@ const navSections = [
       { label: "Maintenance", href: "/maintenance", icon: Wrench },
       { label: "Approvals", href: "/approvals", icon: ClipboardCheck },
       { label: "QR Scanner", href: "/scanner", icon: QrCode },
+      { label: "Import", href: "/import", icon: Upload },
     ],
   },
   {

@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Trash2, Upload, Star, Image } from "lucide-react";
+import { Paperclip, Trash2, Star, Image } from "lucide-react";
 import { toast } from "sonner";
+import { FileDropZone } from "@/components/FileDropZone";
 
 interface Attachment {
   id: string;
@@ -32,7 +33,6 @@ function formatFileSize(bytes: number): string {
 export default function AssetAttachments({ assetId, readOnly = false }: AssetAttachmentsProps) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchAttachments = useCallback(async () => {
     try {
@@ -50,35 +50,38 @@ export default function AssetAttachments({ assetId, readOnly = false }: AssetAtt
     fetchAttachments();
   }, [fetchAttachments]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFile = useCallback(async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("assetId", assetId);
 
+    const res = await fetch("/api/asset/attachments", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || "Upload failed");
+    }
+
+    return file.name;
+  }, [assetId]);
+
+  const handleFilesSelected = useCallback(async (files: File[]) => {
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("assetId", assetId);
-
-      const res = await fetch("/api/asset/attachments", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || "Upload failed");
+      for (const file of files) {
+        await uploadFile(file);
+        toast.success("File uploaded", { description: file.name });
       }
-
-      toast.success("File uploaded", { description: file.name });
       fetchAttachments();
     } catch (err) {
       toast.error("Upload failed", { description: (err as Error).message });
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  };
+  }, [uploadFile, fetchAttachments]);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"?`)) return;
@@ -114,30 +117,23 @@ export default function AssetAttachments({ assetId, readOnly = false }: AssetAtt
         <h2 className="text-sm font-semibold text-foreground-600">
           Attachments {attachments.length > 0 && `(${attachments.length})`}
         </h2>
-        {!readOnly && (
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              onChange={handleUpload}
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              <Upload className="h-3.5 w-3.5 mr-1.5" />
-              {uploading ? "Uploading..." : "Upload"}
-            </Button>
-          </div>
+        {uploading && (
+          <span className="text-xs text-muted-foreground">Uploading...</span>
         )}
       </div>
 
+      {!readOnly && (
+        <FileDropZone
+          onFilesSelected={handleFilesSelected}
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+          multiple
+          uploading={uploading}
+          label="Drag & drop files here, or click to browse"
+        />
+      )}
+
       {attachments.length === 0 ? (
-        <p className="text-sm text-foreground-500">No attachments.</p>
+        <p className="text-sm text-foreground-500 mt-3">No attachments.</p>
       ) : (
         <div className="space-y-2">
           {attachments.map((att) => (

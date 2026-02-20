@@ -29,6 +29,7 @@ import {
 import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { PlusIcon, SearchIcon, EditIcon, DeleteIcon, MoreVertical } from "../Icons";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
 const expirationOptions = [
@@ -103,6 +104,9 @@ export default function LicencesTable({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedLicence, setSelectedLicence] = useState(null);
   const [licencesData, setLicencesData] = useState(items);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
 
   const categoryById = useMemo(
     () => new Map(categories.map((c) => [c.licencecategorytypeid, c.licencecategorytypename])),
@@ -176,7 +180,7 @@ export default function LicencesTable({
     { key: 'manufacturer', label: 'Manufacturer' },
     { key: 'supplier', label: 'Supplier' },
     { key: 'expirationdate', label: 'Expires' },
-    { key: 'actions', label: 'Actions' },
+    { key: 'actions', label: 'Actions', hideable: false },
   ];
 
   const handleDelete = async (licenceId: string) => {
@@ -205,6 +209,28 @@ export default function LicencesTable({
       toast.error("Failed to delete licence", {
         description: error.message,
       });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedKeys);
+      for (const id of ids) {
+        await fetch("/api/licence", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ licenceid: id }),
+        });
+      }
+      setLicencesData((prev) => prev.filter((item) => !selectedKeys.has(item.licenceid)));
+      toast.success(`Deleted ${ids.length} licence(s)`);
+      setSelectedKeys(new Set());
+      setShowBulkDelete(false);
+    } catch (error) {
+      toast.error("Failed to delete some licences");
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -362,6 +388,19 @@ export default function LicencesTable({
         keyExtractor={(item) => item.licenceid}
         emptyMessage="No licences found"
         mobileCardView={true}
+        storageKey="columns:licences"
+        selectable
+        selectedKeys={selectedKeys}
+        onSelectionChange={setSelectedKeys}
+        bulkActions={
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowBulkDelete(true)}
+          >
+            Delete ({selectedKeys.size})
+          </Button>
+        }
       />
       <div className="flex items-center justify-center gap-2">
         <Button
@@ -406,6 +445,16 @@ export default function LicencesTable({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={showBulkDelete}
+        onOpenChange={setShowBulkDelete}
+        title={`Delete ${selectedKeys.size} licence(s)?`}
+        description="This will permanently delete the selected licences. This cannot be undone."
+        confirmLabel="Delete All"
+        onConfirm={handleBulkDelete}
+        loading={bulkDeleting}
+      />
     </div>
   );
 }

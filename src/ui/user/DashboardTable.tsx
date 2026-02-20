@@ -96,10 +96,11 @@ function DashboardTable({ data, columns: propColumns }) {
   }, [filteredUsers, page, rowsPerPage]);
 
   // Map columns from props to ResponsiveTable format
-  const columns = useMemo(() => 
+  const columns = useMemo(() =>
     propColumns.map((col: { uid: string; name: string }) => ({
       key: col.uid,
       label: col.name,
+      ...(col.uid === "actions" ? { hideable: false } : {}),
     })),
     [propColumns]
   );
@@ -211,6 +212,7 @@ function DashboardTable({ data, columns: propColumns }) {
         keyExtractor={(item) => (item as Record<string, unknown>).userid as number}
         emptyMessage="No users found"
         mobileCardView={true}
+        storageKey="columns:users"
       />
       <div className="flex items-center justify-center gap-2">
         <Button

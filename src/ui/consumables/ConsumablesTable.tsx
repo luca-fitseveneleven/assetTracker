@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PlusIcon, SearchIcon, EditIcon, DeleteIcon, MoreVertical } from "../Icons";
 import { toast } from "sonner";
 
@@ -99,6 +100,9 @@ export default function ConsumablesTable({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedConsumable, setSelectedConsumable] = useState(null);
   const [consumablesData, setConsumablesData] = useState(items);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
 
   const categoryById = useMemo(
     () => new Map(categories.map((c) => [c.consumablecategorytypeid, c.consumablecategorytypename])),
@@ -162,7 +166,7 @@ export default function ConsumablesTable({
     { key: 'supplier', label: 'Supplier' },
     { key: 'purchaseprice', label: 'Price' },
     { key: 'purchasedate', label: 'Purchased' },
-    { key: 'actions', label: 'Actions' },
+    { key: 'actions', label: 'Actions', hideable: false },
   ];
 
   const handleDelete = async (consumableId: string) => {
@@ -191,6 +195,28 @@ export default function ConsumablesTable({
       toast.error("Failed to delete consumable", {
         description: error.message,
       });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedKeys);
+      for (const id of ids) {
+        await fetch("/api/consumable", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ consumableid: id }),
+        });
+      }
+      setConsumablesData((prev) => prev.filter((item) => !selectedKeys.has(item.consumableid)));
+      toast.success(`Deleted ${ids.length} consumable(s)`);
+      setSelectedKeys(new Set());
+      setShowBulkDelete(false);
+    } catch (error) {
+      toast.error("Failed to delete some consumables");
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -358,6 +384,19 @@ export default function ConsumablesTable({
         keyExtractor={(item) => item.consumableid}
         emptyMessage="No consumables found"
         mobileCardView={true}
+        storageKey="columns:consumables"
+        selectable
+        selectedKeys={selectedKeys}
+        onSelectionChange={setSelectedKeys}
+        bulkActions={
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowBulkDelete(true)}
+          >
+            Delete ({selectedKeys.size})
+          </Button>
+        }
       />
       <div className="flex items-center justify-center gap-2">
         <Button
@@ -402,6 +441,16 @@ export default function ConsumablesTable({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={showBulkDelete}
+        onOpenChange={setShowBulkDelete}
+        title={`Delete ${selectedKeys.size} consumable(s)?`}
+        description="This will permanently delete the selected consumables. This cannot be undone."
+        confirmLabel="Delete All"
+        onConfirm={handleBulkDelete}
+        loading={bulkDeleting}
+      />
     </div>
   );
 }

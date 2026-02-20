@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useUrlState } from "@/hooks/useUrlState";
+import { usePersistentState } from "@/hooks/usePersistentState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -151,8 +152,14 @@ export default function App({
   // -- Local-only state (not shareable via URL) --
   const [selectedKeys, setSelectedKeys] = useState(new Set([]));
   const [deleteButtonActive, setDeleteButtonActive] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    new Set(INITIAL_VISIBLE_COLUMNS)
+  const [persistedColumns, setPersistedColumns] = usePersistentState<string[]>(
+    "columns:assets",
+    INITIAL_VISIBLE_COLUMNS
+  );
+  const visibleColumns = useMemo(() => new Set(persistedColumns), [persistedColumns]);
+  const setVisibleColumns = useCallback(
+    (s: Set<string>) => setPersistedColumns(Array.from(s)),
+    [setPersistedColumns]
   );
   const [assetsData, setAssetsData] = useState(data);
   const [userAssetsData, setUserAssetsData] = useState(userAssets);
@@ -1158,6 +1165,25 @@ export default function App({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={sortedItems.length > 0 && sortedItems.every((i) => selectedKeys.has(i.assetid))}
+                  ref={(el) => {
+                    if (el) {
+                      const some = sortedItems.some((i) => selectedKeys.has(i.assetid));
+                      const all = sortedItems.length > 0 && sortedItems.every((i) => selectedKeys.has(i.assetid));
+                      (el as unknown as HTMLInputElement).indeterminate = some && !all;
+                    }
+                  }}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedKeys(new Set(sortedItems.map((i) => i.assetid)));
+                    } else {
+                      setSelectedKeys(new Set());
+                    }
+                  }}
+                />
+              </TableHead>
               {headerColumns.map((column) => (
                 <TableHead
                   key={column.uid}
@@ -1171,13 +1197,27 @@ export default function App({
           <TableBody>
             {sortedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={headerColumns.length} className="text-center">
+                <TableCell colSpan={headerColumns.length + 1} className="text-center">
                   No assets found
                 </TableCell>
               </TableRow>
             ) : (
               sortedItems.map((item) => (
                 <TableRow key={item.assetid}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedKeys.has(item.assetid)}
+                      onCheckedChange={(checked) => {
+                        const next = new Set(selectedKeys);
+                        if (checked) {
+                          next.add(item.assetid);
+                        } else {
+                          next.delete(item.assetid);
+                        }
+                        setSelectedKeys(next);
+                      }}
+                    />
+                  </TableCell>
                   {headerColumns.map((column) => (
                     <TableCell key={column.uid}>
                       {renderCell(item, column.uid)}

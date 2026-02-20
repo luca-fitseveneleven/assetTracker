@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 // GET /api/asset/transfers
 // Optional query: ?assetId=<uuid> to filter by asset
@@ -23,10 +24,10 @@ export async function GET(req: Request) {
 
     return NextResponse.json(transfers, { status: 200 });
   } catch (error) {
-    console.error("GET /api/asset/transfers error:", error);
+    logger.error("GET /api/asset/transfers error", { error });
     return NextResponse.json(
       { error: "Failed to fetch transfers" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -48,14 +49,14 @@ export async function POST(req: Request) {
     if (!assetId || !transferType) {
       return NextResponse.json(
         { error: "assetId and transferType are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!["user", "location", "organization"].includes(transferType)) {
       return NextResponse.json(
         { error: "transferType must be 'user', 'location', or 'organization'" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -63,19 +64,19 @@ export async function POST(req: Request) {
     if (transferType === "user" && !toUserId) {
       return NextResponse.json(
         { error: "toUserId is required for user transfers" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (transferType === "location" && !toLocationId) {
       return NextResponse.json(
         { error: "toLocationId is required for location transfers" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (transferType === "organization" && !toOrgId) {
       return NextResponse.json(
         { error: "toOrgId is required for organization transfers" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -188,10 +189,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json(transfer, { status: 201 });
   } catch (error) {
-    console.error("POST /api/asset/transfers error:", error);
+    logger.error("POST /api/asset/transfers error", { error });
     return NextResponse.json(
       { error: "Failed to create transfer" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

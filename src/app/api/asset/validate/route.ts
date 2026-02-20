@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../../lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 // GET /api/asset/validate?assettag=...&serialnumber=...
 export async function GET(req) {
@@ -16,13 +17,15 @@ export async function GET(req) {
       result.assettag = { exists: Boolean(byTag) };
     }
     if (serialnumber) {
-      const bySerial = await prisma.asset.findUnique({ where: { serialnumber } });
+      const bySerial = await prisma.asset.findUnique({
+        where: { serialnumber },
+      });
       result.serialnumber = { exists: Boolean(bySerial) };
     }
 
     return NextResponse.json(result, { status: 200 });
   } catch (e) {
-    console.error("GET /api/asset/validate error:", e);
+    logger.error("GET /api/asset/validate error", { error: e });
     if (e instanceof Error && e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

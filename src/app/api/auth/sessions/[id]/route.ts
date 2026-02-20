@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
-import { requireApiAuth } from '@/lib/api-auth';
-import { revokeSession } from '@/lib/session-tracking';
-import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/audit-log';
-import prisma from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { requireApiAuth } from "@/lib/api-auth";
+import { revokeSession } from "@/lib/session-tracking";
+import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 /**
  * DELETE /api/auth/sessions/[id]
@@ -11,14 +12,14 @@ import prisma from '@/lib/prisma';
  */
 export async function DELETE(
   _req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const user = await requireApiAuth();
     const { id: sessionId } = await params;
 
     if (!user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // If admin, allow revoking any session; otherwise only own sessions
@@ -30,7 +31,10 @@ export async function DELETE(
       });
 
       if (!session) {
-        return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+        return NextResponse.json(
+          { error: "Session not found" },
+          { status: 404 },
+        );
       }
 
       await prisma.sessions.delete({ where: { id: sessionId } });
@@ -41,7 +45,7 @@ export async function DELETE(
         entity: AUDIT_ENTITIES.USER,
         entityId: session.userId,
         details: {
-          type: 'session_revoke',
+          type: "session_revoke",
           sessionId,
           deviceName: session.deviceName,
           ipAddress: session.ipAddress,
@@ -56,7 +60,7 @@ export async function DELETE(
     const revoked = await revokeSession(sessionId, user.id);
 
     if (!revoked) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
     await createAuditLog({
@@ -65,7 +69,7 @@ export async function DELETE(
       entity: AUDIT_ENTITIES.USER,
       entityId: user.id,
       details: {
-        type: 'session_revoke',
+        type: "session_revoke",
         sessionId,
       },
     });
@@ -73,16 +77,19 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === 'Unauthorized') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (error.message === "Unauthorized") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      if (error.message.startsWith('Forbidden')) {
+      if (error.message.startsWith("Forbidden")) {
         return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
-    console.error('Failed to revoke session:', error);
-    return NextResponse.json({ error: 'Failed to revoke session' }, { status: 500 });
+    logger.error("Failed to revoke session", { error });
+    return NextResponse.json(
+      { error: "Failed to revoke session" },
+      { status: 500 },
+    );
   }
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";

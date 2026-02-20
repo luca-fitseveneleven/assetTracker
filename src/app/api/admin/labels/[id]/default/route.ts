@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -26,10 +27,13 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(template, { status: 200 });
   } catch (error) {
-    console.error("POST /api/admin/labels/[id]/default error:", error);
+    logger.error("POST /api/admin/labels/[id]/default error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to set default template" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to set default template" },
+      { status: 500 },
+    );
   }
 }

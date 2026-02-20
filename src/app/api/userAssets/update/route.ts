@@ -1,5 +1,6 @@
 import prisma from "../../../../lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 export async function PUT(req) {
   try {
@@ -7,12 +8,14 @@ export async function PUT(req) {
     const { userAssetsId, userId } = await req.json();
 
     if (!userAssetsId || !userId) {
-      console.error("Missing userAssetsId or userId", { userAssetsId, userId });
+      logger.error("Missing userAssetsId or userId", {
+        error: { userAssetsId, userId },
+      });
       return new Response(
         JSON.stringify({ error: "UserAssets ID and User ID are required" }),
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -33,15 +36,19 @@ export async function PUT(req) {
       }),
       {
         status: 200,
-      }
+      },
     );
   } catch (error) {
-    console.error("Error updating UserAsset:", error);
+    logger.error("Error updating UserAsset", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+      });
     }
     if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 403 });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 403,
+      });
     }
     return new Response(JSON.stringify({ error: "Error updating UserAsset" }), {
       status: 500,

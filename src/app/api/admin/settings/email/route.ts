@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
@@ -24,9 +25,24 @@ export async function POST(req: Request) {
 
     // Upsert email settings
     const settingsToUpsert = [
-      { key: "email_provider", value: provider, type: "string", category: "email" },
-      { key: "email_from", value: fromEmail, type: "string", category: "email" },
-      { key: "email_from_name", value: fromName || "Asset Tracker", type: "string", category: "email" },
+      {
+        key: "email_provider",
+        value: provider,
+        type: "string",
+        category: "email",
+      },
+      {
+        key: "email_from",
+        value: fromEmail,
+        type: "string",
+        category: "email",
+      },
+      {
+        key: "email_from_name",
+        value: fromName || "Asset Tracker",
+        type: "string",
+        category: "email",
+      },
     ];
 
     if (apiKey) {
@@ -75,7 +91,8 @@ export async function POST(req: Request) {
     }
 
     for (const setting of settingsToUpsert) {
-      const isSensitive = setting.key.includes("api_key") || setting.key.includes("secret");
+      const isSensitive =
+        setting.key.includes("api_key") || setting.key.includes("secret");
       const storedValue = isSensitive ? encrypt(setting.value) : setting.value;
 
       await prisma.system_settings.upsert({
@@ -97,10 +114,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("POST /api/admin/settings/email error:", error);
+    logger.error("POST /api/admin/settings/email error", { error });
     return NextResponse.json(
       { error: "Failed to save email settings" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

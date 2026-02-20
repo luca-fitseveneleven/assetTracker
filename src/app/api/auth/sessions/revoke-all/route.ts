@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
-import { requireApiAuth } from '@/lib/api-auth';
-import { revokeOtherSessions } from '@/lib/session-tracking';
-import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/audit-log';
+import { NextResponse } from "next/server";
+import { requireApiAuth } from "@/lib/api-auth";
+import { revokeOtherSessions } from "@/lib/session-tracking";
+import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { logger } from "@/lib/logger";
 
 /**
  * POST /api/auth/sessions/revoke-all
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
     const user = await requireApiAuth();
 
     if (!user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -21,8 +22,8 @@ export async function POST(req: Request) {
 
     if (!currentSessionId) {
       return NextResponse.json(
-        { error: 'currentSessionId is required' },
-        { status: 400 }
+        { error: "currentSessionId is required" },
+        { status: 400 },
       );
     }
 
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
       entity: AUDIT_ENTITIES.USER,
       entityId: user.id,
       details: {
-        type: 'session_revoke_all',
+        type: "session_revoke_all",
         revokedCount,
         keptSessionId: currentSessionId,
       },
@@ -43,16 +44,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, revokedCount });
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === 'Unauthorized') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (error.message === "Unauthorized") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      if (error.message.startsWith('Forbidden')) {
+      if (error.message.startsWith("Forbidden")) {
         return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
-    console.error('Failed to revoke all sessions:', error);
-    return NextResponse.json({ error: 'Failed to revoke sessions' }, { status: 500 });
+    logger.error("Failed to revoke all sessions", { error });
+    return NextResponse.json(
+      { error: "Failed to revoke sessions" },
+      { status: 500 },
+    );
   }
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";

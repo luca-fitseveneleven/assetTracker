@@ -8,6 +8,7 @@ import {
   getClientIP,
   createRateLimitResponse,
 } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 const registerSchema = z.object({
   firstname: z.string().min(1, "First name is required").max(100),
@@ -108,7 +109,7 @@ export async function POST(req: Request) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("POST /api/auth/register error:", error);
+    logger.error("POST /api/auth/register error", { error });
     return NextResponse.json(
       { message: "An unexpected error occurred. Please try again later." },
       { status: 500 },

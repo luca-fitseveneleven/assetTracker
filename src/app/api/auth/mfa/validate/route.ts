@@ -8,6 +8,7 @@ import {
   getClientIP,
   createRateLimitResponse,
 } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 /**
  * POST /api/auth/mfa/validate
@@ -127,7 +128,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("POST /api/auth/mfa/validate error:", error);
+    logger.error("POST /api/auth/mfa/validate error", { error });
     return NextResponse.json(
       { error: "Failed to validate MFA" },
       { status: 500 },

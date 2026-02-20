@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
 import { hasPermission } from "@/lib/rbac";
-import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 import { updateUserSchema } from "@/lib/validation";
 import { hashPassword } from "@/lib/auth-utils";
 import {
@@ -10,6 +13,7 @@ import {
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 import { triggerWebhook } from "@/lib/webhooks";
 
 const USER_SORT_FIELDS = ["firstname", "lastname", "email", "creation_date"];
@@ -33,7 +37,9 @@ export async function GET(req) {
     if (id) {
       // Users can view their own profile; others need user:view permission
       if (authUser.id !== id) {
-        const canViewUsers = authUser.isAdmin || (authUser.id ? await hasPermission(authUser.id, 'user:view') : false);
+        const canViewUsers =
+          authUser.isAdmin ||
+          (authUser.id ? await hasPermission(authUser.id, "user:view") : false);
         if (!canViewUsers) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
@@ -42,14 +48,16 @@ export async function GET(req) {
       if (!user) {
         return NextResponse.json(
           { error: `User with id ${id} not found` },
-          { status: 404 }
+          { status: 404 },
         );
       }
       return NextResponse.json(stripPassword(user), { status: 200 });
     }
 
     // Listing all users requires user:view permission
-    const canViewUsers = authUser.isAdmin || (authUser.id ? await hasPermission(authUser.id, 'user:view') : false);
+    const canViewUsers =
+      authUser.isAdmin ||
+      (authUser.id ? await hasPermission(authUser.id, "user:view") : false);
     if (!canViewUsers) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -90,11 +98,14 @@ export async function GET(req) {
       { status: 200 },
     );
   } catch (error) {
-    console.error("GET /api/user error:", error);
+    logger.error("GET /api/user error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch users" },
+      { status: 500 },
+    );
   }
 }
 
@@ -109,7 +120,7 @@ export async function PUT(req) {
     if (!userid) {
       return NextResponse.json(
         { error: "userid is required to update a user" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -123,13 +134,15 @@ export async function PUT(req) {
 
     const validationResult = schema.strict().safeParse({
       ...data,
-      ...(typeof password === "string" && password.length > 0 ? { password } : {}),
+      ...(typeof password === "string" && password.length > 0
+        ? { password }
+        : {}),
     });
 
     if (!validationResult.success) {
       return NextResponse.json(
         { error: "Validation failed", details: validationResult.error.issues },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -146,18 +159,24 @@ export async function PUT(req) {
       },
     });
 
-    triggerWebhook('user.updated', { userId: userid, changes: Object.keys(updateData) }).catch(() => {});
+    triggerWebhook("user.updated", {
+      userId: userid,
+      changes: Object.keys(updateData),
+    }).catch(() => {});
 
     return NextResponse.json(stripPassword(updated), { status: 200 });
   } catch (error) {
-    console.error("PUT /api/user error:", error);
+    logger.error("PUT /api/user error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     if (error instanceof Error && error.message.startsWith("Forbidden")) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
-    return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update user" },
+      { status: 500 },
+    );
   }
 }
 

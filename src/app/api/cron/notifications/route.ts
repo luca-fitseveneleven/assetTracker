@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runNotificationChecks } from "@/lib/notifications";
 import { processEmailQueue } from "@/lib/email";
+import { logger } from "@/lib/logger";
 
 /**
  * Cron endpoint for running notification checks and processing the email queue.
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
       { status: 200 },
     );
   } catch (error) {
-    console.error("Cron notifications error:", error);
+    logger.error("Cron notifications error", { error });
     return NextResponse.json(
       { error: "Failed to run notifications" },
       { status: 500 },

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import { sendEmail } from "@/lib/email/service";
 import { emailTemplates, renderTemplate } from "@/lib/email/templates";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -90,10 +91,10 @@ export async function POST(request: NextRequest) {
       });
 
       if (!result.success) {
-        console.warn("Failed to send invitation email:", result.error);
+        logger.warn("Failed to send invitation email", { error: result.error });
       }
     } catch (emailError) {
-      console.warn("Failed to send invitation email:", emailError);
+      logger.warn("Failed to send invitation email", { error: emailError });
     }
 
     return NextResponse.json(invitation, { status: 201 });
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
-    console.error("Error creating invitation:", error);
+    logger.error("Error creating invitation", { error });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
@@ -172,7 +173,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
-    console.error("Error updating invitation:", error);
+    logger.error("Error updating invitation", { error });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
@@ -214,7 +215,7 @@ export async function GET() {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
-    console.error("Error fetching invitations:", error);
+    logger.error("Error fetching invitations", { error });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

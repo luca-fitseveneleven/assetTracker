@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -45,7 +46,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(roles, { status: 200 });
   } catch (error) {
-    console.error("GET /api/admin/users/[id]/roles error:", error);
+    logger.error("GET /api/admin/users/[id]/roles error", { error });
     if (error instanceof Error) {
       if (error.message === "Unauthorized") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,13 +54,13 @@ export async function GET(req: Request, { params }: RouteParams) {
       if (error.message.includes("Forbidden")) {
         return NextResponse.json(
           { error: "Forbidden: Admin access required" },
-          { status: 403 }
+          { status: 403 },
         );
       }
     }
     return NextResponse.json(
       { error: "Failed to fetch user roles" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -76,7 +77,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     if (!roleId) {
       return NextResponse.json(
         { error: "roleId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -136,7 +137,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(userRole, { status: 201 });
   } catch (error) {
-    console.error("POST /api/admin/users/[id]/roles error:", error);
+    logger.error("POST /api/admin/users/[id]/roles error", { error });
     if (error instanceof Error) {
       if (error.message === "Unauthorized") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -144,7 +145,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       if (error.message.includes("Forbidden")) {
         return NextResponse.json(
           { error: "Forbidden: Admin access required" },
-          { status: 403 }
+          { status: 403 },
         );
       }
     }
@@ -157,12 +158,12 @@ export async function POST(req: Request, { params }: RouteParams) {
     ) {
       return NextResponse.json(
         { error: "Role is already assigned to this user" },
-        { status: 409 }
+        { status: 409 },
       );
     }
     return NextResponse.json(
       { error: "Failed to assign role to user" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -179,7 +180,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     if (!roleId) {
       return NextResponse.json(
         { error: "roleId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -204,7 +205,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     if (!userRole) {
       return NextResponse.json(
         { error: "Role assignment not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -234,7 +235,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error("DELETE /api/admin/users/[id]/roles error:", error);
+    logger.error("DELETE /api/admin/users/[id]/roles error", { error });
     if (error instanceof Error) {
       if (error.message === "Unauthorized") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -242,13 +243,13 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       if (error.message.includes("Forbidden")) {
         return NextResponse.json(
           { error: "Forbidden: Admin access required" },
-          { status: 403 }
+          { status: 403 },
         );
       }
     }
     return NextResponse.json(
       { error: "Failed to remove role from user" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

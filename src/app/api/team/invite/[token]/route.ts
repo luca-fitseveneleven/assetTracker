@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,7 @@ export async function GET(
       createdAt: invitation.createdAt,
     });
   } catch (err) {
-    console.error("Error validating invitation:", err);
+    logger.error("Error validating invitation", { error: err });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
@@ -179,7 +180,7 @@ export async function POST(
       message: "Invitation accepted successfully",
     });
   } catch (err) {
-    console.error("Error accepting invitation:", err);
+    logger.error("Error accepting invitation", { error: err });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

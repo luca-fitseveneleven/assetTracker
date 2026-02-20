@@ -1,28 +1,32 @@
-import { NextResponse } from 'next/server';
-import { requireApiAuth } from '@/lib/api-auth';
-import { getStripe, PLANS, PlanKey } from '@/lib/stripe';
-import prisma from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { requireApiAuth } from "@/lib/api-auth";
+import { getStripe, PLANS, PlanKey } from "@/lib/stripe";
+import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
     const user = await requireApiAuth();
     if (!user.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { plan } = await req.json() as { plan: PlanKey };
+    const { plan } = (await req.json()) as { plan: PlanKey };
     if (!PLANS[plan] || !PLANS[plan].priceId) {
-      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
     const orgId = user.organizationId;
     if (!orgId) {
-      return NextResponse.json({ error: 'No organization' }, { status: 400 });
+      return NextResponse.json({ error: "No organization" }, { status: 400 });
     }
 
     const org = await prisma.organization.findUnique({ where: { id: orgId } });
     if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 },
+      );
     }
 
     // Get or create Stripe customer
@@ -41,7 +45,7 @@ export async function POST(req: Request) {
 
     const session = await getStripe().checkout.sessions.create({
       customer: customerId,
-      mode: 'subscription',
+      mode: "subscription",
       line_items: [{ price: PLANS[plan].priceId!, quantity: 1 }],
       success_url: `${process.env.NEXTAUTH_URL}/dashboard?billing=success`,
       cancel_url: `${process.env.NEXTAUTH_URL}/dashboard?billing=cancelled`,
@@ -50,10 +54,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error('Billing checkout error:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    logger.error("Billing checkout error", { error });
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Failed to create checkout' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create checkout" },
+      { status: 500 },
+    );
   }
 }

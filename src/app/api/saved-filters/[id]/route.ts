@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -23,7 +24,12 @@ export async function PUT(req: Request, { params }: RouteParams) {
     // If setting as default, unset other defaults
     if (isDefault) {
       await prisma.saved_filters.updateMany({
-        where: { userId: user.id!, entity: existing.entity, isDefault: true, NOT: { id } },
+        where: {
+          userId: user.id!,
+          entity: existing.entity,
+          isDefault: true,
+          NOT: { id },
+        },
         data: { isDefault: false, updatedAt: new Date() },
       });
     }
@@ -32,7 +38,10 @@ export async function PUT(req: Request, { params }: RouteParams) {
       where: { id },
       data: {
         ...(name !== undefined && { name }),
-        ...(filters !== undefined && { filters: typeof filters === "string" ? filters : JSON.stringify(filters) }),
+        ...(filters !== undefined && {
+          filters:
+            typeof filters === "string" ? filters : JSON.stringify(filters),
+        }),
         ...(isDefault !== undefined && { isDefault }),
         ...(isGlobal !== undefined && { isGlobal }),
         updatedAt: new Date(),
@@ -41,11 +50,14 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
-    console.error("PUT /api/saved-filters/[id] error:", error);
+    logger.error("PUT /api/saved-filters/[id] error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to update filter" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update filter" },
+      { status: 500 },
+    );
   }
 }
 
@@ -64,10 +76,13 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error("DELETE /api/saved-filters/[id] error:", error);
+    logger.error("DELETE /api/saved-filters/[id] error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to delete filter" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete filter" },
+      { status: 500 },
+    );
   }
 }

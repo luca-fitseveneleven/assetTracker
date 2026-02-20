@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ userId: string }>;
@@ -36,10 +37,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Collect all data associated with this user
@@ -104,19 +102,13 @@ export async function GET(req: Request, { params }: RouteParams) {
       }),
       prisma.assetTransfer.findMany({
         where: {
-          OR: [
-            { fromUserId: userId },
-            { toUserId: userId },
-          ],
+          OR: [{ fromUserId: userId }, { toUserId: userId }],
         },
         orderBy: { transferredAt: "desc" },
       }),
       prisma.approvalRequest.findMany({
         where: {
-          OR: [
-            { requesterId: userId },
-            { approverId: userId },
-          ],
+          OR: [{ requesterId: userId }, { approverId: userId }],
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -145,7 +137,7 @@ export async function GET(req: Request, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("GET /api/admin/gdpr/export/[userId] error:", error);
+    logger.error("GET /api/admin/gdpr/export/[userId] error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -154,7 +146,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     }
     return NextResponse.json(
       { error: "Failed to export user data" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

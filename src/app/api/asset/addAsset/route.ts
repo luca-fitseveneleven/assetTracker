@@ -6,10 +6,13 @@ import { getOrganizationContext } from "@/lib/organization-context";
 import { createAssetSchema } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { checkAssetLimit } from "@/lib/tenant-limits";
+import { logger } from "@/lib/logger";
 
-const assetSchema = createAssetSchema.extend({
-  purchaseprice: z.number().nonnegative().nullable().optional(),
-}).strict();
+const assetSchema = createAssetSchema
+  .extend({
+    purchaseprice: z.number().nonnegative().nullable().optional(),
+  })
+  .strict();
 
 const normalizeDateInput = (value: unknown) => {
   if (value === null || value === undefined) return value;
@@ -32,13 +35,15 @@ const normalizeNumberInput = (value: unknown) => {
 // Create asset via POST /api/asset/addAsset
 export async function POST(req) {
   try {
-    await requirePermission('asset:create');
+    await requirePermission("asset:create");
 
     const limitCheck = await checkAssetLimit();
     if (!limitCheck.allowed) {
       return new Response(
-        JSON.stringify({ error: `Asset limit reached (${limitCheck.current}/${limitCheck.max}). Upgrade your plan to add more assets.` }),
-        { status: 403 }
+        JSON.stringify({
+          error: `Asset limit reached (${limitCheck.current}/${limitCheck.max}). Upgrade your plan to add more assets.`,
+        }),
+        { status: 403 },
       );
     }
 
@@ -53,12 +58,16 @@ export async function POST(req) {
     const validationResult = assetSchema.safeParse(normalized);
     if (!validationResult.success) {
       return new Response(
-        JSON.stringify({ error: "Validation failed", details: validationResult.error.issues }),
-        { status: 400 }
+        JSON.stringify({
+          error: "Validation failed",
+          details: validationResult.error.issues,
+        }),
+        { status: 400 },
       );
     }
 
-    const { assetname, assettag, serialnumber, ...rest } = validationResult.data;
+    const { assetname, assettag, serialnumber, ...rest } =
+      validationResult.data;
 
     // Get organization context for the creating admin
     const orgContext = await getOrganizationContext();
@@ -74,7 +83,8 @@ export async function POST(req) {
         purchaseprice: rest.purchaseprice ?? null,
         purchasedate: rest.purchasedate ? new Date(rest.purchasedate) : null,
         mobile: typeof rest.mobile === "boolean" ? rest.mobile : null,
-        requestable: typeof rest.requestable === "boolean" ? rest.requestable : null,
+        requestable:
+          typeof rest.requestable === "boolean" ? rest.requestable : null,
         assetcategorytypeid: rest.assetcategorytypeid ?? null,
         statustypeid: rest.statustypeid ?? null,
         supplierid: rest.supplierid ?? null,
@@ -85,16 +95,28 @@ export async function POST(req) {
       } as Prisma.assetUncheckedCreateInput,
     });
 
-    triggerWebhook('asset.created', { assetId: created.assetid, assetName: created.assetname, assetTag: created.assettag }, created.organizationId).catch(() => {});
+    triggerWebhook(
+      "asset.created",
+      {
+        assetId: created.assetid,
+        assetName: created.assetname,
+        assetTag: created.assettag,
+      },
+      created.organizationId,
+    ).catch(() => {});
 
     return new Response(JSON.stringify(created), { status: 201 });
   } catch (error) {
-    console.error("Error creating asset:", error);
+    logger.error("Error creating asset", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+      });
     }
     if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 403 });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 403,
+      });
     }
     return new Response(JSON.stringify({ error: "Error creating asset" }), {
       status: 500,

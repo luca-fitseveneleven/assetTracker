@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runScheduledWorkflows } from "@/lib/workflow-engine";
+import { logger } from "@/lib/logger";
 
 /**
  * Cron endpoint for running scheduled workflow checks.
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
     const results = await runScheduledWorkflows();
     return NextResponse.json({ success: true, results }, { status: 200 });
   } catch (error) {
-    console.error("Cron workflows error:", error);
+    logger.error("Cron workflows error", { error });
     return NextResponse.json(
       { error: "Failed to run workflows" },
       { status: 500 },

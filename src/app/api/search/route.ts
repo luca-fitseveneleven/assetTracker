@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
-import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
+import { logger } from "@/lib/logger";
 
 interface SearchResult {
   type: "asset" | "user" | "consumable";
@@ -28,12 +32,15 @@ export async function GET(req: Request) {
 
     // Search assets (max 3)
     const assets = await prisma.asset.findMany({
-      where: scopeToOrganization({
-        OR: [
-          { assetname: { contains: query, mode: "insensitive" } },
-          { assettag: { contains: query, mode: "insensitive" } },
-        ],
-      }, orgId),
+      where: scopeToOrganization(
+        {
+          OR: [
+            { assetname: { contains: query, mode: "insensitive" } },
+            { assettag: { contains: query, mode: "insensitive" } },
+          ],
+        },
+        orgId,
+      ),
       take: 3,
     });
 
@@ -49,13 +56,16 @@ export async function GET(req: Request) {
 
     // Search users (max 3)
     const users = await prisma.user.findMany({
-      where: scopeToOrganization({
-        OR: [
-          { firstname: { contains: query, mode: "insensitive" } },
-          { lastname: { contains: query, mode: "insensitive" } },
-          { email: { contains: query, mode: "insensitive" } },
-        ],
-      }, orgId),
+      where: scopeToOrganization(
+        {
+          OR: [
+            { firstname: { contains: query, mode: "insensitive" } },
+            { lastname: { contains: query, mode: "insensitive" } },
+            { email: { contains: query, mode: "insensitive" } },
+          ],
+        },
+        orgId,
+      ),
       take: 3,
     });
 
@@ -71,9 +81,12 @@ export async function GET(req: Request) {
 
     // Search consumables (max 2)
     const consumables = await prisma.consumable.findMany({
-      where: scopeToOrganization({
-        consumablename: { contains: query, mode: "insensitive" },
-      }, orgId),
+      where: scopeToOrganization(
+        {
+          consumablename: { contains: query, mode: "insensitive" },
+        },
+        orgId,
+      ),
       take: 2,
     });
 
@@ -93,7 +106,7 @@ export async function GET(req: Request) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("GET /api/search error:", error);
+    logger.error("GET /api/search error", { error });
     return NextResponse.json({ error: "Search failed" }, { status: 500 });
   }
 }

@@ -10,6 +10,7 @@ import {
   type ExportColumn,
   type ExportFormat,
 } from "@/lib/export";
+import { logger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
 // Column definitions per entity
@@ -73,7 +74,12 @@ const CONSUMABLE_COLUMNS: ExportColumn[] = [
 // Entity configuration
 // ---------------------------------------------------------------------------
 
-type EntityKey = "assets" | "users" | "licences" | "accessories" | "consumables";
+type EntityKey =
+  | "assets"
+  | "users"
+  | "licences"
+  | "accessories"
+  | "consumables";
 
 interface EntityConfig {
   columns: ExportColumn[];
@@ -197,7 +203,7 @@ export async function GET(req: NextRequest) {
       config.sheetName,
     );
   } catch (error) {
-    console.error("GET /api/export error:", error);
+    logger.error("GET /api/export error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

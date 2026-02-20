@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
-import { createLicenceCategoryTypeSchema, updateLicenceCategoryTypeSchema, uuidSchema } from "@/lib/validation";
+import {
+  createLicenceCategoryTypeSchema,
+  updateLicenceCategoryTypeSchema,
+  uuidSchema,
+} from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import {
   parsePaginationParams,
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
 const LICENCE_CATEGORY_SORT_FIELDS = ["licencecategorytypename"];
 
@@ -37,7 +42,12 @@ export async function GET(req) {
     // Search filter
     if (params.search) {
       where.OR = [
-        { licencecategorytypename: { contains: params.search, mode: "insensitive" } },
+        {
+          licencecategorytypename: {
+            contains: params.search,
+            mode: "insensitive",
+          },
+        },
       ];
     }
 
@@ -46,12 +56,11 @@ export async function GET(req) {
       prisma.licenceCategoryType.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(items, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(items, total, params), {
+      status: 200,
+    });
   } catch (e) {
-    console.error("GET /api/licenceCategory error:", e);
+    logger.error("GET /api/licenceCategory error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -59,7 +68,7 @@ export async function GET(req) {
 
     return NextResponse.json(
       { error: "Failed to fetch licence categories" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -80,7 +89,7 @@ export async function POST(req) {
           error: "Validation failed",
           details: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -103,7 +112,7 @@ export async function POST(req) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
-    console.error("POST /api/licenceCategory error:", e);
+    logger.error("POST /api/licenceCategory error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -114,7 +123,7 @@ export async function POST(req) {
 
     return NextResponse.json(
       { error: "Failed to create licence category" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -132,7 +141,7 @@ export async function PUT(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid licence category ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -144,7 +153,7 @@ export async function PUT(req) {
           error: "Validation failed",
           details: dataValidation.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -168,7 +177,7 @@ export async function PUT(req) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
-    console.error("PUT /api/licenceCategory error:", e);
+    logger.error("PUT /api/licenceCategory error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -179,13 +188,13 @@ export async function PUT(req) {
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Licence category not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json(
       { error: "Failed to update licence category" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

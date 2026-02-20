@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -38,10 +39,7 @@ function advanceDate(date: Date, frequency: string): Date {
 }
 
 // POST: Complete a maintenance schedule entry
-export async function POST(
-  req: NextRequest,
-  { params }: RouteParams
-) {
+export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const user = await requireApiAuth();
 
@@ -54,7 +52,7 @@ export async function POST(
     if (!schedule) {
       return NextResponse.json(
         { error: "Maintenance schedule not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -62,7 +60,10 @@ export async function POST(
     const { notes, actualCost } = body;
 
     const now = new Date();
-    const newNextDueDate = advanceDate(schedule.nextDueDate, schedule.frequency);
+    const newNextDueDate = advanceDate(
+      schedule.nextDueDate,
+      schedule.frequency,
+    );
 
     // Create maintenance log and update schedule in a transaction
     const [log, updatedSchedule] = await prisma.$transaction([
@@ -103,16 +104,16 @@ export async function POST(
         log,
         schedule: updatedSchedule,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("Error completing maintenance:", error);
+    logger.error("Error completing maintenance", { error });
     return NextResponse.json(
       { error: "Failed to complete maintenance" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

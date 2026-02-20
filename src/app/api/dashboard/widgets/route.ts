@@ -5,6 +5,7 @@ import {
   WIDGET_DEFINITIONS,
   DEFAULT_WIDGETS,
 } from "@/components/dashboard/WidgetRegistry";
+import { logger } from "@/lib/logger";
 
 // GET /api/dashboard/widgets — return user's widgets ordered by position
 export async function GET() {
@@ -36,7 +37,7 @@ export async function GET() {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("GET /api/dashboard/widgets error:", error);
+    logger.error("GET /api/dashboard/widgets error", { error });
     return NextResponse.json(
       { error: "Failed to fetch dashboard widgets" },
       { status: 500 },
@@ -121,7 +122,7 @@ export async function PUT(req: NextRequest) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("PUT /api/dashboard/widgets error:", error);
+    logger.error("PUT /api/dashboard/widgets error", { error });
     return NextResponse.json(
       { error: "Failed to update dashboard widgets" },
       { status: 500 },
@@ -203,7 +204,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("POST /api/dashboard/widgets error:", error);
+    logger.error("POST /api/dashboard/widgets error", { error });
     return NextResponse.json(
       { error: "Failed to add dashboard widget" },
       { status: 500 },
@@ -248,7 +249,7 @@ export async function DELETE(req: NextRequest) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("DELETE /api/dashboard/widgets error:", error);
+    logger.error("DELETE /api/dashboard/widgets error", { error });
     return NextResponse.json(
       { error: "Failed to delete dashboard widget" },
       { status: 500 },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -313,7 +314,7 @@ export async function GET() {
     if (message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("Advanced reports error:", error);
+    logger.error("Advanced reports error", { error });
     return NextResponse.json(
       { error: "Failed to generate advanced reports" },
       { status: 500 },

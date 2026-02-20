@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
@@ -23,8 +24,11 @@ export async function GET() {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("GET /api/admin/settings/integrations error:", error);
-    return NextResponse.json({ error: "Failed to get integration settings" }, { status: 500 });
+    logger.error("GET /api/admin/settings/integrations error", { error });
+    return NextResponse.json(
+      { error: "Failed to get integration settings" },
+      { status: 500 },
+    );
   }
 }
 
@@ -39,7 +43,10 @@ export async function PUT(req: Request) {
     const { settings } = body;
 
     if (!Array.isArray(settings)) {
-      return NextResponse.json({ error: "settings array is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "settings array is required" },
+        { status: 400 },
+      );
     }
 
     await prisma.$transaction(
@@ -58,14 +65,17 @@ export async function PUT(req: Request) {
             isEncrypted: false,
             updatedAt: new Date(),
           },
-        })
-      )
+        }),
+      ),
     );
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("PUT /api/admin/settings/integrations error:", error);
-    return NextResponse.json({ error: "Failed to save integration settings" }, { status: 500 });
+    logger.error("PUT /api/admin/settings/integrations error", { error });
+    return NextResponse.json(
+      { error: "Failed to save integration settings" },
+      { status: 500 },
+    );
   }
 }
 

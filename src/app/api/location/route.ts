@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
-import { createLocationSchema, updateLocationSchema, uuidSchema } from "@/lib/validation";
+import {
+  createLocationSchema,
+  updateLocationSchema,
+  uuidSchema,
+} from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import {
   parsePaginationParams,
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
 const LOCATION_SORT_FIELDS = ["locationname", "creation_date"];
 
@@ -46,18 +51,20 @@ export async function GET(req) {
       prisma.location.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(items, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(items, total, params), {
+      status: 200,
+    });
   } catch (e) {
-    console.error("GET /api/location error:", e);
+    logger.error("GET /api/location error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return NextResponse.json({ error: "Failed to fetch locations" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch locations" },
+      { status: 500 },
+    );
   }
 }
 
@@ -77,11 +84,12 @@ export async function POST(req) {
           error: "Validation failed",
           details: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { locationname, street, housenumber, city, country } = validationResult.data;
+    const { locationname, street, housenumber, city, country } =
+      validationResult.data;
 
     const created = await prisma.location.create({
       data: {
@@ -105,7 +113,7 @@ export async function POST(req) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
-    console.error("POST /api/location error:", e);
+    logger.error("POST /api/location error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -114,7 +122,10 @@ export async function POST(req) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
 
-    return NextResponse.json({ error: "Failed to create location" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create location" },
+      { status: 500 },
+    );
   }
 }
 
@@ -131,7 +142,7 @@ export async function PUT(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid location ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -143,11 +154,12 @@ export async function PUT(req) {
           error: "Validation failed",
           details: dataValidation.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { locationid, locationname, street, housenumber, city, country } = body;
+    const { locationid, locationname, street, housenumber, city, country } =
+      body;
 
     const updated = await prisma.location.update({
       where: { locationid },
@@ -172,7 +184,7 @@ export async function PUT(req) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
-    console.error("PUT /api/location error:", e);
+    logger.error("PUT /api/location error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -183,11 +195,14 @@ export async function PUT(req) {
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Location not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    return NextResponse.json({ error: "Failed to update location" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update location" },
+      { status: 500 },
+    );
   }
 }
 
@@ -205,7 +220,7 @@ export async function DELETE(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid location ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -218,7 +233,7 @@ export async function DELETE(req) {
     if (!location) {
       return NextResponse.json(
         { error: "Location not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -238,10 +253,10 @@ export async function DELETE(req) {
 
     return NextResponse.json(
       { message: "Location deleted successfully" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (e) {
-    console.error("DELETE /api/location error:", e);
+    logger.error("DELETE /api/location error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -252,13 +267,13 @@ export async function DELETE(req) {
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Location not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json(
       { error: "Failed to delete location" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

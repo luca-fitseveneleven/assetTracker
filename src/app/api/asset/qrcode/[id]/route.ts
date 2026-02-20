@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/api-auth";
 import QRCode from "qrcode";
+import { logger } from "@/lib/logger";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireApiAuth();
@@ -12,8 +13,7 @@ export async function GET(
     const { id: assetId } = await params;
     const format = req.nextUrl.searchParams.get("format") || "png";
 
-    const baseUrl =
-      process.env.NEXTAUTH_URL || "https://localhost:3000";
+    const baseUrl = process.env.NEXTAUTH_URL || "https://localhost:3000";
     const qrData = `${baseUrl}/assets/${assetId}`;
 
     if (format === "svg") {
@@ -51,10 +51,10 @@ export async function GET(
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("GET /api/asset/qrcode/[id] error:", error);
+    logger.error("GET /api/asset/qrcode/[id] error", { error });
     return NextResponse.json(
       { error: "Failed to generate QR code" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

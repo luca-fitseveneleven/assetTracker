@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
-import { createSupplierSchema, updateSupplierSchema, uuidSchema } from "@/lib/validation";
+import {
+  createSupplierSchema,
+  updateSupplierSchema,
+  uuidSchema,
+} from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import {
   parsePaginationParams,
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
 const SUPPLIER_SORT_FIELDS = ["suppliername", "email", "creation_date"];
 
@@ -49,18 +54,20 @@ export async function GET(req) {
       prisma.supplier.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(items, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(items, total, params), {
+      status: 200,
+    });
   } catch (e) {
-    console.error("GET /api/supplier error:", e);
+    logger.error("GET /api/supplier error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return NextResponse.json({ error: "Failed to fetch suppliers" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch suppliers" },
+      { status: 500 },
+    );
   }
 }
 
@@ -80,11 +87,18 @@ export async function POST(req) {
           error: "Validation failed",
           details: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { suppliername, firstname, lastname, salutation, email, phonenumber } = validationResult.data;
+    const {
+      suppliername,
+      firstname,
+      lastname,
+      salutation,
+      email,
+      phonenumber,
+    } = validationResult.data;
 
     const created = await prisma.supplier.create({
       data: {
@@ -109,7 +123,7 @@ export async function POST(req) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
-    console.error("POST /api/supplier error:", e);
+    logger.error("POST /api/supplier error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -118,7 +132,10 @@ export async function POST(req) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
 
-    return NextResponse.json({ error: "Failed to create supplier" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create supplier" },
+      { status: 500 },
+    );
   }
 }
 
@@ -135,7 +152,7 @@ export async function PUT(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid supplier ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -147,11 +164,19 @@ export async function PUT(req) {
           error: "Validation failed",
           details: dataValidation.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { supplierid, suppliername, firstname, lastname, salutation, email, phonenumber } = body;
+    const {
+      supplierid,
+      suppliername,
+      firstname,
+      lastname,
+      salutation,
+      email,
+      phonenumber,
+    } = body;
 
     const updated = await prisma.supplier.update({
       where: { supplierid },
@@ -177,7 +202,7 @@ export async function PUT(req) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
-    console.error("PUT /api/supplier error:", e);
+    logger.error("PUT /api/supplier error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -188,11 +213,14 @@ export async function PUT(req) {
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Supplier not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    return NextResponse.json({ error: "Failed to update supplier" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update supplier" },
+      { status: 500 },
+    );
   }
 }
 
@@ -210,7 +238,7 @@ export async function DELETE(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid supplier ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -223,7 +251,7 @@ export async function DELETE(req) {
     if (!supplier) {
       return NextResponse.json(
         { error: "Supplier not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -243,10 +271,10 @@ export async function DELETE(req) {
 
     return NextResponse.json(
       { message: "Supplier deleted successfully" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (e) {
-    console.error("DELETE /api/supplier error:", e);
+    logger.error("DELETE /api/supplier error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -257,13 +285,13 @@ export async function DELETE(req) {
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Supplier not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json(
       { error: "Failed to delete supplier" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

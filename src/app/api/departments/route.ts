@@ -1,44 +1,48 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { requirePermission } from '@/lib/api-auth';
-import { departmentSchema } from '@/lib/validation-organization';
-import { createAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
-import { getOrganizationContext, scopeToOrganization } from '@/lib/organization-context';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requirePermission } from "@/lib/api-auth";
+import { departmentSchema } from "@/lib/validation-organization";
+import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
+import { z } from "zod";
 import {
   parsePaginationParams,
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
 const DEPARTMENT_SORT_FIELDS = ["name", "createdAt"];
 
 export async function GET(req: NextRequest) {
   try {
-    await requirePermission('dept:view');
+    await requirePermission("dept:view");
 
     const orgContext = await getOrganizationContext();
     const orgId = orgContext?.organization?.id;
 
     const searchParams = req.nextUrl.searchParams;
-    const organizationId = searchParams.get('organizationId');
+    const organizationId = searchParams.get("organizationId");
 
     // Use the query param if provided, otherwise scope to user's org
     const where: Record<string, unknown> = scopeToOrganization(
       organizationId ? { organizationId } : {},
-      orgId
+      orgId,
     );
 
     const include = {
       organization: {
-        select: { id: true, name: true, slug: true }
+        select: { id: true, name: true, slug: true },
       },
       parent: {
-        select: { id: true, name: true }
+        select: { id: true, name: true },
       },
       _count: {
-        select: { children: true, users: true }
-      }
+        select: { children: true, users: true },
+      },
     };
 
     // If no `page` param, return all results for backward compatibility
@@ -46,7 +50,7 @@ export async function GET(req: NextRequest) {
       const departments = await prisma.department.findMany({
         where,
         include,
-        orderBy: { name: 'asc' }
+        orderBy: { name: "asc" },
       });
       return NextResponse.json(departments);
     }
@@ -57,9 +61,7 @@ export async function GET(req: NextRequest) {
 
     // Search filter
     if (params.search) {
-      where.OR = [
-        { name: { contains: params.search, mode: "insensitive" } },
-      ];
+      where.OR = [{ name: { contains: params.search, mode: "insensitive" } }];
     }
 
     const [departments, total] = await Promise.all([
@@ -72,20 +74,23 @@ export async function GET(req: NextRequest) {
       { status: 200 },
     );
   } catch (error) {
-    console.error('Error fetching departments:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    logger.error("Error fetching departments", { error });
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (error instanceof Error && error.message.startsWith('Forbidden')) {
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
-    return NextResponse.json({ error: 'Failed to fetch departments' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch departments" },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const authUser = await requirePermission('dept:manage');
+    const authUser = await requirePermission("dept:manage");
 
     const orgContext = await getOrganizationContext();
     const orgId = orgContext?.organization?.id;
@@ -95,29 +100,38 @@ export async function POST(req: NextRequest) {
 
     // If user has an org, ensure they can only create departments in their own org
     if (orgId && validated.organizationId !== orgId) {
-      return NextResponse.json({ error: 'Cannot create department in another organization' }, { status: 403 });
+      return NextResponse.json(
+        { error: "Cannot create department in another organization" },
+        { status: 403 },
+      );
     }
 
     // Verify organization exists
     const organization = await prisma.organization.findUnique({
-      where: { id: validated.organizationId }
+      where: { id: validated.organizationId },
     });
 
     if (!organization) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 },
+      );
     }
 
     // If parent is specified, verify it exists and belongs to same organization
     if (validated.parentId) {
       const parent = await prisma.department.findFirst({
-        where: { 
+        where: {
           id: validated.parentId,
-          organizationId: validated.organizationId
-        }
+          organizationId: validated.organizationId,
+        },
       });
 
       if (!parent) {
-        return NextResponse.json({ error: 'Parent department not found in this organization' }, { status: 404 });
+        return NextResponse.json(
+          { error: "Parent department not found in this organization" },
+          { status: 404 },
+        );
       }
     }
 
@@ -130,33 +144,39 @@ export async function POST(req: NextRequest) {
       },
       include: {
         organization: {
-          select: { id: true, name: true }
-        }
-      }
+          select: { id: true, name: true },
+        },
+      },
     });
 
     await createAuditLog({
       userId: authUser.id!,
       action: AUDIT_ACTIONS.CREATE,
-      entity: 'Department',
+      entity: "Department",
       entityId: department.id,
-      details: { name: department.name, organizationId: department.organizationId },
+      details: {
+        name: department.name,
+        organizationId: department.organizationId,
+      },
     });
 
     return NextResponse.json(department, { status: 201 });
   } catch (error) {
-    console.error('Error creating department:', error);
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    logger.error("Error creating department", { error });
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (error instanceof Error && error.message.startsWith('Forbidden')) {
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Failed to create department' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create department" },
+      { status: 500 },
+    );
   }
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";

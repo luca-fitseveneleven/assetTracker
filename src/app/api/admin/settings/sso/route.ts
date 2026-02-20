@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 /**
  * GET /api/admin/settings/sso
@@ -33,10 +34,10 @@ export async function GET() {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("GET /api/admin/settings/sso error:", error);
+    logger.error("GET /api/admin/settings/sso error", { error });
     return NextResponse.json(
       { error: "Failed to get SSO settings" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -58,7 +59,7 @@ export async function PUT(req: Request) {
     if (!Array.isArray(settings)) {
       return NextResponse.json(
         { error: "settings array is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -89,15 +90,15 @@ export async function PUT(req: Request) {
             updatedAt: new Date(),
           },
         });
-      })
+      }),
     );
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("PUT /api/admin/settings/sso error:", error);
+    logger.error("PUT /api/admin/settings/sso error", { error });
     return NextResponse.json(
       { error: "Failed to save SSO settings" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

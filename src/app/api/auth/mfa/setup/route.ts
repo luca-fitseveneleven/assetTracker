@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
 import { generateMfaSecret, generateMfaUri } from "@/lib/mfa";
 import { encrypt } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 export async function POST() {
   try {
@@ -26,7 +27,7 @@ export async function POST() {
     if (user.mfaEnabled) {
       return NextResponse.json(
         { error: "MFA is already enabled" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -53,11 +54,8 @@ export async function POST() {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("POST /api/auth/mfa/setup error:", error);
-    return NextResponse.json(
-      { error: "Failed to setup MFA" },
-      { status: 500 }
-    );
+    logger.error("POST /api/auth/mfa/setup error", { error });
+    return NextResponse.json({ error: "Failed to setup MFA" }, { status: 500 });
   }
 }
 

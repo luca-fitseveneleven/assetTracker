@@ -1,5 +1,6 @@
 import prisma from "../../../../lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 export async function DELETE(req) {
   try {
@@ -11,7 +12,7 @@ export async function DELETE(req) {
         JSON.stringify({ error: "Asset ID and User ID are required" }),
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -22,7 +23,7 @@ export async function DELETE(req) {
     if (!availableStatus) {
       return new Response(
         JSON.stringify({ error: "Status 'Available' not found in statusType" }),
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -49,15 +50,19 @@ export async function DELETE(req) {
       }),
       {
         status: 200,
-      }
+      },
     );
   } catch (error) {
-    console.error("Error unassigning asset:", error);
+    logger.error("Error unassigning asset", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+      });
     }
     if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 403 });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 403,
+      });
     }
     return new Response(JSON.stringify({ error: "Error unassigning asset" }), {
       status: 500,

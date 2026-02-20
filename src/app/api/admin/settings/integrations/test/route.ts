@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
@@ -12,7 +13,10 @@ export async function POST(req: Request) {
     const { type, webhookUrl, channel } = body;
 
     if (!webhookUrl) {
-      return NextResponse.json({ error: "Webhook URL is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Webhook URL is required" },
+        { status: 400 },
+      );
     }
 
     let payload: unknown;
@@ -40,13 +44,17 @@ export async function POST(req: Request) {
         sections: [
           {
             activityTitle: "Asset Tracker - Test Notification",
-            activitySubtitle: "This is a test message to verify your Microsoft Teams integration is working correctly.",
+            activitySubtitle:
+              "This is a test message to verify your Microsoft Teams integration is working correctly.",
             markdown: true,
           },
         ],
       };
     } else {
-      return NextResponse.json({ error: "Invalid integration type" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid integration type" },
+        { status: 400 },
+      );
     }
 
     const response = await fetch(webhookUrl, {
@@ -59,14 +67,17 @@ export async function POST(req: Request) {
       const errorText = await response.text().catch(() => "Unknown error");
       return NextResponse.json(
         { error: `Webhook returned ${response.status}: ${errorText}` },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("POST /api/admin/settings/integrations/test error:", error);
-    return NextResponse.json({ error: "Failed to send test notification" }, { status: 500 });
+    logger.error("POST /api/admin/settings/integrations/test error", { error });
+    return NextResponse.json(
+      { error: "Failed to send test notification" },
+      { status: 500 },
+    );
   }
 }
 

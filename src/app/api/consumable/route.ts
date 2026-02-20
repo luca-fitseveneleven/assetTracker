@@ -2,14 +2,22 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requirePermission } from "@/lib/api-auth";
-import { createConsumableSchema, updateConsumableSchema, uuidSchema } from "@/lib/validation";
+import {
+  createConsumableSchema,
+  updateConsumableSchema,
+  uuidSchema,
+} from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
-import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 import {
   parsePaginationParams,
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
 const CONSUMABLE_SORT_FIELDS = ["consumablename", "quantity", "creation_date"];
 
@@ -18,7 +26,7 @@ const CONSUMABLE_SORT_FIELDS = ["consumablename", "quantity", "creation_date"];
 export async function GET(req) {
   try {
     // Require consumable:view permission to view consumables
-    await requirePermission('consumable:view');
+    await requirePermission("consumable:view");
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
@@ -50,12 +58,11 @@ export async function GET(req) {
       prisma.consumable.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(items, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(items, total, params), {
+      status: 200,
+    });
   } catch (e) {
-    console.error("GET /api/consumable error:", e);
+    logger.error("GET /api/consumable error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -64,7 +71,10 @@ export async function GET(req) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
 
-    return NextResponse.json({ error: "Failed to fetch consumables" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch consumables" },
+      { status: 500 },
+    );
   }
 }
 
@@ -72,7 +82,7 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     // Require consumable:create permission to create consumables
-    const admin = await requirePermission('consumable:create');
+    const admin = await requirePermission("consumable:create");
 
     const body = await req.json();
 
@@ -84,7 +94,7 @@ export async function POST(req) {
           error: "Validation failed",
           details: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -124,7 +134,7 @@ export async function POST(req) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
-    console.error("POST /api/consumable error:", e);
+    logger.error("POST /api/consumable error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -133,7 +143,10 @@ export async function POST(req) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
 
-    return NextResponse.json({ error: "Failed to create consumable" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create consumable" },
+      { status: 500 },
+    );
   }
 }
 
@@ -141,7 +154,7 @@ export async function POST(req) {
 export async function PUT(req) {
   try {
     // Require consumable:edit permission to update consumables
-    const admin = await requirePermission('consumable:edit');
+    const admin = await requirePermission("consumable:edit");
 
     const body = await req.json();
 
@@ -150,7 +163,7 @@ export async function PUT(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid consumable ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -162,7 +175,7 @@ export async function PUT(req) {
           error: "Validation failed",
           details: dataValidation.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -182,11 +195,17 @@ export async function PUT(req) {
       where: { consumableid },
       data: {
         ...(consumablename !== undefined && { consumablename }),
-        ...(consumablecategorytypeid !== undefined && { consumablecategorytypeid }),
+        ...(consumablecategorytypeid !== undefined && {
+          consumablecategorytypeid,
+        }),
         ...(manufacturerid !== undefined && { manufacturerid }),
         ...(supplierid !== undefined && { supplierid }),
-        ...(purchaseprice !== undefined && { purchaseprice: purchaseprice ?? null }),
-        ...(purchasedate !== undefined && { purchasedate: purchasedate ? new Date(purchasedate) : null }),
+        ...(purchaseprice !== undefined && {
+          purchaseprice: purchaseprice ?? null,
+        }),
+        ...(purchasedate !== undefined && {
+          purchasedate: purchasedate ? new Date(purchasedate) : null,
+        }),
         ...(minQuantity !== undefined && { minQuantity }),
         ...(quantity !== undefined && { quantity }),
         change_date: new Date(),
@@ -204,7 +223,7 @@ export async function PUT(req) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
-    console.error("PUT /api/consumable error:", e);
+    logger.error("PUT /api/consumable error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -215,11 +234,14 @@ export async function PUT(req) {
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Consumable not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    return NextResponse.json({ error: "Failed to update consumable" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update consumable" },
+      { status: 500 },
+    );
   }
 }
 
@@ -227,7 +249,7 @@ export async function PUT(req) {
 export async function DELETE(req) {
   try {
     // Require consumable:delete permission to delete consumables
-    const admin = await requirePermission('consumable:delete');
+    const admin = await requirePermission("consumable:delete");
 
     const body = await req.json();
     const { consumableid } = body;
@@ -237,7 +259,7 @@ export async function DELETE(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid consumable ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -250,7 +272,7 @@ export async function DELETE(req) {
     if (!consumable) {
       return NextResponse.json(
         { error: "Consumable not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -270,10 +292,10 @@ export async function DELETE(req) {
 
     return NextResponse.json(
       { message: "Consumable deleted successfully" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (e) {
-    console.error("DELETE /api/consumable error:", e);
+    logger.error("DELETE /api/consumable error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -284,13 +306,13 @@ export async function DELETE(req) {
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Consumable not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json(
       { error: "Failed to delete consumable" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -298,14 +320,14 @@ export async function DELETE(req) {
 // PATCH /api/consumable (restock)
 export async function PATCH(req) {
   try {
-    const admin = await requirePermission('consumable:edit');
+    const admin = await requirePermission("consumable:edit");
     const body = await req.json();
     const { consumableid, addQuantity } = body;
 
     if (!consumableid || typeof addQuantity !== "number" || addQuantity <= 0) {
       return NextResponse.json(
         { error: "consumableid and positive addQuantity required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -319,12 +341,15 @@ export async function PATCH(req) {
       action: AUDIT_ACTIONS.UPDATE,
       entity: AUDIT_ENTITIES.CONSUMABLE,
       entityId: updated.consumableid,
-      details: { consumablename: updated.consumablename, restockQuantity: addQuantity },
+      details: {
+        consumablename: updated.consumablename,
+        restockQuantity: addQuantity,
+      },
     });
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
-    console.error("PATCH /api/consumable error:", e);
+    logger.error("PATCH /api/consumable error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -333,10 +358,16 @@ export async function PATCH(req) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
     if (e.code === "P2025") {
-      return NextResponse.json({ error: "Consumable not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Consumable not found" },
+        { status: 404 },
+      );
     }
 
-    return NextResponse.json({ error: "Failed to restock consumable" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to restock consumable" },
+      { status: 500 },
+    );
   }
 }
 

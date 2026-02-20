@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { createFreshdeskClient } from "@/lib/freshdesk";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -23,10 +24,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: "Invalid ticket ID" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid ticket ID" }, { status: 400 });
     }
 
     // Get Freshdesk configuration from database
@@ -41,8 +39,11 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     if (!domainSetting?.settingValue || !apiKeySetting?.settingValue) {
       return NextResponse.json(
-        { error: "Freshdesk is not configured. Please configure it in Admin Settings." },
-        { status: 400 }
+        {
+          error:
+            "Freshdesk is not configured. Please configure it in Admin Settings.",
+        },
+        { status: 400 },
       );
     }
 
@@ -56,16 +57,16 @@ export async function GET(req: Request, { params }: RouteParams) {
     if (!result.success) {
       return NextResponse.json(
         { error: result.error || "Failed to fetch ticket" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     return NextResponse.json({ ticket: result.data });
   } catch (error) {
-    console.error("GET /api/tickets/[id] error:", error);
+    logger.error("GET /api/tickets/[id] error", { error });
     return NextResponse.json(
       { error: "Failed to fetch ticket" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -73,10 +74,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 // PATCH /api/tickets/[id]
 // Update a local ticket (status, priority, assignedTo)
 // Only admins can update tickets
-export async function PATCH(
-  req: Request,
-  { params }: RouteParams
-) {
+export async function PATCH(req: Request, { params }: RouteParams) {
   try {
     const user = await requireApiAdmin();
     const { id } = await params;
@@ -127,16 +125,22 @@ export async function PATCH(
 
     return NextResponse.json(ticket, { status: 200 });
   } catch (error) {
-    console.error("PATCH /api/tickets/[id] error:", error);
+    logger.error("PATCH /api/tickets/[id] error", { error });
     if (error instanceof Error) {
       if (error.message === "Unauthorized") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       if (error.message.includes("Forbidden")) {
-        return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+        return NextResponse.json(
+          { error: "Forbidden: Admin access required" },
+          { status: 403 },
+        );
       }
     }
-    return NextResponse.json({ error: "Failed to update ticket" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update ticket" },
+      { status: 500 },
+    );
   }
 }
 

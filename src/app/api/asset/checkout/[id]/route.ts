@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 // GET /api/asset/checkout/[id]
 export async function GET(
@@ -34,7 +35,7 @@ export async function GET(
     return NextResponse.json(checkout, { status: 200 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("GET /api/asset/checkout/[id] error:", message);
+    logger.error("GET /api/asset/checkout/[id] error", { error: message });
     if (message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -80,7 +81,7 @@ export async function PUT(
     return NextResponse.json(updated, { status: 200 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("PUT /api/asset/checkout/[id] error:", message);
+    logger.error("PUT /api/asset/checkout/[id] error", { error: message });
     if (message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

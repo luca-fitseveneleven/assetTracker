@@ -8,18 +8,21 @@ import { createUserSchema } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { checkUserLimit } from "@/lib/tenant-limits";
+import { logger } from "@/lib/logger";
 
 // POST /api/user/addUser
 export async function POST(request) {
   try {
     // Require user:create permission
-    const admin = await requirePermission('user:create');
+    const admin = await requirePermission("user:create");
 
     const limitCheck = await checkUserLimit();
     if (!limitCheck.allowed) {
       return NextResponse.json(
-        { error: `User limit reached (${limitCheck.current}/${limitCheck.max}). Upgrade your plan to add more users.` },
-        { status: 403 }
+        {
+          error: `User limit reached (${limitCheck.current}/${limitCheck.max}). Upgrade your plan to add more users.`,
+        },
+        { status: 403 },
       );
     }
 
@@ -33,7 +36,7 @@ export async function POST(request) {
           error: "Validation failed",
           details: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -83,14 +86,18 @@ export async function POST(request) {
       },
     });
 
-    triggerWebhook('user.created', { userId: created.userid, email: created.email }, created.organizationId).catch(() => {});
+    triggerWebhook(
+      "user.created",
+      { userId: created.userid, email: created.email },
+      created.organizationId,
+    ).catch(() => {});
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = created;
 
     return NextResponse.json(userWithoutPassword, { status: 201 });
   } catch (error) {
-    console.error("POST /api/user/addUser error:", error);
+    logger.error("POST /api/user/addUser error", { error });
 
     // Handle specific error types
     if (error.message === "Unauthorized") {
@@ -106,14 +113,13 @@ export async function POST(request) {
         {
           error: "A user with this username or email already exists",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     return NextResponse.json(
       { error: "Failed to create user" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-

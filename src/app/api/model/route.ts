@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
-import { createModelSchema, updateModelSchema, uuidSchema } from "@/lib/validation";
+import {
+  createModelSchema,
+  updateModelSchema,
+  uuidSchema,
+} from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import {
   parsePaginationParams,
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
 const MODEL_SORT_FIELDS = ["modelname", "modelnumber", "creation_date"];
 
@@ -47,12 +52,11 @@ export async function GET(req) {
       prisma.model.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(items, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(items, total, params), {
+      status: 200,
+    });
   } catch (e) {
-    console.error("GET /api/model error:", e);
+    logger.error("GET /api/model error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -60,7 +64,7 @@ export async function GET(req) {
 
     return NextResponse.json(
       { error: "Failed to fetch models" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -81,7 +85,7 @@ export async function POST(req) {
           error: "Validation failed",
           details: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -106,7 +110,7 @@ export async function POST(req) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
-    console.error("POST /api/model error:", e);
+    logger.error("POST /api/model error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -117,7 +121,7 @@ export async function POST(req) {
 
     return NextResponse.json(
       { error: "Failed to create model" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -133,10 +137,7 @@ export async function PUT(req) {
     // Validate model ID
     const idValidation = uuidSchema.safeParse(body.modelid);
     if (!idValidation.success) {
-      return NextResponse.json(
-        { error: "Invalid model ID" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid model ID" }, { status: 400 });
     }
 
     // Validate update data
@@ -147,7 +148,7 @@ export async function PUT(req) {
           error: "Validation failed",
           details: dataValidation.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -173,7 +174,7 @@ export async function PUT(req) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
-    console.error("PUT /api/model error:", e);
+    logger.error("PUT /api/model error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -182,15 +183,12 @@ export async function PUT(req) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
     if (e.code === "P2025") {
-      return NextResponse.json(
-        { error: "Model not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Model not found" }, { status: 404 });
     }
 
     return NextResponse.json(
       { error: "Failed to update model" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -4,6 +4,7 @@ import { requireApiAuth } from "@/lib/api-auth";
 import { verifyMfaToken, generateBackupCodes } from "@/lib/mfa";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { decrypt, encryptArray } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
@@ -16,10 +17,7 @@ export async function POST(req: Request) {
     const { token } = await req.json();
 
     if (!token || typeof token !== "string") {
-      return NextResponse.json(
-        { error: "Token is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Token is required" }, { status: 400 });
     }
 
     // Get user's pending MFA secret
@@ -35,14 +33,16 @@ export async function POST(req: Request) {
     if (user.mfaEnabled) {
       return NextResponse.json(
         { error: "MFA is already enabled" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!user.mfaSecret) {
       return NextResponse.json(
-        { error: "MFA setup has not been initiated. Please start setup first." },
-        { status: 400 }
+        {
+          error: "MFA setup has not been initiated. Please start setup first.",
+        },
+        { status: 400 },
       );
     }
 
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     if (!isValid) {
       return NextResponse.json(
         { error: "Invalid verification code" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -86,10 +86,10 @@ export async function POST(req: Request) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("POST /api/auth/mfa/verify error:", error);
+    logger.error("POST /api/auth/mfa/verify error", { error });
     return NextResponse.json(
       { error: "Failed to verify MFA" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

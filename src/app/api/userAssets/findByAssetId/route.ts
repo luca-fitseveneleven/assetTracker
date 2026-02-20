@@ -1,5 +1,6 @@
 import prisma from "../../../../lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 // GET /api/userAssets/findByAssetId?assetId=<id>
 export async function GET(req) {
@@ -29,9 +30,11 @@ export async function GET(req) {
       status: 200,
     });
   } catch (error) {
-    console.error("Error finding UserAsset:", error);
+    logger.error("Error finding UserAsset", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+      });
     }
     return new Response(JSON.stringify({ error: "Error finding UserAsset" }), {
       status: 500,

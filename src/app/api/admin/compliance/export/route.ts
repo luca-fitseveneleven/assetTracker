@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getGDPRSettings } from "@/lib/gdpr-settings";
+import { logger } from "@/lib/logger";
 
 /**
  * GET /api/admin/compliance/export
@@ -118,7 +119,8 @@ export async function GET() {
         totalAccessories,
         totalLicences,
         totalConsumables,
-        grandTotal: totalAssets + totalAccessories + totalLicences + totalConsumables,
+        grandTotal:
+          totalAssets + totalAccessories + totalLicences + totalConsumables,
       },
       dataRetention: {
         gdprConfigured: gdprSettings.updatedAt !== null,
@@ -141,7 +143,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("GET /api/admin/compliance/export error:", error);
+    logger.error("GET /api/admin/compliance/export error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -150,7 +152,7 @@ export async function GET() {
     }
     return NextResponse.json(
       { error: "Failed to generate compliance report" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

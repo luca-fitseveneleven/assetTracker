@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { createFreshdeskClient } from "@/lib/freshdesk";
 import { decrypt } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 /**
  * POST /api/admin/settings/freshdesk/test
@@ -23,13 +24,15 @@ export async function POST(req: Request) {
       const storedApiKey = await prisma.system_settings.findUnique({
         where: { settingKey: "freshdesk_api_key" },
       });
-      apiKey = storedApiKey?.settingValue ? decrypt(storedApiKey.settingValue) : undefined;
+      apiKey = storedApiKey?.settingValue
+        ? decrypt(storedApiKey.settingValue)
+        : undefined;
     }
 
     if (!domain || !apiKey) {
       return NextResponse.json(
         { error: "Freshdesk domain and API key are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -37,18 +40,29 @@ export async function POST(req: Request) {
     const isConnected = await client.testConnection();
 
     if (isConnected) {
-      return NextResponse.json({ success: true, message: "Connection successful" });
+      return NextResponse.json({
+        success: true,
+        message: "Connection successful",
+      });
     } else {
       return NextResponse.json(
-        { success: false, error: "Failed to connect to Freshdesk. Please check your credentials." },
-        { status: 400 }
+        {
+          success: false,
+          error:
+            "Failed to connect to Freshdesk. Please check your credentials.",
+        },
+        { status: 400 },
       );
     }
   } catch (error) {
-    console.error("POST /api/admin/settings/freshdesk/test error:", error);
+    logger.error("POST /api/admin/settings/freshdesk/test error", { error });
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Connection test failed" },
-      { status: 500 }
+      {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Connection test failed",
+      },
+      { status: 500 },
     );
   }
 }

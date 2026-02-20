@@ -1,20 +1,32 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
-import { sendEmail, queueEmail, emailTemplates, renderTemplate } from "@/lib/email";
+import {
+  sendEmail,
+  queueEmail,
+  emailTemplates,
+  renderTemplate,
+} from "@/lib/email";
 import { checkRateLimit, rateLimiters } from "@/lib/rate-limit";
 import { headers } from "next/headers";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
     const headersList = await headers();
-    const ip = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown";
+    const ip =
+      headersList.get("x-forwarded-for") ||
+      headersList.get("x-real-ip") ||
+      "unknown";
 
-    const rateLimit = checkRateLimit(`password-reset:${ip}`, rateLimiters.passwordReset);
+    const rateLimit = checkRateLimit(
+      `password-reset:${ip}`,
+      rateLimiters.passwordReset,
+    );
     if (!rateLimit.success) {
       return NextResponse.json(
         { message: "Too many requests. Please try again later." },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -22,8 +34,11 @@ export async function POST(req: Request) {
 
     if (!email || typeof email !== "string") {
       return NextResponse.json(
-        { message: "If an account with that email exists, we've sent a password reset link." },
-        { status: 200 }
+        {
+          message:
+            "If an account with that email exists, we've sent a password reset link.",
+        },
+        { status: 200 },
       );
     }
 
@@ -50,12 +65,17 @@ export async function POST(req: Request) {
       });
 
       // Build reset URL
-      const baseUrl = headersList.get("origin") || headersList.get("host") || "http://localhost:3000";
+      const baseUrl =
+        headersList.get("origin") ||
+        headersList.get("host") ||
+        "http://localhost:3000";
       const protocol = baseUrl.startsWith("http") ? "" : "https://";
       const resetUrl = `${protocol}${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(user.email!)}`;
 
       // Send email directly (with queue fallback)
-      const html = renderTemplate(emailTemplates.passwordReset.html, { resetUrl });
+      const html = renderTemplate(emailTemplates.passwordReset.html, {
+        resetUrl,
+      });
       const subject = emailTemplates.passwordReset.subject;
 
       const result = await sendEmail({
@@ -65,27 +85,35 @@ export async function POST(req: Request) {
       });
 
       if (!result.success) {
-        console.error("Direct email send failed, queuing instead:", result.error);
+        logger.error("Direct email send failed, queuing instead", {
+          error: result.error,
+        });
         await queueEmail(
           user.userid,
           "password_reset",
           user.email!,
           subject,
-          html
+          html,
         );
       }
     }
 
     // Always return same response to prevent email enumeration
     return NextResponse.json(
-      { message: "If an account with that email exists, we've sent a password reset link." },
-      { status: 200 }
+      {
+        message:
+          "If an account with that email exists, we've sent a password reset link.",
+      },
+      { status: 200 },
     );
   } catch (error) {
-    console.error("POST /api/auth/forgot-password error:", error);
+    logger.error("POST /api/auth/forgot-password error", { error });
     return NextResponse.json(
-      { message: "If an account with that email exists, we've sent a password reset link." },
-      { status: 200 }
+      {
+        message:
+          "If an account with that email exists, we've sent a password reset link.",
+      },
+      { status: 200 },
     );
   }
 }

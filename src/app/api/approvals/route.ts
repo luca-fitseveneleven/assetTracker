@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/api-auth";
 import { hasPermission } from "@/lib/rbac";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { validateBody, createApprovalSchema } from "@/lib/validations";
+import { logger } from "@/lib/logger";
 import {
   parsePaginationParams,
   buildPrismaArgs,
@@ -15,7 +16,7 @@ const APPROVAL_SORT_FIELDS = ["status", "createdAt"];
 // GET /api/approvals - List approval requests
 export async function GET(req: NextRequest) {
   try {
-    const user = await requirePermission('reservation:view');
+    const user = await requirePermission("reservation:view");
 
     const searchParams = req.nextUrl.searchParams;
     const status = searchParams.get("status");
@@ -27,7 +28,9 @@ export async function GET(req: NextRequest) {
     if (requesterId) where.requesterId = requesterId;
 
     // Non-admin users without reservation:approve can only see their own approval requests
-    const canApprove = user.isAdmin || (user.id ? await hasPermission(user.id, 'reservation:approve') : false);
+    const canApprove =
+      user.isAdmin ||
+      (user.id ? await hasPermission(user.id, "reservation:approve") : false);
     if (!canApprove) {
       where.requesterId = user.id!;
     }
@@ -60,13 +63,12 @@ export async function GET(req: NextRequest) {
       prisma.approvalRequest.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(approvals, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(approvals, total, params), {
+      status: 200,
+    });
   } catch (e: unknown) {
     const error = e as Error;
-    console.error("GET /api/approvals error:", error);
+    logger.error("GET /api/approvals error", { error });
 
     if (error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -77,7 +79,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { error: "Failed to fetch approvals" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -85,7 +87,7 @@ export async function GET(req: NextRequest) {
 // POST /api/approvals - Create a new approval request
 export async function POST(req: NextRequest) {
   try {
-    const user = await requirePermission('reservation:create');
+    const user = await requirePermission("reservation:create");
 
     const body = await req.json();
     const validated = validateBody(createApprovalSchema, body);
@@ -103,10 +105,20 @@ export async function POST(req: NextRequest) {
       },
       include: {
         requester: {
-          select: { userid: true, firstname: true, lastname: true, email: true },
+          select: {
+            userid: true,
+            firstname: true,
+            lastname: true,
+            email: true,
+          },
         },
         approver: {
-          select: { userid: true, firstname: true, lastname: true, email: true },
+          select: {
+            userid: true,
+            firstname: true,
+            lastname: true,
+            email: true,
+          },
         },
       },
     });
@@ -122,7 +134,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(approval, { status: 201 });
   } catch (e: unknown) {
     const error = e as Error;
-    console.error("POST /api/approvals error:", error);
+    logger.error("POST /api/approvals error", { error });
 
     if (error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -133,7 +145,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       { error: "Failed to create approval request" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

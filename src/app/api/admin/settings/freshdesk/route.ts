@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { createFreshdeskClient } from "@/lib/freshdesk";
 import { encrypt } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 /**
  * GET /api/admin/settings/freshdesk
@@ -36,10 +37,10 @@ export async function GET() {
 
     return NextResponse.json({ config });
   } catch (error) {
-    console.error("GET /api/admin/settings/freshdesk error:", error);
+    logger.error("GET /api/admin/settings/freshdesk error", { error });
     return NextResponse.json(
       { error: "Failed to get Freshdesk settings" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
     if (!domain) {
       return NextResponse.json(
         { error: "Freshdesk domain is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -72,7 +73,8 @@ export async function POST(req: Request) {
         value: domain,
         type: "string",
         category: "freshdesk",
-        description: "Freshdesk subdomain (e.g., 'yourcompany' for yourcompany.freshdesk.com)",
+        description:
+          "Freshdesk subdomain (e.g., 'yourcompany' for yourcompany.freshdesk.com)",
         isEncrypted: false,
       },
     ];
@@ -115,10 +117,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("POST /api/admin/settings/freshdesk error:", error);
+    logger.error("POST /api/admin/settings/freshdesk error", { error });
     return NextResponse.json(
       { error: "Failed to save Freshdesk settings" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

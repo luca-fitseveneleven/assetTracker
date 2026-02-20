@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
-import { createManufacturerSchema, updateManufacturerSchema, uuidSchema } from "@/lib/validation";
+import {
+  createManufacturerSchema,
+  updateManufacturerSchema,
+  uuidSchema,
+} from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import {
   parsePaginationParams,
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
 const MANUFACTURER_SORT_FIELDS = ["manufacturername", "creation_date"];
 
@@ -46,12 +51,11 @@ export async function GET(req) {
       prisma.manufacturer.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(items, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(items, total, params), {
+      status: 200,
+    });
   } catch (e) {
-    console.error("GET /api/manufacturer error:", e);
+    logger.error("GET /api/manufacturer error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -59,7 +63,7 @@ export async function GET(req) {
 
     return NextResponse.json(
       { error: "Failed to fetch manufacturers" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -80,7 +84,7 @@ export async function POST(req) {
           error: "Validation failed",
           details: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -104,7 +108,7 @@ export async function POST(req) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
-    console.error("POST /api/manufacturer error:", e);
+    logger.error("POST /api/manufacturer error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -115,7 +119,7 @@ export async function POST(req) {
 
     return NextResponse.json(
       { error: "Failed to create manufacturer" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -133,7 +137,7 @@ export async function PUT(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid manufacturer ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -145,7 +149,7 @@ export async function PUT(req) {
           error: "Validation failed",
           details: dataValidation.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -170,7 +174,7 @@ export async function PUT(req) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
-    console.error("PUT /api/manufacturer error:", e);
+    logger.error("PUT /api/manufacturer error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -181,13 +185,13 @@ export async function PUT(req) {
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Manufacturer not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json(
       { error: "Failed to update manufacturer" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -206,7 +210,7 @@ export async function DELETE(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid manufacturer ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -219,7 +223,7 @@ export async function DELETE(req) {
     if (!manufacturer) {
       return NextResponse.json(
         { error: "Manufacturer not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -239,10 +243,10 @@ export async function DELETE(req) {
 
     return NextResponse.json(
       { message: "Manufacturer deleted successfully" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (e) {
-    console.error("DELETE /api/manufacturer error:", e);
+    logger.error("DELETE /api/manufacturer error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -253,16 +257,15 @@ export async function DELETE(req) {
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Manufacturer not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json(
       { error: "Failed to delete manufacturer" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export const dynamic = "force-dynamic";
-

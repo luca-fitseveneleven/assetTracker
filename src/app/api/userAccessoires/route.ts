@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
 import { getOrganizationContext } from "@/lib/organization-context";
+import { logger } from "@/lib/logger";
 
 // GET /api/userAccessoires?userId=...
 export async function GET(req) {
@@ -12,7 +13,9 @@ export async function GET(req) {
 
     const userId = req.nextUrl.searchParams.get("userId");
     const resolvedUserId = authUser.isAdmin ? userId : authUser.id;
-    const where: Record<string, unknown> = resolvedUserId ? { userid: resolvedUserId } : {};
+    const where: Record<string, unknown> = resolvedUserId
+      ? { userid: resolvedUserId }
+      : {};
 
     // Scope through the related accessory's organizationId
     if (orgId) {
@@ -22,11 +25,14 @@ export async function GET(req) {
     const rows = await prisma.userAccessoires.findMany({ where });
     return NextResponse.json(rows, { status: 200 });
   } catch (e) {
-    console.error("GET /api/userAccessoires error:", e);
+    logger.error("GET /api/userAccessoires error", { error: e });
     if (e instanceof Error && e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to fetch userAccessoires" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch userAccessoires" },
+      { status: 500 },
+    );
   }
 }
 

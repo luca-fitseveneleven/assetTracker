@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/api-auth";
 import { importJobSchema } from "@/lib/validation-organization";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 
 // Entity field mappings for CSV import
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(jobs);
   } catch (error) {
-    console.error("Error fetching import jobs:", error);
+    logger.error("Error fetching import jobs", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -223,7 +224,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(completedJob, { status: 201 });
   } catch (error) {
-    console.error("Error processing import:", error);
+    logger.error("Error processing import", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

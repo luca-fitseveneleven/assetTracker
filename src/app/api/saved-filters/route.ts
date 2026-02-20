@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 // GET /api/saved-filters?entity=asset
 export async function GET(req: Request) {
@@ -12,31 +13,28 @@ export async function GET(req: Request) {
     if (!entity) {
       return NextResponse.json(
         { error: "entity query parameter is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const filters = await prisma.saved_filters.findMany({
       where: {
         entity,
-        OR: [
-          { userId: user.id! },
-          { isGlobal: true },
-        ],
+        OR: [{ userId: user.id! }, { isGlobal: true }],
       },
-      orderBy: [
-        { isDefault: "desc" },
-        { name: "asc" },
-      ],
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
     });
 
     return NextResponse.json(filters, { status: 200 });
   } catch (error) {
-    console.error("GET /api/saved-filters error:", error);
+    logger.error("GET /api/saved-filters error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to fetch saved filters" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch saved filters" },
+      { status: 500 },
+    );
   }
 }
 
@@ -50,7 +48,7 @@ export async function POST(req: Request) {
     if (!name || !entity || !filters) {
       return NextResponse.json(
         { error: "name, entity, and filters are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -67,7 +65,8 @@ export async function POST(req: Request) {
         userId: user.id!,
         name,
         entity,
-        filters: typeof filters === "string" ? filters : JSON.stringify(filters),
+        filters:
+          typeof filters === "string" ? filters : JSON.stringify(filters),
         isDefault: isDefault || false,
         isGlobal: isGlobal || false,
         updatedAt: new Date(),
@@ -76,10 +75,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json(filter, { status: 201 });
   } catch (error) {
-    console.error("POST /api/saved-filters error:", error);
+    logger.error("POST /api/saved-filters error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to save filter" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to save filter" },
+      { status: 500 },
+    );
   }
 }

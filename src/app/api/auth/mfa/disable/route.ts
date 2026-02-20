@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
     if (!password || typeof password !== "string") {
       return NextResponse.json(
         { error: "Password is required to disable MFA" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     if (!user.mfaEnabled) {
       return NextResponse.json(
         { error: "MFA is not enabled" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -42,10 +43,7 @@ export async function POST(req: Request) {
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
-      return NextResponse.json(
-        { error: "Invalid password" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Invalid password" }, { status: 403 });
     }
 
     // Disable MFA
@@ -72,10 +70,10 @@ export async function POST(req: Request) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("POST /api/auth/mfa/disable error:", error);
+    logger.error("POST /api/auth/mfa/disable error", { error });
     return NextResponse.json(
       { error: "Failed to disable MFA" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

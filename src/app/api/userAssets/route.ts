@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
 import { getOrganizationContext } from "@/lib/organization-context";
+import { logger } from "@/lib/logger";
 
 // GET /api/userAssets
 export async function GET() {
@@ -10,7 +11,9 @@ export async function GET() {
     const orgContext = await getOrganizationContext();
     const orgId = orgContext?.organization?.id;
 
-    const where: Record<string, unknown> = user.isAdmin ? {} : { userid: user.id };
+    const where: Record<string, unknown> = user.isAdmin
+      ? {}
+      : { userid: user.id };
 
     // Scope through the related asset's organizationId
     if (orgId) {
@@ -20,11 +23,14 @@ export async function GET() {
     const items = await prisma.userAssets.findMany({ where });
     return NextResponse.json(items, { status: 200 });
   } catch (error) {
-    console.error("GET /api/userAssets error:", error);
+    logger.error("GET /api/userAssets error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to fetch userAssets" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch userAssets" },
+      { status: 500 },
+    );
   }
 }
 

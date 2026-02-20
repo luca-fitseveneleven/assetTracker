@@ -6,6 +6,7 @@ import {
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
 const AUDIT_LOG_SORT_FIELDS = [
   "createdAt",
@@ -18,7 +19,7 @@ const AUDIT_LOG_SORT_FIELDS = [
 // GET /api/admin/audit-logs
 export async function GET(req: Request) {
   try {
-    await requirePermission('audit:view');
+    await requirePermission("audit:view");
 
     const { searchParams } = new URL(req.url);
     const params = parsePaginationParams(searchParams);
@@ -100,12 +101,11 @@ export async function GET(req: Request) {
       prisma.audit_logs.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(logs, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(logs, total, params), {
+      status: 200,
+    });
   } catch (error) {
-    console.error("GET /api/admin/audit-logs error:", error);
+    logger.error("GET /api/admin/audit-logs error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth-utils";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
@@ -9,14 +10,14 @@ export async function POST(req: Request) {
     if (!token || !email || !password) {
       return NextResponse.json(
         { error: "Token, email, and password are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (typeof password !== "string" || password.length < 8) {
       return NextResponse.json(
         { error: "Password must be at least 8 characters" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     if (!verificationToken) {
       return NextResponse.json(
         { error: "Invalid or expired reset link" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
       });
       return NextResponse.json(
         { error: "Reset link has expired. Please request a new one." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json(
         { error: "Invalid or expired reset link" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -81,13 +82,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       { message: "Password has been reset successfully" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
-    console.error("POST /api/auth/reset-password error:", error);
+    logger.error("POST /api/auth/reset-password error", { error });
     return NextResponse.json(
       { error: "Failed to reset password" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

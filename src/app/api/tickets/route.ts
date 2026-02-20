@@ -9,8 +9,15 @@ import {
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
-const TICKET_SORT_FIELDS = ["title", "status", "priority", "createdAt", "updatedAt"];
+const TICKET_SORT_FIELDS = [
+  "title",
+  "status",
+  "priority",
+  "createdAt",
+  "updatedAt",
+];
 
 // GET /api/tickets
 // Supports two sources:
@@ -34,7 +41,9 @@ async function getLocalTickets(url: URL) {
     const searchParams = url.searchParams;
 
     // Admins see all tickets, users see only their own
-    const where: Record<string, unknown> = user.isAdmin ? {} : { createdBy: user.id };
+    const where: Record<string, unknown> = user.isAdmin
+      ? {}
+      : { createdBy: user.id };
 
     const include = {
       user_tickets_createdByTouser: {
@@ -67,7 +76,7 @@ async function getLocalTickets(url: URL) {
           },
         },
         orderBy: {
-          createdAt: 'asc' as const,
+          createdAt: "asc" as const,
         },
       },
     };
@@ -77,7 +86,7 @@ async function getLocalTickets(url: URL) {
       const rawTickets = await prisma.tickets.findMany({
         where,
         include,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       const tickets = rawTickets.map((ticket) => ({
@@ -115,16 +124,18 @@ async function getLocalTickets(url: URL) {
       comments: ticket.ticket_comments,
     }));
 
-    return NextResponse.json(
-      buildPaginatedResponse(tickets, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(tickets, total, params), {
+      status: 200,
+    });
   } catch (error) {
-    console.error("GET /api/tickets error:", error);
+    logger.error("GET /api/tickets error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to fetch tickets" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch tickets" },
+      { status: 500 },
+    );
   }
 }
 
@@ -148,8 +159,11 @@ async function getFreshdeskTickets(req: Request, url: URL) {
 
     if (!domainSetting?.settingValue || !apiKeySetting?.settingValue) {
       return NextResponse.json(
-        { error: "Freshdesk is not configured. Please configure it in Admin Settings." },
-        { status: 400 }
+        {
+          error:
+            "Freshdesk is not configured. Please configure it in Admin Settings.",
+        },
+        { status: 400 },
       );
     }
 
@@ -164,16 +178,14 @@ async function getFreshdeskTickets(req: Request, url: URL) {
     });
 
     // Determine which types to filter
-    const types = typeFilter
-      ? [typeFilter]
-      : [...SUPPORTED_TICKET_TYPES];
+    const types = typeFilter ? [typeFilter] : [...SUPPORTED_TICKET_TYPES];
 
     const result = await client.getTicketsByTypes(types, page);
 
     if (!result.success) {
       return NextResponse.json(
         { error: result.error || "Failed to fetch tickets" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -183,10 +195,10 @@ async function getFreshdeskTickets(req: Request, url: URL) {
       types: SUPPORTED_TICKET_TYPES,
     });
   } catch (error) {
-    console.error("GET /api/tickets (freshdesk) error:", error);
+    logger.error("GET /api/tickets (freshdesk) error", { error });
     return NextResponse.json(
       { error: "Failed to fetch tickets" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -201,10 +213,7 @@ export async function POST(req: Request) {
     const { title, description, priority } = body || {};
 
     if (!title) {
-      return NextResponse.json(
-        { error: "title is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "title is required" }, { status: 400 });
     }
 
     const rawTicket = await prisma.tickets.create({
@@ -241,11 +250,14 @@ export async function POST(req: Request) {
 
     return NextResponse.json(ticket, { status: 201 });
   } catch (error) {
-    console.error("POST /api/tickets error:", error);
+    logger.error("POST /api/tickets error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to create ticket" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create ticket" },
+      { status: 500 },
+    );
   }
 }
 

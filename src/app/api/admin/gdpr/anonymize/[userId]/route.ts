@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { randomUUID } from "crypto";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ userId: string }>;
@@ -32,17 +33,16 @@ export async function POST(req: Request, { params }: RouteParams) {
     });
 
     if (!targetUser) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Prevent anonymizing admin users without explicit confirmation
     if (targetUser.isadmin) {
       return NextResponse.json(
-        { error: "Cannot anonymize admin users. Remove admin privileges first." },
-        { status: 400 }
+        {
+          error: "Cannot anonymize admin users. Remove admin privileges first.",
+        },
+        { status: 400 },
       );
     }
 
@@ -50,7 +50,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     if (adminUser.id === userId) {
       return NextResponse.json(
         { error: "Cannot anonymize your own account." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -86,8 +86,14 @@ export async function POST(req: Request, { params }: RouteParams) {
             const parsed = JSON.parse(log.details);
             // Remove common PII fields from details
             const piiFields = [
-              "email", "firstname", "lastname", "username",
-              "name", "fullName", "phone", "address",
+              "email",
+              "firstname",
+              "lastname",
+              "username",
+              "name",
+              "fullName",
+              "phone",
+              "address",
             ];
             for (const field of piiFields) {
               if (field in parsed) {
@@ -137,7 +143,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       message: `User ${userId} has been anonymized.`,
     });
   } catch (error) {
-    console.error("POST /api/admin/gdpr/anonymize/[userId] error:", error);
+    logger.error("POST /api/admin/gdpr/anonymize/[userId] error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -146,7 +152,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
     return NextResponse.json(
       { error: "Failed to anonymize user data" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

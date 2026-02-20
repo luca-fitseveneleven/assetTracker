@@ -1,41 +1,46 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import prisma from '@/lib/prisma';
-import { stockAlertSchema, updateStockAlertSchema } from '@/lib/validation-organization';
-import { createAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
-import { triggerWebhook } from '@/lib/webhooks';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import prisma from "@/lib/prisma";
+import {
+  stockAlertSchema,
+  updateStockAlertSchema,
+} from "@/lib/validation-organization";
+import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
+import { triggerWebhook } from "@/lib/webhooks";
+import { z } from "zod";
+import { logger } from "@/lib/logger";
 
 // Get all stock alerts with optional low-stock filter
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const lowStockOnly = req.nextUrl.searchParams.get('lowStockOnly') === 'true';
-    const critical = req.nextUrl.searchParams.get('critical') === 'true';
+    const lowStockOnly =
+      req.nextUrl.searchParams.get("lowStockOnly") === "true";
+    const critical = req.nextUrl.searchParams.get("critical") === "true";
 
     const alerts = await prisma.stockAlert.findMany({
       include: {
         consumable: {
-          select: { 
-            consumableid: true, 
-            consumablename: true, 
+          select: {
+            consumableid: true,
+            consumablename: true,
             quantity: true,
             minQuantity: true,
             organizationId: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     // Filter for low stock if requested
     let filteredAlerts = alerts;
-    
+
     if (lowStockOnly || critical) {
-      filteredAlerts = alerts.filter(alert => {
+      filteredAlerts = alerts.filter((alert) => {
         const qty = alert.consumable.quantity;
         if (critical) {
           return qty <= alert.criticalThreshold;
@@ -46,8 +51,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(filteredAlerts);
   } catch (error) {
-    console.error('Error fetching stock alerts:', error);
-    return NextResponse.json({ error: 'Failed to fetch stock alerts' }, { status: 500 });
+    logger.error("Error fetching stock alerts", { error });
+    return NextResponse.json(
+      { error: "Failed to fetch stock alerts" },
+      { status: 500 },
+    );
   }
 }
 
@@ -56,7 +64,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -64,27 +72,37 @@ export async function POST(req: NextRequest) {
 
     // Verify consumable exists
     const consumable = await prisma.consumable.findUnique({
-      where: { consumableid: validated.consumableId }
+      where: { consumableid: validated.consumableId },
     });
 
     if (!consumable) {
-      return NextResponse.json({ error: 'Consumable not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Consumable not found" },
+        { status: 404 },
+      );
     }
 
     // Check if alert already exists
     const existing = await prisma.stockAlert.findUnique({
-      where: { consumableId: validated.consumableId }
+      where: { consumableId: validated.consumableId },
     });
 
     if (existing) {
-      return NextResponse.json({ error: 'Stock alert already exists for this consumable' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Stock alert already exists for this consumable" },
+        { status: 400 },
+      );
     }
 
     // Validate thresholds
     if (validated.criticalThreshold > validated.minThreshold) {
-      return NextResponse.json({ 
-        error: 'Critical threshold must be less than or equal to minimum threshold' 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error:
+            "Critical threshold must be less than or equal to minimum threshold",
+        },
+        { status: 400 },
+      );
     }
 
     const alert = await prisma.stockAlert.create({
@@ -97,26 +115,32 @@ export async function POST(req: NextRequest) {
       },
       include: {
         consumable: {
-          select: { consumablename: true, quantity: true }
-        }
-      }
+          select: { consumablename: true, quantity: true },
+        },
+      },
     });
 
     await createAuditLog({
       userId: session.user.id!,
       action: AUDIT_ACTIONS.CREATE,
-      entity: 'StockAlert',
+      entity: "StockAlert",
       entityId: alert.id,
-      details: { consumableId: validated.consumableId, minThreshold: validated.minThreshold },
+      details: {
+        consumableId: validated.consumableId,
+        minThreshold: validated.minThreshold,
+      },
     });
 
     return NextResponse.json(alert, { status: 201 });
   } catch (error) {
-    console.error('Error creating stock alert:', error);
+    logger.error("Error creating stock alert", { error });
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Failed to create stock alert' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create stock alert" },
+      { status: 500 },
+    );
   }
 }
 
@@ -125,80 +149,96 @@ export async function PUT() {
   try {
     const session = await auth();
     if (!session?.user?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get all stock alerts with consumable data
     const alerts = await prisma.stockAlert.findMany({
       include: {
         consumable: {
-          select: { 
-            consumableid: true, 
-            consumablename: true, 
+          select: {
+            consumableid: true,
+            consumablename: true,
             quantity: true,
-            organizationId: true
-          }
-        }
-      }
+            organizationId: true,
+          },
+        },
+      },
     });
 
-    const triggered: { consumableName: string; quantity: number; threshold: number; level: string }[] = [];
+    const triggered: {
+      consumableName: string;
+      quantity: number;
+      threshold: number;
+      level: string;
+    }[] = [];
 
     for (const alert of alerts) {
       const qty = alert.consumable.quantity;
-      
+
       if (qty <= alert.criticalThreshold) {
         if (alert.webhookNotify) {
-          await triggerWebhook('consumable.critical_stock', {
-            consumableId: alert.consumable.consumableid,
-            consumableName: alert.consumable.consumablename,
-            currentQuantity: qty,
-            criticalThreshold: alert.criticalThreshold,
-          }, alert.consumable.organizationId);
+          await triggerWebhook(
+            "consumable.critical_stock",
+            {
+              consumableId: alert.consumable.consumableid,
+              consumableName: alert.consumable.consumablename,
+              currentQuantity: qty,
+              criticalThreshold: alert.criticalThreshold,
+            },
+            alert.consumable.organizationId,
+          );
         }
         triggered.push({
           consumableName: alert.consumable.consumablename,
           quantity: qty,
           threshold: alert.criticalThreshold,
-          level: 'critical'
+          level: "critical",
         });
 
         await prisma.stockAlert.update({
           where: { id: alert.id },
-          data: { lastAlertSentAt: new Date() }
+          data: { lastAlertSentAt: new Date() },
         });
       } else if (qty <= alert.minThreshold) {
         if (alert.webhookNotify) {
-          await triggerWebhook('consumable.low_stock', {
-            consumableId: alert.consumable.consumableid,
-            consumableName: alert.consumable.consumablename,
-            currentQuantity: qty,
-            minThreshold: alert.minThreshold,
-          }, alert.consumable.organizationId);
+          await triggerWebhook(
+            "consumable.low_stock",
+            {
+              consumableId: alert.consumable.consumableid,
+              consumableName: alert.consumable.consumablename,
+              currentQuantity: qty,
+              minThreshold: alert.minThreshold,
+            },
+            alert.consumable.organizationId,
+          );
         }
         triggered.push({
           consumableName: alert.consumable.consumablename,
           quantity: qty,
           threshold: alert.minThreshold,
-          level: 'low'
+          level: "low",
         });
 
         await prisma.stockAlert.update({
           where: { id: alert.id },
-          data: { lastAlertSentAt: new Date() }
+          data: { lastAlertSentAt: new Date() },
         });
       }
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       checked: alerts.length,
       triggered: triggered.length,
-      alerts: triggered
+      alerts: triggered,
     });
   } catch (error) {
-    console.error('Error checking stock alerts:', error);
-    return NextResponse.json({ error: 'Failed to check stock alerts' }, { status: 500 });
+    logger.error("Error checking stock alerts", { error });
+    return NextResponse.json(
+      { error: "Failed to check stock alerts" },
+      { status: 500 },
+    );
   }
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";

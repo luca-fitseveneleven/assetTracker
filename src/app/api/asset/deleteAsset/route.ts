@@ -1,11 +1,15 @@
 import prisma from "../../../../lib/prisma";
 import { requirePermission } from "@/lib/api-auth";
-import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 import { triggerWebhook } from "@/lib/webhooks";
+import { logger } from "@/lib/logger";
 
 export async function DELETE(req) {
   try {
-    await requirePermission('asset:delete');
+    await requirePermission("asset:delete");
     const orgContext = await getOrganizationContext();
     const orgId = orgContext?.organization?.id;
 
@@ -34,21 +38,29 @@ export async function DELETE(req) {
       prisma.asset.delete({ where: { assetid: assetId } }),
     ]);
 
-    triggerWebhook('asset.deleted', { assetId, assetName: asset.assetname }, orgId).catch(() => {});
+    triggerWebhook(
+      "asset.deleted",
+      { assetId, assetName: asset.assetname },
+      orgId,
+    ).catch(() => {});
 
     return new Response(
       JSON.stringify({ message: "Asset deleted successfully" }),
       {
         status: 200,
-      }
+      },
     );
   } catch (error) {
-    console.error("Error deleting asset:", error);
+    logger.error("Error deleting asset", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+      });
     }
     if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 403 });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 403,
+      });
     }
     return new Response(JSON.stringify({ error: "Error deleting asset" }), {
       status: 500,

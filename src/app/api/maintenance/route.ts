@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
-import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 import { triggerWebhook } from "@/lib/webhooks";
 import {
   parsePaginationParams,
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
-const MAINTENANCE_SORT_FIELDS = ["title", "frequency", "nextDueDate", "status", "createdAt"];
+const MAINTENANCE_SORT_FIELDS = [
+  "title",
+  "frequency",
+  "nextDueDate",
+  "status",
+  "createdAt",
+];
 
 // GET: List all maintenance schedules, optionally filtered by assetId
 export async function GET(req: NextRequest) {
@@ -28,7 +38,10 @@ export async function GET(req: NextRequest) {
 
     // Scope through the related asset's organizationId
     if (orgId) {
-      where.asset = { ...((where.asset as Record<string, unknown>) || {}), organizationId: orgId };
+      where.asset = {
+        ...((where.asset as Record<string, unknown>) || {}),
+        organizationId: orgId,
+      };
     }
 
     const include = {
@@ -67,18 +80,17 @@ export async function GET(req: NextRequest) {
       prisma.maintenance_schedules.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(schedules, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(schedules, total, params), {
+      status: 200,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("Error fetching maintenance schedules:", error);
+    logger.error("Error fetching maintenance schedules", { error });
     return NextResponse.json(
       { error: "Failed to fetch maintenance schedules" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -92,22 +104,42 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    const { title, assetId, frequency, nextDueDate, description, assignedTo, estimatedCost, isActive } = body;
+    const {
+      title,
+      assetId,
+      frequency,
+      nextDueDate,
+      description,
+      assignedTo,
+      estimatedCost,
+      isActive,
+    } = body;
 
     // Validate required fields
     if (!title || !assetId || !frequency || !nextDueDate) {
       return NextResponse.json(
-        { error: "Missing required fields: title, assetId, frequency, nextDueDate" },
-        { status: 400 }
+        {
+          error:
+            "Missing required fields: title, assetId, frequency, nextDueDate",
+        },
+        { status: 400 },
       );
     }
 
     // Validate frequency value
-    const validFrequencies = ["daily", "weekly", "monthly", "quarterly", "annually"];
+    const validFrequencies = [
+      "daily",
+      "weekly",
+      "monthly",
+      "quarterly",
+      "annually",
+    ];
     if (!validFrequencies.includes(frequency)) {
       return NextResponse.json(
-        { error: `Invalid frequency. Must be one of: ${validFrequencies.join(", ")}` },
-        { status: 400 }
+        {
+          error: `Invalid frequency. Must be one of: ${validFrequencies.join(", ")}`,
+        },
+        { status: 400 },
       );
     }
 
@@ -126,7 +158,10 @@ export async function POST(req: NextRequest) {
         where: { userid: assignedTo },
       });
       if (!user) {
-        return NextResponse.json({ error: "Assigned user not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Assigned user not found" },
+          { status: 404 },
+        );
       }
     }
 
@@ -152,17 +187,25 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    triggerWebhook('maintenance.due', { maintenanceId: schedule.id, assetId: schedule.assetId, title: schedule.title }, orgId).catch(() => {});
+    triggerWebhook(
+      "maintenance.due",
+      {
+        maintenanceId: schedule.id,
+        assetId: schedule.assetId,
+        title: schedule.title,
+      },
+      orgId,
+    ).catch(() => {});
 
     return NextResponse.json(schedule, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("Error creating maintenance schedule:", error);
+    logger.error("Error creating maintenance schedule", { error });
     return NextResponse.json(
       { error: "Failed to create maintenance schedule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

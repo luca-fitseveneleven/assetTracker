@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 // GET: List reservations, optionally filtered by assetId
 export async function GET(req: NextRequest) {
@@ -32,10 +33,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(reservations);
   } catch (error) {
-    console.error("Error fetching reservations:", error);
+    logger.error("Error fetching reservations", { error });
     return NextResponse.json(
       { error: "Failed to fetch reservations" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     if (!assetId || !startDate || !endDate) {
       return NextResponse.json(
         { error: "assetId, startDate, and endDate are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -64,14 +65,14 @@ export async function POST(req: NextRequest) {
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       return NextResponse.json(
         { error: "Invalid date format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (start >= end) {
       return NextResponse.json(
         { error: "End date must be after start date" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
     if (overlapping) {
       return NextResponse.json(
         { error: "Asset already has a reservation for the selected dates" },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -126,10 +127,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(reservation, { status: 201 });
   } catch (error) {
-    console.error("Error creating reservation:", error);
+    logger.error("Error creating reservation", { error });
     return NextResponse.json(
       { error: "Failed to create reservation" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -148,15 +149,17 @@ export async function PUT(req: NextRequest) {
     if (!id || !status) {
       return NextResponse.json(
         { error: "id and status are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const validStatuses = ["pending", "approved", "rejected", "cancelled"];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
-        { error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` },
-        { status: 400 }
+        {
+          error: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+        },
+        { status: 400 },
       );
     }
 
@@ -167,7 +170,7 @@ export async function PUT(req: NextRequest) {
     if (!existing) {
       return NextResponse.json(
         { error: "Reservation not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -179,7 +182,7 @@ export async function PUT(req: NextRequest) {
       if (!isAdmin) {
         return NextResponse.json(
           { error: "Only admins can approve or reject reservations" },
-          { status: 403 }
+          { status: 403 },
         );
       }
     }
@@ -189,7 +192,7 @@ export async function PUT(req: NextRequest) {
       if (!isOwner && !isAdmin) {
         return NextResponse.json(
           { error: "You can only cancel your own reservations" },
-          { status: 403 }
+          { status: 403 },
         );
       }
     }
@@ -226,10 +229,10 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(reservation);
   } catch (error) {
-    console.error("Error updating reservation:", error);
+    logger.error("Error updating reservation", { error });
     return NextResponse.json(
       { error: "Failed to update reservation" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

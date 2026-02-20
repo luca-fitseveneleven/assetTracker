@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 // GET /api/admin/workflows - List all automation rules
 export async function GET() {
@@ -22,7 +23,7 @@ export async function GET() {
 
     return NextResponse.json(rules, { status: 200 });
   } catch (error) {
-    console.error("GET /api/admin/workflows error:", error);
+    logger.error("GET /api/admin/workflows error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -31,7 +32,7 @@ export async function GET() {
     }
     return NextResponse.json(
       { error: "Failed to fetch automation rules" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
     if (!name || !trigger) {
       return NextResponse.json(
         { error: "Name and trigger are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -60,9 +61,7 @@ export async function POST(req: Request) {
             ? conditions
             : JSON.stringify(conditions || {}),
         actions:
-          typeof actions === "string"
-            ? actions
-            : JSON.stringify(actions || []),
+          typeof actions === "string" ? actions : JSON.stringify(actions || []),
         createdBy: user.id!,
       },
       include: {
@@ -78,7 +77,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(rule, { status: 201 });
   } catch (error) {
-    console.error("POST /api/admin/workflows error:", error);
+    logger.error("POST /api/admin/workflows error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -87,7 +86,7 @@ export async function POST(req: Request) {
     }
     return NextResponse.json(
       { error: "Failed to create automation rule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

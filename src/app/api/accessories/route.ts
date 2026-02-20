@@ -4,18 +4,24 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requirePermission } from "@/lib/api-auth";
 import { createAccessorySchema } from "@/lib/validation";
-import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 import {
   parsePaginationParams,
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 
 const ACCESSORY_SORT_FIELDS = ["accessoriename", "creation_date"];
 
-const accessorySchema = createAccessorySchema.extend({
-  purchaseprice: z.number().nonnegative().nullable().optional(),
-}).strict();
+const accessorySchema = createAccessorySchema
+  .extend({
+    purchaseprice: z.number().nonnegative().nullable().optional(),
+  })
+  .strict();
 
 const updateSchema = accessorySchema.partial().strict();
 
@@ -41,7 +47,7 @@ const normalizeNumberInput = (value: unknown) => {
 // Pagination: ?page=1&pageSize=25&sortBy=accessoriename&sortOrder=asc&search=keyword
 export async function GET(req) {
   try {
-    await requirePermission('accessory:view');
+    await requirePermission("accessory:view");
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
@@ -70,26 +76,28 @@ export async function GET(req) {
       prisma.accessories.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(items, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(items, total, params), {
+      status: 200,
+    });
   } catch (e) {
-    console.error("GET /api/accessories error:", e);
+    logger.error("GET /api/accessories error", { error: e });
     if (e instanceof Error && e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     if (e instanceof Error && e.message.startsWith("Forbidden")) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
-    return NextResponse.json({ error: "Failed to fetch accessories" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch accessories" },
+      { status: 500 },
+    );
   }
 }
 
 // POST /api/accessories
 export async function POST(req) {
   try {
-    await requirePermission('accessory:create');
+    await requirePermission("accessory:create");
     const body = await req.json();
     const normalized = {
       ...body,
@@ -101,7 +109,7 @@ export async function POST(req) {
     if (!validationResult.success) {
       return NextResponse.json(
         { error: "Validation failed", details: validationResult.error.issues },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -138,26 +146,32 @@ export async function POST(req) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
-    console.error("POST /api/accessories error:", e);
+    logger.error("POST /api/accessories error", { error: e });
     if (e instanceof Error && e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     if (e instanceof Error && e.message.startsWith("Forbidden")) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
-    return NextResponse.json({ error: "Failed to create accessory" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create accessory" },
+      { status: 500 },
+    );
   }
 }
 
 // PUT /api/accessories
 export async function PUT(req) {
   try {
-    await requirePermission('accessory:edit');
+    await requirePermission("accessory:edit");
     const body = await req.json();
     const { accessorieid, ...data } = body || {};
 
     if (!accessorieid) {
-      return NextResponse.json({ error: "accessorieid is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "accessorieid is required" },
+        { status: 400 },
+      );
     }
 
     const normalized = {
@@ -170,12 +184,15 @@ export async function PUT(req) {
     if (!validationResult.success) {
       return NextResponse.json(
         { error: "Validation failed", details: validationResult.error.issues },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const updateData = { ...validationResult.data } as Record<string, unknown>;
-    if (Object.prototype.hasOwnProperty.call(updateData, "purchasedate") && updateData.purchasedate) {
+    if (
+      Object.prototype.hasOwnProperty.call(updateData, "purchasedate") &&
+      updateData.purchasedate
+    ) {
       updateData.purchasedate = new Date(updateData.purchasedate as string);
     }
 
@@ -189,14 +206,17 @@ export async function PUT(req) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
-    console.error("PUT /api/accessories error:", e);
+    logger.error("PUT /api/accessories error", { error: e });
     if (e instanceof Error && e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     if (e instanceof Error && e.message.startsWith("Forbidden")) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
-    return NextResponse.json({ error: "Failed to update accessory" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update accessory" },
+      { status: 500 },
+    );
   }
 }
 

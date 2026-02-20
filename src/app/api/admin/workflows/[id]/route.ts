@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
-import {
-  createAuditLog,
-  AUDIT_ACTIONS,
-  AUDIT_ENTITIES,
-} from "@/lib/audit-log";
+import { logger } from "@/lib/logger";
+import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -33,13 +30,13 @@ export async function GET(req: Request, { params }: RouteParams) {
     if (!rule) {
       return NextResponse.json(
         { error: "Automation rule not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json(rule, { status: 200 });
   } catch (error) {
-    console.error("GET /api/admin/workflows/[id] error:", error);
+    logger.error("GET /api/admin/workflows/[id] error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -48,7 +45,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     }
     return NextResponse.json(
       { error: "Failed to fetch automation rule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -104,7 +101,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(rule, { status: 200 });
   } catch (error) {
-    console.error("PUT /api/admin/workflows/[id] error:", error);
+    logger.error("PUT /api/admin/workflows/[id] error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -113,7 +110,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     }
     return NextResponse.json(
       { error: "Failed to update automation rule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -129,7 +126,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     if (!rule) {
       return NextResponse.json(
         { error: "Automation rule not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -148,7 +145,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error("DELETE /api/admin/workflows/[id] error:", error);
+    logger.error("DELETE /api/admin/workflows/[id] error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -157,7 +154,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     }
     return NextResponse.json(
       { error: "Failed to delete automation rule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 // GET: Fetch a single maintenance schedule with its logs
-export async function GET(
-  req: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     await requireApiAuth();
 
@@ -39,7 +37,7 @@ export async function GET(
     if (!schedule) {
       return NextResponse.json(
         { error: "Maintenance schedule not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -48,19 +46,16 @@ export async function GET(
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("Error fetching maintenance schedule:", error);
+    logger.error("Error fetching maintenance schedule", { error });
     return NextResponse.json(
       { error: "Failed to fetch maintenance schedule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 // PUT: Update a maintenance schedule
-export async function PUT(
-  req: NextRequest,
-  { params }: RouteParams
-) {
+export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
     await requireApiAuth();
 
@@ -74,7 +69,7 @@ export async function PUT(
     if (!existing) {
       return NextResponse.json(
         { error: "Maintenance schedule not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -84,20 +79,32 @@ export async function PUT(
     };
 
     if (body.title !== undefined) updateData.title = body.title;
-    if (body.description !== undefined) updateData.description = body.description;
+    if (body.description !== undefined)
+      updateData.description = body.description;
     if (body.frequency !== undefined) {
-      const validFrequencies = ["daily", "weekly", "monthly", "quarterly", "annually"];
+      const validFrequencies = [
+        "daily",
+        "weekly",
+        "monthly",
+        "quarterly",
+        "annually",
+      ];
       if (!validFrequencies.includes(body.frequency)) {
         return NextResponse.json(
-          { error: `Invalid frequency. Must be one of: ${validFrequencies.join(", ")}` },
-          { status: 400 }
+          {
+            error: `Invalid frequency. Must be one of: ${validFrequencies.join(", ")}`,
+          },
+          { status: 400 },
         );
       }
       updateData.frequency = body.frequency;
     }
-    if (body.nextDueDate !== undefined) updateData.nextDueDate = new Date(body.nextDueDate);
-    if (body.assignedTo !== undefined) updateData.assignedTo = body.assignedTo || null;
-    if (body.estimatedCost !== undefined) updateData.estimatedCost = body.estimatedCost;
+    if (body.nextDueDate !== undefined)
+      updateData.nextDueDate = new Date(body.nextDueDate);
+    if (body.assignedTo !== undefined)
+      updateData.assignedTo = body.assignedTo || null;
+    if (body.estimatedCost !== undefined)
+      updateData.estimatedCost = body.estimatedCost;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
     if (body.assetId !== undefined) {
       // Verify asset exists if changing it
@@ -128,19 +135,16 @@ export async function PUT(
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("Error updating maintenance schedule:", error);
+    logger.error("Error updating maintenance schedule", { error });
     return NextResponse.json(
       { error: "Failed to update maintenance schedule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 // DELETE: Delete a maintenance schedule
-export async function DELETE(
-  req: NextRequest,
-  { params }: RouteParams
-) {
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
     await requireApiAuth();
 
@@ -153,7 +157,7 @@ export async function DELETE(
     if (!existing) {
       return NextResponse.json(
         { error: "Maintenance schedule not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -166,10 +170,10 @@ export async function DELETE(
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.error("Error deleting maintenance schedule:", error);
+    logger.error("Error deleting maintenance schedule", { error });
     return NextResponse.json(
       { error: "Failed to delete maintenance schedule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

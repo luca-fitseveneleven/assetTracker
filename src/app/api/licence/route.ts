@@ -2,14 +2,22 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requirePermission } from "@/lib/api-auth";
-import { createLicenseSchema, updateLicenseSchema, uuidSchema } from "@/lib/validation";
+import {
+  createLicenseSchema,
+  updateLicenseSchema,
+  uuidSchema,
+} from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
-import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 import {
   parsePaginationParams,
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
+import { logger } from "@/lib/logger";
 import { triggerWebhook } from "@/lib/webhooks";
 
 const LICENCE_SORT_FIELDS = ["licencekey", "creation_date"];
@@ -19,7 +27,7 @@ const LICENCE_SORT_FIELDS = ["licencekey", "creation_date"];
 export async function GET(req) {
   try {
     // Require license:view permission to view licences
-    await requirePermission('license:view');
+    await requirePermission("license:view");
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
@@ -51,12 +59,11 @@ export async function GET(req) {
       prisma.licence.count({ where }),
     ]);
 
-    return NextResponse.json(
-      buildPaginatedResponse(items, total, params),
-      { status: 200 },
-    );
+    return NextResponse.json(buildPaginatedResponse(items, total, params), {
+      status: 200,
+    });
   } catch (e) {
-    console.error("GET /api/licence error:", e);
+    logger.error("GET /api/licence error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -65,7 +72,10 @@ export async function GET(req) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
 
-    return NextResponse.json({ error: "Failed to fetch licences" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch licences" },
+      { status: 500 },
+    );
   }
 }
 
@@ -73,7 +83,7 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     // Require license:create permission to create licences
-    const admin = await requirePermission('license:create');
+    const admin = await requirePermission("license:create");
 
     const body = await req.json();
 
@@ -85,7 +95,7 @@ export async function POST(req) {
           error: "Validation failed",
           details: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -130,12 +140,16 @@ export async function POST(req) {
     });
 
     if (created.licenceduserid) {
-      triggerWebhook('license.assigned', { licenceId: created.licenceid, userId: created.licenceduserid, licenceKey: created.licencekey }).catch(() => {});
+      triggerWebhook("license.assigned", {
+        licenceId: created.licenceid,
+        userId: created.licenceduserid,
+        licenceKey: created.licencekey,
+      }).catch(() => {});
     }
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
-    console.error("POST /api/licence error:", e);
+    logger.error("POST /api/licence error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -144,7 +158,10 @@ export async function POST(req) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
 
-    return NextResponse.json({ error: "Failed to create licence" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create licence" },
+      { status: 500 },
+    );
   }
 }
 
@@ -152,7 +169,7 @@ export async function POST(req) {
 export async function PUT(req) {
   try {
     // Require license:edit permission to update licences
-    const admin = await requirePermission('license:edit');
+    const admin = await requirePermission("license:edit");
 
     const body = await req.json();
 
@@ -161,7 +178,7 @@ export async function PUT(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid licence ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -173,7 +190,7 @@ export async function PUT(req) {
           error: "Validation failed",
           details: dataValidation.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -196,11 +213,21 @@ export async function PUT(req) {
       where: { licenceid },
       data: {
         ...(licencekey !== undefined && { licencekey: licencekey ?? null }),
-        ...(licenceduserid !== undefined && { licenceduserid: licenceduserid ?? null }),
-        ...(licensedtoemail !== undefined && { licensedtoemail: licensedtoemail ?? null }),
-        ...(purchaseprice !== undefined && { purchaseprice: purchaseprice ?? null }),
-        ...(purchasedate !== undefined && { purchasedate: purchasedate ? new Date(purchasedate) : null }),
-        ...(expirationdate !== undefined && { expirationdate: expirationdate ? new Date(expirationdate) : null }),
+        ...(licenceduserid !== undefined && {
+          licenceduserid: licenceduserid ?? null,
+        }),
+        ...(licensedtoemail !== undefined && {
+          licensedtoemail: licensedtoemail ?? null,
+        }),
+        ...(purchaseprice !== undefined && {
+          purchaseprice: purchaseprice ?? null,
+        }),
+        ...(purchasedate !== undefined && {
+          purchasedate: purchasedate ? new Date(purchasedate) : null,
+        }),
+        ...(expirationdate !== undefined && {
+          expirationdate: expirationdate ? new Date(expirationdate) : null,
+        }),
         ...(notes !== undefined && { notes: notes ?? null }),
         ...(requestable !== undefined && { requestable: requestable ?? null }),
         ...(licencecategorytypeid !== undefined && { licencecategorytypeid }),
@@ -220,12 +247,16 @@ export async function PUT(req) {
     });
 
     if (licenceduserid !== undefined) {
-      triggerWebhook('license.assigned', { licenceId: updated.licenceid, userId: updated.licenceduserid, licenceKey: updated.licencekey }).catch(() => {});
+      triggerWebhook("license.assigned", {
+        licenceId: updated.licenceid,
+        userId: updated.licenceduserid,
+        licenceKey: updated.licencekey,
+      }).catch(() => {});
     }
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
-    console.error("PUT /api/licence error:", e);
+    logger.error("PUT /api/licence error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -234,13 +265,13 @@ export async function PUT(req) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
     if (e.code === "P2025") {
-      return NextResponse.json(
-        { error: "Licence not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Licence not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ error: "Failed to update licence" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update licence" },
+      { status: 500 },
+    );
   }
 }
 
@@ -248,7 +279,7 @@ export async function PUT(req) {
 export async function DELETE(req) {
   try {
     // Require license:delete permission to delete licences
-    const admin = await requirePermission('license:delete');
+    const admin = await requirePermission("license:delete");
 
     const body = await req.json();
     const { licenceid } = body;
@@ -258,7 +289,7 @@ export async function DELETE(req) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid licence ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -269,10 +300,7 @@ export async function DELETE(req) {
     });
 
     if (!licence) {
-      return NextResponse.json(
-        { error: "Licence not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Licence not found" }, { status: 404 });
     }
 
     // Delete the licence
@@ -291,10 +319,10 @@ export async function DELETE(req) {
 
     return NextResponse.json(
       { message: "Licence deleted successfully" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (e) {
-    console.error("DELETE /api/licence error:", e);
+    logger.error("DELETE /api/licence error", { error: e });
 
     if (e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -303,15 +331,12 @@ export async function DELETE(req) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
     if (e.code === "P2025") {
-      return NextResponse.json(
-        { error: "Licence not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Licence not found" }, { status: 404 });
     }
 
     return NextResponse.json(
       { error: "Failed to delete licence" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

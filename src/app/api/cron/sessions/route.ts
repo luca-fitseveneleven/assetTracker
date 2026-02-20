@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cleanExpiredSessions } from "@/lib/session-tracking";
+import { logger } from "@/lib/logger";
 
 /**
  * Cron endpoint for cleaning up expired sessions.
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
       { status: 200 },
     );
   } catch (error) {
-    console.error("Cron session cleanup error:", error);
+    logger.error("Cron session cleanup error", { error });
     return NextResponse.json(
       { error: "Failed to clean up sessions" },
       { status: 500 },

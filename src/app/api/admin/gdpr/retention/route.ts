@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getGDPRSettings, saveGDPRSettings } from "@/lib/gdpr-settings";
+import { logger } from "@/lib/logger";
 
 /**
  * GET /api/admin/gdpr/retention
@@ -12,7 +13,7 @@ export async function GET() {
     const settings = getGDPRSettings();
     return NextResponse.json(settings);
   } catch (error) {
-    console.error("GET /api/admin/gdpr/retention error:", error);
+    logger.error("GET /api/admin/gdpr/retention error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -21,7 +22,7 @@ export async function GET() {
     }
     return NextResponse.json(
       { error: "Failed to get retention settings" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -35,7 +36,11 @@ export async function PUT(req: Request) {
     await requireApiAdmin();
     const body = await req.json();
 
-    const { auditLogRetentionDays, deletedUserRetentionDays, exportRetentionDays } = body;
+    const {
+      auditLogRetentionDays,
+      deletedUserRetentionDays,
+      exportRetentionDays,
+    } = body;
 
     // Validate input
     if (
@@ -45,7 +50,7 @@ export async function PUT(req: Request) {
     ) {
       return NextResponse.json(
         { error: "All retention values must be numbers" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -56,7 +61,7 @@ export async function PUT(req: Request) {
     ) {
       return NextResponse.json(
         { error: "Retention values must be at least 1 day" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -68,7 +73,7 @@ export async function PUT(req: Request) {
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("PUT /api/admin/gdpr/retention error:", error);
+    logger.error("PUT /api/admin/gdpr/retention error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -77,7 +82,7 @@ export async function PUT(req: Request) {
     }
     return NextResponse.json(
       { error: "Failed to update retention settings" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

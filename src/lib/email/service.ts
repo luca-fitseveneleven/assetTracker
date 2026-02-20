@@ -7,10 +7,11 @@
  * when read for sending emails.
  */
 
-import prisma from '../prisma';
-import { createEmailProvider } from './providers';
-import type { EmailOptions, EmailProvider, EmailSendResult } from './types';
-import { decrypt } from '../encryption';
+import prisma from "../prisma";
+import { createEmailProvider } from "./providers";
+import type { EmailOptions, EmailProvider, EmailSendResult } from "./types";
+import { decrypt } from "../encryption";
+import { logger } from "@/lib/logger";
 
 interface EmailConfig {
   provider: EmailProvider;
@@ -30,32 +31,42 @@ async function getEmailConfig(): Promise<EmailConfig | null> {
   try {
     // Try to get configuration from database first
     const settings = await prisma.system_settings.findMany({
-      where: { category: 'email' },
+      where: { category: "email" },
     });
 
     // Decrypt encrypted settings (API keys, secrets) on the fly
     const configMap = new Map(
-      settings.map(s => [
+      settings.map((s) => [
         s.settingKey,
-        s.isEncrypted && s.settingValue ? decrypt(s.settingValue) : s.settingValue,
-      ])
+        s.isEncrypted && s.settingValue
+          ? decrypt(s.settingValue)
+          : s.settingValue,
+      ]),
     );
 
-    const provider = configMap.get('email_provider') as EmailProvider | undefined;
-    const apiKey = configMap.get('email_api_key');
-    const fromEmail = configMap.get('email_from');
-    const fromName = configMap.get('email_from_name');
+    const provider = configMap.get("email_provider") as
+      | EmailProvider
+      | undefined;
+    const apiKey = configMap.get("email_api_key");
+    const fromEmail = configMap.get("email_from");
+    const fromName = configMap.get("email_from_name");
 
     if (provider && apiKey && fromEmail) {
       return {
         provider,
         apiKey: apiKey as string,
         fromEmail: fromEmail as string,
-        fromName: (fromName as string) || 'Asset Tracker',
-        domain: (configMap.get('email_domain') as string | undefined) || undefined,
-        region: (configMap.get('email_region') as string | undefined) || undefined,
-        accessKeyId: (configMap.get('email_access_key_id') as string | undefined) || undefined,
-        secretAccessKey: (configMap.get('email_secret_access_key') as string | undefined) || undefined,
+        fromName: (fromName as string) || "Asset Tracker",
+        domain:
+          (configMap.get("email_domain") as string | undefined) || undefined,
+        region:
+          (configMap.get("email_region") as string | undefined) || undefined,
+        accessKeyId:
+          (configMap.get("email_access_key_id") as string | undefined) ||
+          undefined,
+        secretAccessKey:
+          (configMap.get("email_secret_access_key") as string | undefined) ||
+          undefined,
       };
     }
 
@@ -68,7 +79,7 @@ async function getEmailConfig(): Promise<EmailConfig | null> {
         provider: envProvider,
         apiKey: getProviderApiKey(envProvider),
         fromEmail: envFromEmail,
-        fromName: process.env.EMAIL_FROM_NAME || 'Asset Tracker',
+        fromName: process.env.EMAIL_FROM_NAME || "Asset Tracker",
         domain: process.env.MAILGUN_DOMAIN,
         region: process.env.AWS_REGION,
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -78,38 +89,41 @@ async function getEmailConfig(): Promise<EmailConfig | null> {
 
     return null;
   } catch (error) {
-    console.error('Failed to get email config:', error);
+    console.error("Failed to get email config:", error);
     return null;
   }
 }
 
 function getProviderApiKey(provider: EmailProvider): string {
   switch (provider) {
-    case 'brevo':
-      return process.env.BREVO_API_KEY || '';
-    case 'sendgrid':
-      return process.env.SENDGRID_API_KEY || '';
-    case 'mailgun':
-      return process.env.MAILGUN_API_KEY || '';
-    case 'postmark':
-      return process.env.POSTMARK_API_KEY || '';
-    case 'ses':
-      return ''; // SES uses access keys instead
+    case "brevo":
+      return process.env.BREVO_API_KEY || "";
+    case "sendgrid":
+      return process.env.SENDGRID_API_KEY || "";
+    case "mailgun":
+      return process.env.MAILGUN_API_KEY || "";
+    case "postmark":
+      return process.env.POSTMARK_API_KEY || "";
+    case "ses":
+      return ""; // SES uses access keys instead
     default:
-      return '';
+      return "";
   }
 }
 
 /**
  * Send an email using the configured provider
  */
-export async function sendEmail(options: EmailOptions): Promise<EmailSendResult> {
+export async function sendEmail(
+  options: EmailOptions,
+): Promise<EmailSendResult> {
   const config = await getEmailConfig();
 
   if (!config) {
     return {
       success: false,
-      error: 'Email is not configured. Please configure an email provider in Admin Settings.',
+      error:
+        "Email is not configured. Please configure an email provider in Admin Settings.",
     };
   }
 
@@ -128,7 +142,7 @@ export async function sendEmail(options: EmailOptions): Promise<EmailSendResult>
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to send email',
+      error: error instanceof Error ? error.message : "Failed to send email",
     };
   }
 }
@@ -136,13 +150,16 @@ export async function sendEmail(options: EmailOptions): Promise<EmailSendResult>
 /**
  * Test email configuration
  */
-export async function testEmailConnection(): Promise<{ success: boolean; error?: string }> {
+export async function testEmailConnection(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
   const config = await getEmailConfig();
 
   if (!config) {
     return {
       success: false,
-      error: 'Email is not configured',
+      error: "Email is not configured",
     };
   }
 
@@ -158,11 +175,15 @@ export async function testEmailConnection(): Promise<{ success: boolean; error?:
     });
 
     const connected = await provider.testConnection();
-    return { success: connected, error: connected ? undefined : 'Connection test failed' };
+    return {
+      success: connected,
+      error: connected ? undefined : "Connection test failed",
+    };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to test connection',
+      error:
+        error instanceof Error ? error.message : "Failed to test connection",
     };
   }
 }
@@ -176,7 +197,7 @@ export async function queueEmail(
   recipient: string,
   subject: string,
   body: string,
-  scheduledAt?: Date
+  scheduledAt?: Date,
 ): Promise<void> {
   await prisma.notification_queue.create({
     data: {
@@ -185,7 +206,7 @@ export async function queueEmail(
       recipient,
       subject,
       body,
-      status: 'pending',
+      status: "pending",
       scheduledAt: scheduledAt || new Date(),
     },
   });
@@ -201,12 +222,12 @@ export async function processEmailQueue(batchSize: number = 10): Promise<{
 }> {
   const pendingEmails = await prisma.notification_queue.findMany({
     where: {
-      status: 'pending',
+      status: "pending",
       scheduledAt: { lte: new Date() },
       attempts: { lt: 3 }, // Max 3 attempts
     },
     take: batchSize,
-    orderBy: { scheduledAt: 'asc' },
+    orderBy: { scheduledAt: "asc" },
   });
 
   let succeeded = 0;
@@ -223,7 +244,7 @@ export async function processEmailQueue(batchSize: number = 10): Promise<{
       await prisma.notification_queue.update({
         where: { id: email.id },
         data: {
-          status: 'sent',
+          status: "sent",
           sentAt: new Date(),
         },
       });
@@ -234,9 +255,19 @@ export async function processEmailQueue(batchSize: number = 10): Promise<{
         data: {
           attempts: email.attempts + 1,
           lastError: result.error,
-          status: email.attempts + 1 >= 3 ? 'failed' : 'pending',
+          status: email.attempts + 1 >= 3 ? "failed" : "pending",
         },
       });
+      if (email.attempts + 1 >= 3) {
+        logger.error("Email permanently failed after 3 attempts", {
+          type: "email_dead_letter",
+          emailId: email.id,
+          recipient: email.recipient,
+          subject: email.subject,
+          emailType: email.type,
+          lastError: result.error,
+        });
+      }
       failed++;
     }
   }

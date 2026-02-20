@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import prisma from "../../../../lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(req) {
   try {
@@ -12,7 +13,7 @@ export async function POST(req) {
         JSON.stringify({ error: "Asset ID and User ID are required" }),
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -23,7 +24,7 @@ export async function POST(req) {
     if (!activeStatus) {
       return new Response(
         JSON.stringify({ error: "Status 'Active' not found in statusType" }),
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -65,15 +66,19 @@ export async function POST(req) {
       }),
       {
         status: 200,
-      }
+      },
     );
   } catch (error) {
-    console.error("Error assigning asset:", error);
+    logger.error("Error assigning asset", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+      });
     }
     if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 403 });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 403,
+      });
     }
     return new Response(JSON.stringify({ error: "Error assigning asset" }), {
       status: 500,

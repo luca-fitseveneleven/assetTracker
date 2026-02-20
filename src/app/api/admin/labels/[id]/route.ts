@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -12,7 +13,16 @@ export async function PUT(req: Request, { params }: RouteParams) {
     await requireApiAdmin();
     const { id } = await params;
     const body = await req.json();
-    const { name, width, height, layout, includeQR, includeLogo, fields, isDefault } = body;
+    const {
+      name,
+      width,
+      height,
+      layout,
+      includeQR,
+      includeLogo,
+      fields,
+      isDefault,
+    } = body;
 
     if (isDefault) {
       await prisma.label_templates.updateMany({
@@ -30,7 +40,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
         ...(layout !== undefined && { layout }),
         ...(includeQR !== undefined && { includeQR }),
         ...(includeLogo !== undefined && { includeLogo }),
-        ...(fields !== undefined && { fields: typeof fields === "string" ? fields : JSON.stringify(fields) }),
+        ...(fields !== undefined && {
+          fields: typeof fields === "string" ? fields : JSON.stringify(fields),
+        }),
         ...(isDefault !== undefined && { isDefault }),
         updatedAt: new Date(),
       },
@@ -38,11 +50,14 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(template, { status: 200 });
   } catch (error) {
-    console.error("PUT /api/admin/labels/[id] error:", error);
+    logger.error("PUT /api/admin/labels/[id] error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to update label template" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update label template" },
+      { status: 500 },
+    );
   }
 }
 
@@ -56,10 +71,13 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error("DELETE /api/admin/labels/[id] error:", error);
+    logger.error("DELETE /api/admin/labels/[id] error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to delete label template" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete label template" },
+      { status: 500 },
+    );
   }
 }

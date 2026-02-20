@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sendEmail } from "@/lib/email";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +14,10 @@ export async function POST(req: Request) {
     const { email } = body;
 
     if (!email) {
-      return NextResponse.json({ error: "Email address is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Email address is required" },
+        { status: 400 },
+      );
     }
 
     const result = await sendEmail({
@@ -35,13 +39,16 @@ export async function POST(req: Request) {
     if (result.success) {
       return NextResponse.json({ success: true, messageId: result.messageId });
     } else {
-      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: 400 },
+      );
     }
   } catch (error) {
-    console.error("POST /api/admin/settings/email/test error:", error);
+    logger.error("POST /api/admin/settings/email/test error", { error });
     return NextResponse.json(
       { success: false, error: "Failed to send test email" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

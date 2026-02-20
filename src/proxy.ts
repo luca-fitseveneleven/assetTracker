@@ -18,7 +18,8 @@ export const proxy = auth((req) => {
   const isLoggedIn = !!req.auth;
 
   // Generate correlation ID for request tracing
-  const correlationId = req.headers.get("x-correlation-id") || generateCorrelationId();
+  const correlationId =
+    req.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Public routes that don't require authentication
   const publicRoutes = [
@@ -33,8 +34,9 @@ export const proxy = auth((req) => {
     "/offline",
     "/invite",
   ];
-  const isPublicRoute =
-    publicRoutes.some((r) => pathname === r || pathname.startsWith(r + "/"));
+  const isPublicRoute = publicRoutes.some(
+    (r) => pathname === r || pathname.startsWith(r + "/"),
+  );
 
   // Health check endpoints (always allow, no rate limiting)
   const isHealthRoute = pathname.startsWith("/api/health");
@@ -43,12 +45,13 @@ export const proxy = auth((req) => {
   const isApiRoute = pathname.startsWith("/api");
 
   // Static files and Next.js internals (always allow)
-  const isStaticFile = pathname.startsWith("/_next") ||
-                      pathname.startsWith("/favicon") ||
-                      pathname.startsWith("/icons/") ||
-                      pathname === "/sw.js" ||
-                      pathname === "/manifest.json" ||
-                      pathname.match(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/);
+  const isStaticFile =
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/icons/") ||
+    pathname === "/sw.js" ||
+    pathname === "/manifest.json" ||
+    pathname.match(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/);
 
   if (isStaticFile) {
     return NextResponse.next();
@@ -64,7 +67,9 @@ export const proxy = auth((req) => {
   // Apply rate limiting if enabled
   if (isFeatureEnabled("rateLimiting") && isApiRoute) {
     const clientIP = getClientIP(req);
-    const isWriteOperation = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
+    const isWriteOperation = ["POST", "PUT", "PATCH", "DELETE"].includes(
+      req.method,
+    );
 
     // Choose rate limiter based on endpoint and method
     let limiterConfig = rateLimiters.api;
@@ -78,7 +83,12 @@ export const proxy = auth((req) => {
     const rateLimitResult = checkRateLimit(identifier, limiterConfig);
 
     if (!rateLimitResult.success) {
-      return createRateLimitResponse(rateLimitResult, limiterConfig.message);
+      const rateLimitResponse = createRateLimitResponse(
+        rateLimitResult,
+        limiterConfig.message,
+      );
+      rateLimitResponse.headers.set("x-correlation-id", correlationId);
+      return rateLimitResponse;
     }
 
     // Add rate limit headers to response for API routes

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { getGDPRSettings } from "@/lib/gdpr-settings";
+import { logger } from "@/lib/logger";
 
 /**
  * GET /api/admin/compliance
@@ -50,7 +51,8 @@ export async function GET() {
       }),
     ]);
 
-    const totalEntities = totalAssets + totalAccessories + totalLicences + totalConsumables;
+    const totalEntities =
+      totalAssets + totalAccessories + totalLicences + totalConsumables;
     const auditedEntityCount = auditedEntitiesRaw.length;
 
     // --- Data Retention / GDPR ---
@@ -69,25 +71,32 @@ export async function GET() {
       .map((sc) => sc.statustypeid)
       .filter((id): id is string => id !== null);
 
-    const statusTypes = statusTypeIds.length > 0
-      ? await prisma.statusType.findMany({
-          where: { statustypeid: { in: statusTypeIds } },
-          select: { statustypeid: true, statustypename: true },
-        })
-      : [];
+    const statusTypes =
+      statusTypeIds.length > 0
+        ? await prisma.statusType.findMany({
+            where: { statustypeid: { in: statusTypeIds } },
+            select: { statustypeid: true, statustypename: true },
+          })
+        : [];
 
     const statusMap = new Map(
-      statusTypes.map((st) => [st.statustypeid, st.statustypename])
+      statusTypes.map((st) => [st.statustypeid, st.statustypename]),
     );
 
     // Determine active vs retired counts
     let activeAssets = 0;
     let retiredAssets = 0;
     for (const sc of statusCounts) {
-      const name = sc.statustypeid ? statusMap.get(sc.statustypeid)?.toLowerCase() : null;
+      const name = sc.statustypeid
+        ? statusMap.get(sc.statustypeid)?.toLowerCase()
+        : null;
       if (name === "active" || name === "available" || name === "deployed") {
         activeAssets += sc._count.assetid;
-      } else if (name === "retired" || name === "disposed" || name === "archived") {
+      } else if (
+        name === "retired" ||
+        name === "disposed" ||
+        name === "archived"
+      ) {
         retiredAssets += sc._count.assetid;
       }
     }
@@ -123,7 +132,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("GET /api/admin/compliance error:", error);
+    logger.error("GET /api/admin/compliance error", { error });
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -132,7 +141,7 @@ export async function GET() {
     }
     return NextResponse.json(
       { error: "Failed to fetch compliance data" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

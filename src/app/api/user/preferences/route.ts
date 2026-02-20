@@ -8,6 +8,7 @@ const DEFAULTS = {
   timezone: "UTC",
   currency: "USD",
   pageSize: 20,
+  onboardingCompleted: false,
 };
 
 export async function GET() {
@@ -39,14 +40,15 @@ export async function PUT(request: NextRequest) {
     const user = await requireApiAuth();
 
     const body = await request.json();
-    const { theme, locale, timezone, currency, pageSize } = body;
+    const { theme, locale, timezone, currency, pageSize, onboardingCompleted } = body;
 
-    const values: Record<string, string | number> = {};
+    const values: Record<string, string | number | boolean> = {};
     if (theme !== undefined) values.theme = theme;
     if (locale !== undefined) values.locale = locale;
     if (timezone !== undefined) values.timezone = timezone;
     if (currency !== undefined) values.currency = currency;
     if (pageSize !== undefined) values.pageSize = pageSize;
+    if (onboardingCompleted !== undefined) values.onboardingCompleted = onboardingCompleted;
 
     const preferences = await prisma.user_preferences.upsert({
       where: { userId: user.id },

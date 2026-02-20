@@ -7,6 +7,7 @@ import Footer from "./Footer";
 import MobileNav from "./MobileNav";
 import KeyboardShortcuts from "./KeyboardShortcuts";
 import DemoBanner from "./DemoBanner";
+import OnboardingWizard from "./OnboardingWizard";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -57,6 +58,7 @@ export default function AppShell({ children, initialSidebarCollapsed, isDemo }: 
           <MobileNav />
         </div>
       </div>
+      <OnboardingWizard />
     </>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast, Toaster } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface UserSettingsClientProps {
   user: { userid: string; firstname: string; lastname: string; email: string | null };
@@ -50,6 +51,7 @@ const CURRENCIES = [
 const PAGE_SIZES = ["10", "20", "50", "100"];
 
 export default function UserSettingsClient({ user, preferences }: UserSettingsClientProps) {
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     theme: preferences.theme,
@@ -175,6 +177,31 @@ export default function UserSettingsClient({ user, preferences }: UserSettingsCl
           </Button>
         </div>
       </form>
+
+      <section className="mt-6 rounded-lg border border-default-200 p-4">
+        <h2 className="text-sm font-semibold text-foreground-600 mb-1">Onboarding</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Re-watch the guided tour of the application&apos;s key features.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            try {
+              await fetch("/api/user/preferences", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ onboardingCompleted: false }),
+              });
+              router.push("?onboarding=1");
+            } catch {
+              toast.error("Failed to restart onboarding");
+            }
+          }}
+        >
+          Restart Onboarding Tour
+        </Button>
+      </section>
     </div>
   );
 }

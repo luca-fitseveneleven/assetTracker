@@ -75,6 +75,12 @@ export const authConfig: NextAuthConfig = {
         pathname === "/" ||
         publicRoutes.some((r) => pathname === r || pathname.startsWith(r + "/"));
       const isApiRoute = pathname.startsWith("/api/");
+
+      // Static files (service worker, manifest, icons) should never be intercepted
+      const isStaticAsset =
+        pathname === "/sw.js" ||
+        pathname === "/manifest.json" ||
+        pathname.startsWith("/icons/");
       const isMfaVerifyRoute = pathname === "/mfa-verify";
       const isAuthApiRoute = pathname.startsWith("/api/auth");
 
@@ -82,8 +88,8 @@ export const authConfig: NextAuthConfig = {
       const extSession = auth as ExtendedSession | null;
       const mfaPending = extSession?.user?.mfaPending === true;
 
-      // Allow public routes and all API routes (API routes handle their own auth)
-      if (isPublicRoute || isApiRoute) {
+      // Allow public routes, API routes, and static assets
+      if (isPublicRoute || isApiRoute || isStaticAsset) {
         return true;
       }
 

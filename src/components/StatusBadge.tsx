@@ -10,29 +10,29 @@ interface StatusBadgeProps {
 
 const statusColorMap: Record<string, string> = {
   // Green statuses
-  active: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-  approved: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-  completed: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-  compliant: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
+  active: "bg-success-bg text-success-foreground border-success-bg",
+  approved: "bg-success-bg text-success-foreground border-success-bg",
+  completed: "bg-success-bg text-success-foreground border-success-bg",
+  compliant: "bg-success-bg text-success-foreground border-success-bg",
 
   // Yellow statuses
-  pending: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800",
-  processing: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800",
-  in_progress: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800",
+  pending: "bg-warning-bg text-warning-foreground border-warning-bg",
+  processing: "bg-warning-bg text-warning-foreground border-warning-bg",
+  in_progress: "bg-warning-bg text-warning-foreground border-warning-bg",
 
   // Gray statuses
-  inactive: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800",
-  retired: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800",
-  expired: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800",
+  inactive: "bg-muted text-muted-foreground border-muted",
+  retired: "bg-muted text-muted-foreground border-muted",
+  expired: "bg-muted text-muted-foreground border-muted",
 
   // Red statuses
-  rejected: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
-  failed: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
-  overdue: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+  rejected: "bg-destructive/10 text-destructive border-destructive/20",
+  failed: "bg-destructive/10 text-destructive border-destructive/20",
+  overdue: "bg-destructive/10 text-destructive border-destructive/20",
 
   // Blue statuses
-  available: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
-  ready: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
+  available: "bg-info-bg text-info-foreground border-info-bg",
+  ready: "bg-info-bg text-info-foreground border-info-bg",
 };
 
 function capitalize(str: string): string {

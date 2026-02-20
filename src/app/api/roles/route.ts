@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
 
 // Get list of available permissions
 export async function OPTIONS() {
-  const permissions = getAllPermissions();
+  const permissions = getAllPermissions().map((p) => p.key);
   return NextResponse.json({ permissions });
 }
 

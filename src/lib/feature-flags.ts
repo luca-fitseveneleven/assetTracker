@@ -26,6 +26,8 @@ export interface FeatureFlags {
   advancedSearch: boolean;
   /** Enable maintenance mode */
   maintenanceMode: boolean;
+  /** Self-hosted mode — skip landing page, go straight to login/dashboard */
+  selfHosted: boolean;
 }
 
 /**
@@ -40,6 +42,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   emailNotifications: false,
   advancedSearch: true,
   maintenanceMode: false,
+  selfHosted: false,
 };
 
 /**
@@ -63,6 +66,7 @@ function loadFromEnvironment(): Partial<FeatureFlags> {
     emailNotifications: getBoolEnvVar("FEATURE_EMAIL_NOTIFICATIONS", DEFAULT_FLAGS.emailNotifications),
     advancedSearch: getBoolEnvVar("FEATURE_ADVANCED_SEARCH", DEFAULT_FLAGS.advancedSearch),
     maintenanceMode: getBoolEnvVar("MAINTENANCE_MODE", DEFAULT_FLAGS.maintenanceMode),
+    selfHosted: getBoolEnvVar("SELF_HOSTED", DEFAULT_FLAGS.selfHosted),
   };
 }
 

@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Navigation from "./Navigation";
-import Footer from "./Footer";
 import MobileNav from "./MobileNav";
 import KeyboardShortcuts from "./KeyboardShortcuts";
 import DemoBanner from "./DemoBanner";
@@ -49,9 +48,9 @@ export default function AppShell({
     <>
       <KeyboardShortcuts />
       <DemoBanner isDemo={isDemo} />
-      <div className="bg-background flex min-h-screen">
+      <div className="bg-background flex h-screen overflow-hidden">
         <Sidebar initialCollapsed={initialSidebarCollapsed} />
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Navigation />
           <main
             id="main-content"
@@ -59,7 +58,6 @@ export default function AppShell({
           >
             <PageTransition>{children}</PageTransition>
           </main>
-          <Footer />
           <MobileNav />
         </div>
       </div>

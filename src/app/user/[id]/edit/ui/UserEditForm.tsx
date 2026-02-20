@@ -208,7 +208,7 @@ export default function UserEditForm({ initial }) {
           <section className="col-span-1 rounded-lg border border-default-200 p-4">
             <h2 className="text-sm font-semibold text-foreground-600 mb-3">Permissions</h2>
             <div className="flex flex-col gap-3">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button type="button" size="sm" variant={!form.isadmin && !form.canrequest ? "default" : "outline"} onClick={() => setForm((f) => ({ ...f, isadmin: false, canrequest: false }))}>Deactivated</Button>
                 <Button type="button" size="sm" variant={!form.isadmin && form.canrequest ? "default" : "outline"} onClick={() => setForm((f) => ({ ...f, isadmin: false, canrequest: true }))}>Requester</Button>
                 <Button type="button" size="sm" variant={form.isadmin ? "default" : "outline"} onClick={() => setForm((f) => ({ ...f, isadmin: true, canrequest: true }))}>Admin</Button>

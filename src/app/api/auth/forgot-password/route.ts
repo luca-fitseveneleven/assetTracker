@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import prisma from "@/lib/prisma";
-import { queueEmail, emailTemplates, renderTemplate } from "@/lib/email";
+import { sendEmail, queueEmail, emailTemplates, renderTemplate } from "@/lib/email";
 import { checkRateLimit, rateLimiters } from "@/lib/rate-limit";
 import { headers } from "next/headers";
 
@@ -54,17 +54,26 @@ export async function POST(req: Request) {
       const protocol = baseUrl.startsWith("http") ? "" : "https://";
       const resetUrl = `${protocol}${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(user.email!)}`;
 
-      // Send email
+      // Send email directly (with queue fallback)
       const html = renderTemplate(emailTemplates.passwordReset.html, { resetUrl });
       const subject = emailTemplates.passwordReset.subject;
 
-      await queueEmail(
-        user.userid,
-        "password_reset",
-        user.email!,
+      const result = await sendEmail({
+        to: user.email!,
         subject,
-        html
-      );
+        html,
+      });
+
+      if (!result.success) {
+        console.error("Direct email send failed, queuing instead:", result.error);
+        await queueEmail(
+          user.userid,
+          "password_reset",
+          user.email!,
+          subject,
+          html
+        );
+      }
     }
 
     // Always return same response to prevent email enumeration

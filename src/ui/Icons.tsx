@@ -26,7 +26,7 @@ import {
   LucideProps,
 } from "lucide-react";
 
-const DEFAULT_COLOR = "#18181B"; // Tailwind zinc-900
+const DEFAULT_COLOR = "currentColor";
 
 interface IconProps extends Omit<LucideProps, 'ref'> {
   fill?: string;

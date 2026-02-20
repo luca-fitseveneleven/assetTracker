@@ -126,7 +126,8 @@ export default function RolesTab() {
       const res = await fetch("/api/roles", { method: "OPTIONS" });
       if (!res.ok) throw new Error("Failed to fetch permissions");
       const data = await res.json();
-      setAllPermissions(data.permissions ?? []);
+      const perms = (data.permissions ?? []).filter((p: unknown): p is string => typeof p === "string");
+      setAllPermissions(perms);
     } catch {
       toast.error("Failed to load permissions");
     }

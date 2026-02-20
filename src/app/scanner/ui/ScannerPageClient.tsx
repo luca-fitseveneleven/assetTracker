@@ -177,7 +177,14 @@ export default function ScannerPageClient() {
         );
         if (!res.ok) throw new Error("Search failed");
         const data = await res.json();
-        setSearchResults(data.results || []);
+        const mapped = (data.results || []).map((r: Record<string, string>) => ({
+          id: r.id,
+          type: r.type,
+          title: r.label || r.title || "",
+          subtitle: r.sublabel || r.subtitle || "",
+          href: r.href,
+        }));
+        setSearchResults(mapped);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         toast.error("Search failed");

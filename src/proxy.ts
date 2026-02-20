@@ -21,7 +21,20 @@ export const proxy = auth((req) => {
   const correlationId = req.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Public routes that don't require authentication
-  const isPublicRoute = pathname === "/login";
+  const publicRoutes = [
+    "/",
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+    "/pricing",
+    "/terms",
+    "/privacy",
+    "/offline",
+    "/invite",
+  ];
+  const isPublicRoute =
+    publicRoutes.some((r) => pathname === r || pathname.startsWith(r + "/"));
 
   // Health check endpoints (always allow, no rate limiting)
   const isHealthRoute = pathname.startsWith("/api/health");
@@ -32,6 +45,9 @@ export const proxy = auth((req) => {
   // Static files and Next.js internals (always allow)
   const isStaticFile = pathname.startsWith("/_next") ||
                       pathname.startsWith("/favicon") ||
+                      pathname.startsWith("/icons/") ||
+                      pathname === "/sw.js" ||
+                      pathname === "/manifest.json" ||
                       pathname.match(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/);
 
   if (isStaticFile) {
@@ -83,8 +99,8 @@ export const proxy = auth((req) => {
   }
 
   // Redirect logged-in users away from login page
-  if (isLoggedIn && isPublicRoute) {
-    const response = NextResponse.redirect(new URL("/", req.url));
+  if (isLoggedIn && pathname === "/login") {
+    const response = NextResponse.redirect(new URL("/dashboard", req.url));
     response.headers.set("x-correlation-id", correlationId);
     return response;
   }

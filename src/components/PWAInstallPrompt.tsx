@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -11,22 +11,34 @@ interface BeforeInstallPromptEvent extends Event {
 const DISMISS_KEY = "pwa-install-dismissed";
 const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+function isDismissed(): boolean {
+  try {
+    const dismissedAt = localStorage.getItem(DISMISS_KEY);
+    if (!dismissedAt) return false;
+    const elapsed = Date.now() - parseInt(dismissedAt, 10);
+    if (elapsed < DISMISS_DURATION_MS) return true;
+    localStorage.removeItem(DISMISS_KEY);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [showBanner, setShowBanner] = useState(false);
+  const dismissed = useRef(false);
 
   useEffect(() => {
-    // Check if user previously dismissed the prompt
-    const dismissedAt = localStorage.getItem(DISMISS_KEY);
-    if (dismissedAt) {
-      const elapsed = Date.now() - parseInt(dismissedAt, 10);
-      if (elapsed < DISMISS_DURATION_MS) return;
-      localStorage.removeItem(DISMISS_KEY);
+    if (isDismissed()) {
+      dismissed.current = true;
+      return;
     }
 
     const handler = (e: Event) => {
       e.preventDefault();
+      if (dismissed.current) return;
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setShowBanner(true);
     };
@@ -46,9 +58,14 @@ export default function PWAInstallPrompt() {
   }, [deferredPrompt]);
 
   const handleDismiss = useCallback(() => {
+    dismissed.current = true;
     setShowBanner(false);
     setDeferredPrompt(null);
-    localStorage.setItem(DISMISS_KEY, Date.now().toString());
+    try {
+      localStorage.setItem(DISMISS_KEY, Date.now().toString());
+    } catch {
+      // localStorage not available
+    }
   }, []);
 
   if (!showBanner) return null;

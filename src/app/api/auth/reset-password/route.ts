@@ -37,12 +37,10 @@ export async function POST(req: Request) {
 
     if (verificationToken.expires < new Date()) {
       // Clean up expired token
-      await prisma.verification_tokens.delete({
+      await prisma.verification_tokens.deleteMany({
         where: {
-          identifier_token: {
-            identifier: verificationToken.identifier,
-            token: verificationToken.token,
-          },
+          identifier: verificationToken.identifier,
+          token: verificationToken.token,
         },
       });
       return NextResponse.json(
@@ -74,12 +72,10 @@ export async function POST(req: Request) {
     });
 
     // Delete the used token
-    await prisma.verification_tokens.delete({
+    await prisma.verification_tokens.deleteMany({
       where: {
-        identifier_token: {
-          identifier: verificationToken.identifier,
-          token: verificationToken.token,
-        },
+        identifier: verificationToken.identifier,
+        token: verificationToken.token,
       },
     });
 

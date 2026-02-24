@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const authUser = await requireApiAuth();
 
     if (!authUser.id) {

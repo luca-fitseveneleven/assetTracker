@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
 
 export async function PUT(
@@ -7,6 +7,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAdmin();
 
     const { id } = await params;
@@ -47,6 +50,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAdmin();
 
     const { id } = await params;
@@ -78,6 +84,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAdmin();
 
     const { id } = await params;

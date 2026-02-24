@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
-import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAuth, requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import {
   createLocationSchema,
   updateLocationSchema,
@@ -71,6 +71,8 @@ export async function GET(req) {
 // POST /api/location
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Only admins can create locations
     const admin = await requireApiAdmin();
 
@@ -132,6 +134,8 @@ export async function POST(req) {
 // PUT /api/location
 export async function PUT(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Only admins can update locations
     const admin = await requireApiAdmin();
 
@@ -209,6 +213,8 @@ export async function PUT(req) {
 // DELETE /api/location
 export async function DELETE(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Only admins can delete locations
     const admin = await requireApiAdmin();
 

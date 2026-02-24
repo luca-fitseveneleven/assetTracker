@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { requireNotDemoMode } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
 import { updateDepartmentSchema } from "@/lib/validation-organization";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
@@ -62,6 +63,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
 export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const { id } = await params;
     const session = await auth();
     if (!session?.user?.isAdmin) {
@@ -141,6 +145,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const { id } = await params;
     const session = await auth();
     if (!session?.user?.isAdmin) {

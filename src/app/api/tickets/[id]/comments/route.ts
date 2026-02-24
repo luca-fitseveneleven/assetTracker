@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 // POST /api/tickets/[id]/comments
@@ -10,6 +10,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAuth();
     const { id } = await params;
     const body = await req.json();

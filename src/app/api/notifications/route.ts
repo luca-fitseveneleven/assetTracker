@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { requireNotDemoMode } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
 import {
   parsePaginationParams,
@@ -90,6 +91,9 @@ export async function GET(request: NextRequest) {
 // DELETE /api/notifications - Delete all notifications for the current user
 export async function DELETE(request: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

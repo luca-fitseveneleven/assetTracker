@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
 
 export async function GET() {
@@ -24,6 +24,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAdmin();
 
     const body = await request.json();

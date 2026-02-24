@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 
@@ -53,6 +53,9 @@ export async function GET(req: Request, { params }: RouteParams) {
 // PUT /api/admin/workflows/[id] - Update automation rule
 export async function PUT(req: Request, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAdmin();
     const { id } = await params;
     const body = await req.json();
@@ -118,6 +121,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
 // DELETE /api/admin/workflows/[id] - Delete automation rule
 export async function DELETE(req: Request, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAdmin();
     const { id } = await params;
 

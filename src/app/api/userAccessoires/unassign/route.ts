@@ -1,11 +1,14 @@
 import prisma from "../../../../lib/prisma";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 // DELETE /api/userAccessoires/unassign
 // Body: { userId, accessorieId }
 export async function DELETE(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAdmin();
     const { userId, accessorieId } = await req.json();
     if (!userId || !accessorieId) {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { revokeOtherSessions } from "@/lib/session-tracking";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { logger } from "@/lib/logger";
@@ -11,6 +11,9 @@ import { logger } from "@/lib/logger";
  */
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAuth();
 
     if (!user.id) {

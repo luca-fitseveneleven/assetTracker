@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { revokeSession } from "@/lib/session-tracking";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import prisma from "@/lib/prisma";
@@ -15,6 +15,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAuth();
     const { id: sessionId } = await params;
 

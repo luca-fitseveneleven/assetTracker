@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 interface RouteParams {
@@ -10,6 +10,9 @@ interface RouteParams {
 // PUT /api/admin/labels/[id]
 export async function PUT(req: Request, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAdmin();
     const { id } = await params;
     const body = await req.json();
@@ -64,6 +67,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
 // DELETE /api/admin/labels/[id]
 export async function DELETE(req: Request, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAdmin();
     const { id } = await params;
 

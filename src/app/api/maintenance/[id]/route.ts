@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 interface RouteParams {
@@ -57,6 +57,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 // PUT: Update a maintenance schedule
 export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAuth();
 
     const { id } = await params;
@@ -146,6 +149,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 // DELETE: Delete a maintenance schedule
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAuth();
 
     const { id } = await params;

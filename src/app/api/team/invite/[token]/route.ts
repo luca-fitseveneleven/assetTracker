@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireNotDemoMode } from "@/lib/api-auth";
 import bcrypt from "bcryptjs";
 import { logger } from "@/lib/logger";
 
@@ -74,6 +75,9 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> },
 ) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const { token } = await params;
     const { error, status, invitation } =
       await findAndValidateInvitation(token);

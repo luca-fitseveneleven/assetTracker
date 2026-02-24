@@ -1,9 +1,12 @@
 import prisma from "../../../../lib/prisma";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 export async function PUT(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAdmin();
     const { userAssetsId, userId } = await req.json();
 

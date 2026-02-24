@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import QRCode from "qrcode";
 import prisma from "@/lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { generateMfaSecret, generateMfaUri } from "@/lib/mfa";
 import { encrypt } from "@/lib/encryption";
 import { logger } from "@/lib/logger";
 
 export async function POST() {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const authUser = await requireApiAuth();
 
     if (!authUser.id) {

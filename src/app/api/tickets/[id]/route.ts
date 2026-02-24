@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { createFreshdeskClient } from "@/lib/freshdesk";
 import { logger } from "@/lib/logger";
 
@@ -76,6 +76,9 @@ export async function GET(req: Request, { params }: RouteParams) {
 // Only admins can update tickets
 export async function PATCH(req: Request, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAdmin();
     const { id } = await params;
     const body = await req.json();

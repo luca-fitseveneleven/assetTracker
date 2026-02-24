@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { createFreshdeskClient, SUPPORTED_TICKET_TYPES } from "@/lib/freshdesk";
 import { decrypt } from "@/lib/encryption";
 import {
@@ -207,6 +207,9 @@ async function getFreshdeskTickets(req: Request, url: URL) {
 // Create a new ticket (any authenticated user can create)
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAuth();
     const body = await req.json();
 

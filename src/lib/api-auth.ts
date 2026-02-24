@@ -1,5 +1,20 @@
 import { auth } from "@/auth";
+import { NextResponse } from "next/server";
 import { hasPermission, hasAnyPermission, type Permission } from "./rbac";
+
+/**
+ * Block mutating operations in demo mode.
+ * Returns a 403 response if DEMO_MODE is enabled, null otherwise.
+ */
+export function requireNotDemoMode() {
+  if (process.env.DEMO_MODE === "true") {
+    return NextResponse.json(
+      { error: "This action is disabled in demo mode" },
+      { status: 403 }
+    );
+  }
+  return null;
+}
 
 interface AuthUser {
   id?: string;

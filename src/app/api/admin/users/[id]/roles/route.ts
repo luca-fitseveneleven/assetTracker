@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { logger } from "@/lib/logger";
 
@@ -69,6 +69,9 @@ export async function GET(req: Request, { params }: RouteParams) {
 // Assign a role to a user
 export async function POST(req: Request, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const admin = await requireApiAdmin();
     const { id } = await params;
     const body = await req.json();
@@ -172,6 +175,9 @@ export async function POST(req: Request, { params }: RouteParams) {
 // Remove a role from a user
 export async function DELETE(req: Request, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const admin = await requireApiAdmin();
     const { id } = await params;
     const body = await req.json();

@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth-utils";
+import { requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const { token, email, password } = await req.json();
 
     if (!token || !email || !password) {

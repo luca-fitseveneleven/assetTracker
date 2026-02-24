@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -98,6 +98,9 @@ export async function GET(req: NextRequest) {
 // POST: Create a new maintenance schedule
 export async function POST(req: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAuth();
     const orgContext = await getOrganizationContext();
     const orgId = orgContext?.organization?.id;

@@ -8,6 +8,7 @@ import {
   getClientIP,
   createRateLimitResponse,
 } from "@/lib/rate-limit";
+import { requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 const registerSchema = z.object({
@@ -36,6 +37,9 @@ function generateSlug(name: string): string {
 
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     // Rate limit: 5 registrations per hour per IP
     const ip = getClientIP(req);
     const rl = checkRateLimit(`register:${ip}`, {

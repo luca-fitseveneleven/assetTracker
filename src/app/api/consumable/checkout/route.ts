@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, consumableCheckoutSchema } from "@/lib/validations";
 import { triggerWebhook } from "@/lib/webhooks";
@@ -51,6 +51,8 @@ export async function GET(req: Request) {
 // POST /api/consumable/checkout
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     const authUser = await requirePermission("consumable:edit");
 
     const body = await req.json();

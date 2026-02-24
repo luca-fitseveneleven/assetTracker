@@ -1,6 +1,6 @@
 import prisma from "../../../../lib/prisma";
 import { logger } from "@/lib/logger";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
 import { triggerWebhook } from "@/lib/webhooks";
 
@@ -10,6 +10,8 @@ export async function PUT(req) {
   const startTime = Date.now();
 
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     await requirePermission('asset:edit');
     const orgContext = await getOrganizationContext();
     const orgId = orgContext?.organization?.id;

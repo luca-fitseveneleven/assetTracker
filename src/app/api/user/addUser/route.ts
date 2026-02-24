@@ -1,7 +1,7 @@
 import prisma from "../../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { getOrganizationContext } from "@/lib/organization-context";
 import { hashPassword } from "@/lib/auth-utils";
 import { createUserSchema } from "@/lib/validation";
@@ -13,6 +13,9 @@ import { logger } from "@/lib/logger";
 // POST /api/user/addUser
 export async function POST(request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     // Require user:create permission
     const admin = await requirePermission("user:create");
 

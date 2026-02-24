@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { hasPermission } from "@/lib/rbac";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { validateBody, createApprovalSchema } from "@/lib/validations";
@@ -87,6 +87,9 @@ export async function GET(req: NextRequest) {
 // POST /api/approvals - Create a new approval request
 export async function POST(req: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requirePermission("reservation:create");
 
     const body = await req.json();

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { createFreshdeskClient } from "@/lib/freshdesk";
 import { encrypt } from "@/lib/encryption";
+import { requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 /**
@@ -51,6 +52,9 @@ export async function GET() {
  */
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const session = await auth();
     if (!session?.user?.isAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

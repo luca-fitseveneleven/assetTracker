@@ -1,5 +1,5 @@
 import prisma from "../../../../lib/prisma";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { triggerWebhook } from "@/lib/webhooks";
 import { logger } from "@/lib/logger";
 
@@ -7,6 +7,8 @@ import { logger } from "@/lib/logger";
 // Body: { licenceId, userId }
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     await requirePermission("license:assign");
     const { licenceId, userId } = await req.json();
     if (!licenceId || !userId) {

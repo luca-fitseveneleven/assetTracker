@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 // GET /api/asset/transfers
@@ -36,6 +37,8 @@ export async function GET(req: Request) {
 // Body: { assetId, transferType, toUserId?, toLocationId?, toOrgId?, reason? }
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     const session = await auth();
     if (!session?.user?.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

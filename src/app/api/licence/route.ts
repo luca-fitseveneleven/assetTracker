@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import {
   createLicenseSchema,
   updateLicenseSchema,
@@ -82,6 +82,8 @@ export async function GET(req) {
 // POST /api/licence
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Require license:create permission to create licences
     const admin = await requirePermission("license:create");
 
@@ -168,6 +170,8 @@ export async function POST(req) {
 // PUT /api/licence
 export async function PUT(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Require license:edit permission to update licences
     const admin = await requirePermission("license:edit");
 
@@ -278,6 +282,8 @@ export async function PUT(req) {
 // DELETE /api/licence
 export async function DELETE(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Require license:delete permission to delete licences
     const admin = await requirePermission("license:delete");
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { hasPermission } from "@/lib/rbac";
 import {
   getOrganizationContext,
@@ -113,6 +113,9 @@ export async function GET(req) {
 // Body must include userid; any provided fields will be updated
 export async function PUT(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const authUser = await requireApiAuth();
     const body = await req.json();
     const { userid, password, ...data } = body || {};

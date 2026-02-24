@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { webhookSchema } from "@/lib/validation-organization";
 import { getWebhookEvents } from "@/lib/webhooks";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
@@ -101,6 +101,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const authUser = await requirePermission("webhook:manage");
 
     const body = await req.json();

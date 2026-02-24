@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
-import { requireApiAuth, requirePermission } from "@/lib/api-auth";
+import { requireApiAuth, requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -106,6 +106,8 @@ export async function GET(req) {
 // POST /api/asset
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     await requirePermission("asset:create");
 
     const limitCheck = await checkAssetLimit();
@@ -171,6 +173,8 @@ export async function POST(req) {
 // Body must include assetid; any provided fields will be updated
 export async function PUT(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     await requirePermission("asset:edit");
     const body = await req.json();
     const validated = validateBody(updateAssetSchema, body);

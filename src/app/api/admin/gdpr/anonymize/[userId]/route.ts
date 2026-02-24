@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
@@ -16,6 +16,9 @@ interface RouteParams {
  */
 export async function POST(req: Request, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const adminUser = await requireApiAdmin();
     const { userId } = await params;
 

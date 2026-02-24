@@ -1,11 +1,13 @@
 import prisma from "../../../../lib/prisma";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 // DELETE /api/licence/unassign
 // Body: { licenceId }
 export async function DELETE(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     await requirePermission("license:assign");
     const { licenceId } = await req.json();
     if (!licenceId) {

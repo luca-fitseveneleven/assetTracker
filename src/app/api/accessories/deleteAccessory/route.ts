@@ -1,11 +1,13 @@
 import prisma from "../../../../lib/prisma";
 import { logger } from "@/lib/logger";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 
 export async function DELETE(req) {
   const startTime = Date.now();
   
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     await requirePermission('accessory:delete');
     const { accessoryId } = await req.json();
 

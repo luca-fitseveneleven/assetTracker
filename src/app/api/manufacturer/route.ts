@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
-import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAuth, requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import {
   createManufacturerSchema,
   updateManufacturerSchema,
@@ -71,6 +71,8 @@ export async function GET(req) {
 // POST /api/manufacturer
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Only admins can create manufacturers
     const admin = await requireApiAdmin();
 
@@ -127,6 +129,8 @@ export async function POST(req) {
 // PUT /api/manufacturer
 export async function PUT(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Only admins can update manufacturers
     const admin = await requireApiAdmin();
 
@@ -199,6 +203,8 @@ export async function PUT(req) {
 // DELETE /api/manufacturer
 export async function DELETE(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Only admins can delete manufacturers
     const admin = await requireApiAdmin();
 

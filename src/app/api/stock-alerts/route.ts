@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { requireNotDemoMode } from "@/lib/api-auth";
 import {
   stockAlertSchema,
   updateStockAlertSchema,
@@ -62,6 +63,9 @@ export async function GET(req: NextRequest) {
 // Create a stock alert for a consumable
 export async function POST(req: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const session = await auth();
     if (!session?.user?.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -147,6 +151,9 @@ export async function POST(req: NextRequest) {
 // Check all consumables for low stock and trigger alerts
 export async function PUT() {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const session = await auth();
     if (!session?.user?.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

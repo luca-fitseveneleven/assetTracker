@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { hasPermission } from "@/lib/rbac";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { validateBody, resolveApprovalSchema } from "@/lib/validations";
@@ -75,6 +75,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 // PUT /api/approvals/[id] - Approve or reject an approval request
 export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const { id } = await params;
     const admin = await requirePermission("reservation:approve");
 

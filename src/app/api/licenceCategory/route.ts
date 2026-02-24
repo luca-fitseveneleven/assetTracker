@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
-import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAuth, requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import {
   createLicenceCategoryTypeSchema,
   updateLicenceCategoryTypeSchema,
@@ -76,6 +76,8 @@ export async function GET(req) {
 // POST /api/licenceCategory
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Only admins can create licence categories
     const admin = await requireApiAdmin();
 
@@ -131,6 +133,8 @@ export async function POST(req) {
 // PUT /api/licenceCategory
 export async function PUT(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Only admins can update licence categories
     const admin = await requireApiAdmin();
 

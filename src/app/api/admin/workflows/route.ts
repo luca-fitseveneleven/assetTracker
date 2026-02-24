@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 // GET /api/admin/workflows - List all automation rules
@@ -40,6 +40,9 @@ export async function GET() {
 // POST /api/admin/workflows - Create a new automation rule
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAdmin();
     const body = await req.json();
     const { name, description, trigger, conditions, actions } = body;

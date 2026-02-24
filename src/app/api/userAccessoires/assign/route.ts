@@ -1,12 +1,15 @@
 import prisma from "../../../../lib/prisma";
 import { Prisma } from "@prisma/client";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 // POST /api/userAccessoires/assign
 // Body: { userId, accessorieId }
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAdmin();
     const { userId, accessorieId } = await req.json();
     if (!userId || !accessorieId) {

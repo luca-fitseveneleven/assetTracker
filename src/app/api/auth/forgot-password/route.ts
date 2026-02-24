@@ -9,10 +9,14 @@ import {
 } from "@/lib/email";
 import { checkRateLimit, rateLimiters } from "@/lib/rate-limit";
 import { headers } from "next/headers";
+import { requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const headersList = await headers();
     const ip =
       headersList.get("x-forwarded-for") ||

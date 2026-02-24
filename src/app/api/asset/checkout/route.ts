@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 // GET /api/asset/checkout?assetId=<uuid>
@@ -52,6 +52,8 @@ export async function GET(req: Request) {
 // Body: { assetId, checkedOutTo, expectedReturn?, notes? }
 export async function POST(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     const user = await requireApiAuth();
 
     const body = await req.json();

@@ -1,5 +1,5 @@
 import prisma from "../../../../lib/prisma";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -9,6 +9,8 @@ import { logger } from "@/lib/logger";
 
 export async function DELETE(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     await requirePermission("asset:delete");
     const orgContext = await getOrganizationContext();
     const orgId = orgContext?.organization?.id;

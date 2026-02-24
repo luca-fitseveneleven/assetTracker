@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import {
   WIDGET_DEFINITIONS,
   DEFAULT_WIDGETS,
@@ -48,6 +48,9 @@ export async function GET() {
 // PUT /api/dashboard/widgets — update widget order/visibility
 export async function PUT(req: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAuth();
     const body = await req.json();
     const { widgets } = body as {
@@ -133,6 +136,9 @@ export async function PUT(req: NextRequest) {
 // POST /api/dashboard/widgets — add a new widget
 export async function POST(req: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAuth();
     const body = await req.json();
     const { widgetType } = body as { widgetType: string };
@@ -215,6 +221,9 @@ export async function POST(req: NextRequest) {
 // DELETE /api/dashboard/widgets?id=xxx — remove a widget
 export async function DELETE(req: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAuth();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

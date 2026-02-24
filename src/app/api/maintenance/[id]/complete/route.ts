@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAuth } from "@/lib/api-auth";
+import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 interface RouteParams {
@@ -41,6 +41,9 @@ function advanceDate(date: Date, frequency: string): Date {
 // POST: Complete a maintenance schedule entry
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const user = await requireApiAuth();
 
     const { id } = await params;

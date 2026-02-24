@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { importJobSchema } from "@/lib/validation-organization";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
@@ -79,6 +79,8 @@ export async function GET(req: NextRequest) {
 // Create a new import job (CSV processing)
 export async function POST(req: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     const authUser = await requirePermission("import:execute");
 
     // Get user's organization for scoping imported entities

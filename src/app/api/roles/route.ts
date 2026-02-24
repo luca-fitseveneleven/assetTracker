@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { requireNotDemoMode } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
 import { roleSchema } from "@/lib/validation-organization";
 import { PERMISSIONS, getAllPermissions } from "@/lib/rbac";
@@ -94,6 +95,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     const session = await auth();
     if (!session?.user?.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

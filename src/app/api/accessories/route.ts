@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAccessorySchema } from "@/lib/validation";
 import {
   getOrganizationContext,
@@ -97,6 +97,8 @@ export async function GET(req) {
 // POST /api/accessories
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     await requirePermission("accessory:create");
     const body = await req.json();
     const normalized = {
@@ -163,6 +165,8 @@ export async function POST(req) {
 // PUT /api/accessories
 export async function PUT(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     await requirePermission("accessory:edit");
     const body = await req.json();
     const { accessorieid, ...data } = body || {};

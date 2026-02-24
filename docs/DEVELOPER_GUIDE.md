@@ -476,6 +476,111 @@ WHERE action = 'LOGIN_FAILED'
 ORDER BY "createdAt" DESC;
 ```
 
+## Multi-Tenancy
+
+The application uses a **shared database with row-level organization scoping**. All tenant data lives in a single PostgreSQL database, isolated by an `organizationId` column.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                 Single Database                  │
+│                                                  │
+│  Org-scoped tables        Global (shared) tables │
+│  ─────────────────        ────────────────────── │
+│  asset                    statusType             │
+│  accessories              manufacturer           │
+│  consumable               supplier               │
+│  licence                  model                  │
+│  user                     location               │
+│  Department               assetCategoryType      │
+│  Role                     (all category types)   │
+│  Webhook                                         │
+│  TeamInvitation                                  │
+└─────────────────────────────────────────────────┘
+```
+
+### Organization Model
+
+Each organization has billing/plan fields and resource limits:
+
+```typescript
+// prisma/schema.prisma
+model Organization {
+  plan                 String  @default("starter")
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  maxAssets            Int     @default(100)
+  maxUsers             Int     @default(3)
+  // ... relationships to all scoped tables
+}
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/organization-context.ts` | Resolves org from session, scopes queries |
+| `src/lib/tenant-limits.ts` | Enforces `maxAssets` / `maxUsers` per org |
+
+### Scoping Queries
+
+Always use `scopeToOrganization()` when querying org-scoped tables:
+
+```typescript
+import { getOrganizationContext, scopeToOrganization } from "@/lib/organization-context";
+
+const orgContext = await getOrganizationContext();
+const orgId = orgContext?.organization?.id;
+
+const where = scopeToOrganization({}, orgId);
+const assets = await prisma.asset.findMany({ where });
+```
+
+If the user has no organization, `scopeToOrganization` returns the original `where` clause unchanged (backward compatibility for single-tenant setups).
+
+### Access Control
+
+```typescript
+import { canAccessResource } from "@/lib/organization-context";
+
+// Check if user can access a specific resource
+const allowed = await canAccessResource(
+  resource.organizationId,  // resource's org
+  user.organizationId,      // user's org
+  user.isAdmin              // admins bypass
+);
+```
+
+Rules:
+- Admins can access all resources
+- Resources with no `organizationId` are globally accessible
+- Otherwise, user's org must match resource's org
+
+### Tenant Limits
+
+```typescript
+import { checkAssetLimit, checkUserLimit } from "@/lib/tenant-limits";
+
+const limitCheck = await checkAssetLimit();
+if (!limitCheck.allowed) {
+  // Limit reached: limitCheck.current / limitCheck.max
+}
+```
+
+A `max` value of `-1` means unlimited.
+
+### Cascade Behavior
+
+- Deleting an organization **cascades** to: assets, accessories, consumables, licences, departments, roles, webhooks, invitations
+- Users get `onDelete: SetNull` (org removed, user record kept)
+
+### Important Notes
+
+- This is **application-level** isolation, not database-level (no Postgres RLS or separate schemas)
+- Every query on org-scoped data must explicitly scope with `organizationId` — forgetting to scope can leak data across tenants
+- Reference data (categories, status types, manufacturers, etc.) is shared globally across all tenants
+
 ## Best Practices
 
 1. **Always use auth guards** for protected pages

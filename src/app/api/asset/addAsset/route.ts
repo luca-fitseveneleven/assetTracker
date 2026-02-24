@@ -1,7 +1,7 @@
 import prisma from "../../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { getOrganizationContext } from "@/lib/organization-context";
 import { createAssetSchema } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
@@ -35,6 +35,8 @@ const normalizeNumberInput = (value: unknown) => {
 // Create asset via POST /api/asset/addAsset
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     await requirePermission("asset:create");
 
     const limitCheck = await checkAssetLimit();

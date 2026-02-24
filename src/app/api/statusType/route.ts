@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
-import { requireApiAuth, requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAuth, requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import {
   createStatusTypeSchema,
   updateStatusTypeSchema,
@@ -71,6 +71,9 @@ export async function GET(req) {
 // POST /api/statusType
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     // Only admins can create status types
     const admin = await requireApiAdmin();
 
@@ -129,6 +132,9 @@ export async function POST(req) {
 // PUT /api/statusType
 export async function PUT(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     // Only admins can update status types
     const admin = await requireApiAdmin();
 

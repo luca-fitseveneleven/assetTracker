@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { getGDPRSettings, saveGDPRSettings } from "@/lib/gdpr-settings";
 import { logger } from "@/lib/logger";
 
@@ -33,6 +33,9 @@ export async function GET() {
  */
 export async function PUT(req: Request) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+
     await requireApiAdmin();
     const body = await req.json();
 

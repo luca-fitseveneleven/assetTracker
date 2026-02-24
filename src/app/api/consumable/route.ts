@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
-import { requirePermission } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import {
   createConsumableSchema,
   updateConsumableSchema,
@@ -81,6 +81,8 @@ export async function GET(req) {
 // POST /api/consumable
 export async function POST(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Require consumable:create permission to create consumables
     const admin = await requirePermission("consumable:create");
 
@@ -153,6 +155,8 @@ export async function POST(req) {
 // PUT /api/consumable
 export async function PUT(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Require consumable:edit permission to update consumables
     const admin = await requirePermission("consumable:edit");
 
@@ -248,6 +252,8 @@ export async function PUT(req) {
 // DELETE /api/consumable
 export async function DELETE(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     // Require consumable:delete permission to delete consumables
     const admin = await requirePermission("consumable:delete");
 
@@ -320,6 +326,8 @@ export async function DELETE(req) {
 // PATCH /api/consumable (restock)
 export async function PATCH(req) {
   try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
     const admin = await requirePermission("consumable:edit");
     const body = await req.json();
     const { consumableid, addQuantity } = body;

@@ -7,7 +7,10 @@ export function SignOutButton() {
   return (
     <DropdownMenuItem
       className="text-destructive cursor-pointer"
-      onClick={() => signOut({ callbackUrl: "/login" })}
+      onSelect={(e) => {
+        e.preventDefault();
+        signOut({ callbackUrl: "/login" });
+      }}
     >
       Log Out
     </DropdownMenuItem>

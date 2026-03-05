@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import Breadcrumb from "@/components/Breadcrumb";
 import UserTicketsPage from "./ui/UserTicketsPage";
 import prisma from "@/lib/prisma";
@@ -45,12 +46,12 @@ async function getUserTickets(userId: string) {
           },
         },
         orderBy: {
-          createdAt: 'asc',
+          createdAt: "asc",
         },
       },
     },
     orderBy: {
-      createdAt: 'desc',
+      createdAt: "desc",
     },
   });
 
@@ -64,7 +65,7 @@ async function getUserTickets(userId: string) {
 }
 
 export default async function TicketsPage() {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user) {
     redirect("/login");
@@ -75,13 +76,10 @@ export default async function TicketsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <Breadcrumb
-        options={[
-          { label: "Home", href: "/" },
-          { label: "My Tickets" },
-        ]}
+        options={[{ label: "Home", href: "/" }, { label: "My Tickets" }]}
       />
       <div className="mt-6">
-        <h1 className="text-3xl font-bold mb-6">My Tickets</h1>
+        <h1 className="mb-6 text-3xl font-bold">My Tickets</h1>
         <UserTicketsPage tickets={tickets} />
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { requireNotDemoMode } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
 import { roleSchema } from "@/lib/validation-organization";
@@ -17,8 +18,8 @@ const ROLE_SORT_FIELDS = ["name", "createdAt"];
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.isAdmin) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.isadmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -98,8 +99,8 @@ export async function POST(req: NextRequest) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
 
-    const session = await auth();
-    if (!session?.user?.isAdmin) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.isadmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

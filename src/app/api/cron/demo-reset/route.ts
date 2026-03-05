@@ -45,7 +45,7 @@ async function clearDatabase() {
   await prisma.userRole.deleteMany({});
   await prisma.sessions.deleteMany({});
   await prisma.accounts.deleteMany({});
-  await prisma.verification_tokens.deleteMany({});
+  await prisma.verification.deleteMany({});
   await prisma.licence.deleteMany({});
   await prisma.consumable.deleteMany({});
   await prisma.accessories.deleteMany({});
@@ -67,40 +67,104 @@ async function clearDatabase() {
 }
 
 async function seedReferenceData() {
-  const statuses = ["Active", "Available", "In Repair", "Retired", "Reserved", "Lost"];
+  const statuses = [
+    "Active",
+    "Available",
+    "In Repair",
+    "Retired",
+    "Reserved",
+    "Lost",
+  ];
   const statusRecords = [];
   for (const name of statuses) {
-    statusRecords.push(await prisma.statusType.create({ data: { statustypename: name } }));
+    statusRecords.push(
+      await prisma.statusType.create({ data: { statustypename: name } }),
+    );
   }
 
-  const assetCategories = ["Laptops", "Desktops", "Monitors", "Phones", "Tablets", "Servers"];
+  const assetCategories = [
+    "Laptops",
+    "Desktops",
+    "Monitors",
+    "Phones",
+    "Tablets",
+    "Servers",
+  ];
   const assetCatRecords = [];
   for (const name of assetCategories) {
-    assetCatRecords.push(await prisma.assetCategoryType.create({ data: { assetcategorytypename: name } }));
+    assetCatRecords.push(
+      await prisma.assetCategoryType.create({
+        data: { assetcategorytypename: name },
+      }),
+    );
   }
 
-  const accCategories = ["Keyboards", "Mice", "Headsets", "Webcams", "Cables", "Adapters"];
+  const accCategories = [
+    "Keyboards",
+    "Mice",
+    "Headsets",
+    "Webcams",
+    "Cables",
+    "Adapters",
+  ];
   const accCatRecords = [];
   for (const name of accCategories) {
-    accCatRecords.push(await prisma.accessorieCategoryType.create({ data: { accessoriecategorytypename: name } }));
+    accCatRecords.push(
+      await prisma.accessorieCategoryType.create({
+        data: { accessoriecategorytypename: name },
+      }),
+    );
   }
 
-  const conCategories = ["Ink Cartridges", "Toner", "Paper", "Labels", "Batteries"];
+  const conCategories = [
+    "Ink Cartridges",
+    "Toner",
+    "Paper",
+    "Labels",
+    "Batteries",
+  ];
   const conCatRecords = [];
   for (const name of conCategories) {
-    conCatRecords.push(await prisma.consumableCategoryType.create({ data: { consumablecategorytypename: name } }));
+    conCatRecords.push(
+      await prisma.consumableCategoryType.create({
+        data: { consumablecategorytypename: name },
+      }),
+    );
   }
 
-  const licCategories = ["Operating Systems", "Productivity Software", "Development Tools", "Security Software"];
+  const licCategories = [
+    "Operating Systems",
+    "Productivity Software",
+    "Development Tools",
+    "Security Software",
+  ];
   const licCatRecords = [];
   for (const name of licCategories) {
-    licCatRecords.push(await prisma.licenceCategoryType.create({ data: { licencecategorytypename: name } }));
+    licCatRecords.push(
+      await prisma.licenceCategoryType.create({
+        data: { licencecategorytypename: name },
+      }),
+    );
   }
 
-  const manufacturers = ["Apple", "Dell", "HP", "Lenovo", "Microsoft", "Samsung", "LG", "Logitech", "Cisco"];
+  const manufacturers = [
+    "Apple",
+    "Dell",
+    "HP",
+    "Lenovo",
+    "Microsoft",
+    "Samsung",
+    "LG",
+    "Logitech",
+    "Cisco",
+  ];
   const mfrRecords = [];
   for (const name of manufacturers) {
-    mfrRecords.push(await prisma.manufacturer.create({ data: { manufacturername: name, creation_date: new Date() } }));
+    mfrRecords.push(
+      await prisma.manufacturer.create({
+        data: { manufacturername: name, creation_date: new Date() },
+      }),
+    );
   }
 
   const supplierData = [
@@ -142,12 +206,22 @@ async function seedReferenceData() {
     );
   }
 
-  const modelNames = ["MacBook Pro 14", "ThinkPad X1", "Dell XPS 15", "Surface Pro 9", "iPhone 15"];
+  const modelNames = [
+    "MacBook Pro 14",
+    "ThinkPad X1",
+    "Dell XPS 15",
+    "Surface Pro 9",
+    "iPhone 15",
+  ];
   const modelRecords = [];
   for (const name of modelNames) {
     modelRecords.push(
       await prisma.model.create({
-        data: { modelname: name, modelnumber: faker.string.alphanumeric(6).toUpperCase(), creation_date: new Date() },
+        data: {
+          modelname: name,
+          modelnumber: faker.string.alphanumeric(6).toUpperCase(),
+          creation_date: new Date(),
+        },
       }),
     );
   }
@@ -240,13 +314,19 @@ async function seedAssets(refs: SeedRefs) {
           assettag: `AST-${String(i + 1001).padStart(5, "0")}`,
           serialnumber: faker.string.alphanumeric(12).toUpperCase(),
           modelid: faker.helpers.arrayElement(refs.models).modelid,
-          purchaseprice: faker.number.float({ min: 500, max: 3000, fractionDigits: 2 }),
+          purchaseprice: faker.number.float({
+            min: 500,
+            max: 3000,
+            fractionDigits: 2,
+          }),
           purchasedate: faker.date.past({ years: 2 }),
-          assetcategorytypeid: faker.helpers.arrayElement(refs.assetCategories).assetcategorytypeid,
+          assetcategorytypeid: faker.helpers.arrayElement(refs.assetCategories)
+            .assetcategorytypeid,
           statustypeid: faker.helpers.arrayElement(refs.statuses).statustypeid,
           supplierid: faker.helpers.arrayElement(refs.suppliers).supplierid,
           locationid: faker.helpers.arrayElement(refs.locations).locationid,
-          manufacturerid: faker.helpers.arrayElement(refs.manufacturers).manufacturerid,
+          manufacturerid: faker.helpers.arrayElement(refs.manufacturers)
+            .manufacturerid,
           creation_date: new Date(),
         },
       }),
@@ -263,10 +343,17 @@ async function seedAccessories(refs: SeedRefs) {
         data: {
           accessoriename: faker.commerce.productName(),
           accessorietag: `ACC-${String(i + 2001).padStart(5, "0")}`,
-          purchaseprice: faker.number.float({ min: 20, max: 200, fractionDigits: 2 }),
-          manufacturerid: faker.helpers.arrayElement(refs.manufacturers).manufacturerid,
+          purchaseprice: faker.number.float({
+            min: 20,
+            max: 200,
+            fractionDigits: 2,
+          }),
+          manufacturerid: faker.helpers.arrayElement(refs.manufacturers)
+            .manufacturerid,
           statustypeid: faker.helpers.arrayElement(refs.statuses).statustypeid,
-          accessoriecategorytypeid: faker.helpers.arrayElement(refs.accCategories).accessoriecategorytypeid,
+          accessoriecategorytypeid: faker.helpers.arrayElement(
+            refs.accCategories,
+          ).accessoriecategorytypeid,
           locationid: faker.helpers.arrayElement(refs.locations).locationid,
           supplierid: faker.helpers.arrayElement(refs.suppliers).supplierid,
           modelid: faker.helpers.arrayElement(refs.models).modelid,
@@ -283,10 +370,16 @@ async function seedConsumables(refs: SeedRefs) {
     await prisma.consumable.create({
       data: {
         consumablename: faker.commerce.productName(),
-        consumablecategorytypeid: faker.helpers.arrayElement(refs.conCategories).consumablecategorytypeid,
-        manufacturerid: faker.helpers.arrayElement(refs.manufacturers).manufacturerid,
+        consumablecategorytypeid: faker.helpers.arrayElement(refs.conCategories)
+          .consumablecategorytypeid,
+        manufacturerid: faker.helpers.arrayElement(refs.manufacturers)
+          .manufacturerid,
         supplierid: faker.helpers.arrayElement(refs.suppliers).supplierid,
-        purchaseprice: faker.number.float({ min: 5, max: 100, fractionDigits: 2 }),
+        purchaseprice: faker.number.float({
+          min: 5,
+          max: 100,
+          fractionDigits: 2,
+        }),
         creation_date: new Date(),
       },
     });
@@ -298,12 +391,21 @@ async function seedLicences(refs: SeedRefs, users: { userid: string }[]) {
     const assignedUser = faker.helpers.arrayElement([...users, null]);
     await prisma.licence.create({
       data: {
-        licencekey: faker.helpers.maybe(() => faker.string.alphanumeric(20).toUpperCase(), { probability: 0.6 }),
+        licencekey: faker.helpers.maybe(
+          () => faker.string.alphanumeric(20).toUpperCase(),
+          { probability: 0.6 },
+        ),
         licenceduserid: assignedUser?.userid || null,
-        purchaseprice: faker.number.float({ min: 50, max: 300, fractionDigits: 2 }),
+        purchaseprice: faker.number.float({
+          min: 50,
+          max: 300,
+          fractionDigits: 2,
+        }),
         expirationdate: faker.date.future({ years: 2 }),
-        licencecategorytypeid: faker.helpers.arrayElement(refs.licCategories).licencecategorytypeid,
-        manufacturerid: faker.helpers.arrayElement(refs.manufacturers).manufacturerid,
+        licencecategorytypeid: faker.helpers.arrayElement(refs.licCategories)
+          .licencecategorytypeid,
+        manufacturerid: faker.helpers.arrayElement(refs.manufacturers)
+          .manufacturerid,
         supplierid: faker.helpers.arrayElement(refs.suppliers).supplierid,
         creation_date: new Date(),
       },

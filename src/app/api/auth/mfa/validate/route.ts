@@ -12,8 +12,15 @@ import { logger } from "@/lib/logger";
 
 /**
  * POST /api/auth/mfa/validate
- * Validate MFA token during login flow (2nd step).
- * Does NOT require auth — user is mid-login with mfaPending.
+ *
+ * Validates MFA token during login flow (2nd step). Does NOT require auth —
+ * user is mid-login with mfaPending. This route has extensive custom logic:
+ * rate limiting (per-IP and per-user), backup code verification with encrypted
+ * storage, and audit logging for failed/successful MFA attempts. None of this
+ * is covered by BetterAuth's twoFactor plugin.
+ *
+ * No BetterAuth equivalent — this is a custom mid-login validation step.
+ * Auth imports: None needed (unauthenticated endpoint).
  */
 export async function POST(req: Request) {
   try {

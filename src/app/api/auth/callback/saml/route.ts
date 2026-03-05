@@ -18,13 +18,17 @@ export async function POST(req: Request) {
     const samlResponse = formData.get("SAMLResponse") as string;
 
     if (!samlResponse) {
-      return NextResponse.redirect(new URL("/login?error=missing_saml_response", req.url));
+      return NextResponse.redirect(
+        new URL("/login?error=missing_saml_response", req.url),
+      );
     }
 
     const profile = await validateSamlResponse({ SAMLResponse: samlResponse });
 
     if (!profile.email && !profile.username) {
-      return NextResponse.redirect(new URL("/login?error=no_identity", req.url));
+      return NextResponse.redirect(
+        new URL("/login?error=no_identity", req.url),
+      );
     }
 
     // Find or create user
@@ -89,10 +93,19 @@ export async function POST(req: Request) {
 
     await prisma.system_settings.upsert({
       where: { settingKey: `sso.token.${ssoToken}` },
-      update: { settingValue: JSON.stringify({ userId: user.userid, expiresAt: expiresAt.toISOString() }), updatedAt: new Date() },
+      update: {
+        settingValue: JSON.stringify({
+          userId: user.userid,
+          expiresAt: expiresAt.toISOString(),
+        }),
+        updatedAt: new Date(),
+      },
       create: {
         settingKey: `sso.token.${ssoToken}`,
-        settingValue: JSON.stringify({ userId: user.userid, expiresAt: expiresAt.toISOString() }),
+        settingValue: JSON.stringify({
+          userId: user.userid,
+          expiresAt: expiresAt.toISOString(),
+        }),
         settingType: "json",
         category: "sso",
         updatedAt: new Date(),
@@ -100,8 +113,14 @@ export async function POST(req: Request) {
     });
 
     // Redirect to login with SSO token
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    return NextResponse.redirect(new URL(`/api/auth/sso-login?token=${ssoToken}`, baseUrl));
+    const baseUrl =
+      process.env.BETTER_AUTH_URL ||
+      process.env.NEXTAUTH_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "http://localhost:3000";
+    return NextResponse.redirect(
+      new URL(`/api/auth/sso-login?token=${ssoToken}`, baseUrl),
+    );
   } catch (error: any) {
     logger.error("SAML callback error", { error: error.message });
     return NextResponse.redirect(new URL("/login?error=saml_failed", req.url));

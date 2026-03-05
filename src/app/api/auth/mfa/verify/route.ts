@@ -6,6 +6,18 @@ import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { decrypt, encryptArray } from "@/lib/encryption";
 import { logger } from "@/lib/logger";
 
+/**
+ * POST /api/auth/mfa/verify
+ *
+ * Verifies the TOTP code during MFA setup (confirming the user scanned the QR
+ * code correctly). On success, enables MFA on the user and returns one-time
+ * backup codes. Custom logic includes encrypted backup code storage and audit
+ * logging — not handled by BetterAuth's twoFactor plugin.
+ *
+ * BetterAuth equivalent: POST /api/auth/two-factor/verify-totp (partial overlap)
+ * TODO: Evaluate consolidating with BetterAuth's twoFactor plugin once the
+ * migration is fully stable.
+ */
 export async function POST(req: Request) {
   try {
     const demoBlock = requireNotDemoMode();

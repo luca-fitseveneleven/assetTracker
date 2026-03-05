@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { signIn } from "next-auth/react";
+import { signIn } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Info, Shield } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -46,17 +52,19 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
     setIsLoading(true);
 
     try {
-      const result = await signIn("credentials", {
-        username: formData.username,
+      const result = await signIn.email({
+        email: formData.username,
         password: formData.password,
-        redirect: false,
       });
 
       if (result?.error) {
-        setError("Invalid username or password");
+        setError(result.error.message || "Invalid username or password");
         setIsLoading(false);
+      } else if ((result?.data as any)?.twoFactorRedirect) {
+        // User has 2FA enabled — redirect to MFA verification
+        router.push("/mfa-verify");
       } else {
-        // Redirect — the authorized callback will send MFA-pending users to /mfa-verify
+        // Login succeeded without MFA
         router.push("/dashboard");
         router.refresh();
       }
@@ -82,7 +90,7 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="bg-background flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Asset Tracker</CardTitle>
@@ -92,12 +100,15 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
         </CardHeader>
         <CardContent>
           {isDemo && (
-            <div className="mb-4 rounded-md bg-amber-500/10 border border-amber-500/20 p-4">
+            <div className="mb-4 rounded-md border border-amber-500/20 bg-amber-500/10 p-4">
               <div className="flex items-start gap-2">
-                <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <Info className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
                 <div className="text-sm text-amber-800 dark:text-amber-200">
-                  <p className="font-medium mb-2">Demo Mode</p>
-                  <p className="mb-2">Data resets every 30 minutes. Use one of the demo accounts below:</p>
+                  <p className="mb-2 font-medium">Demo Mode</p>
+                  <p className="mb-2">
+                    Data resets every 30 minutes. Use one of the demo accounts
+                    below:
+                  </p>
                   <div className="space-y-1">
                     <Button
                       type="button"
@@ -107,9 +118,11 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
                       onClick={() => fillDemoCredentials(true)}
                     >
                       <span className="font-mono">demo_admin</span>
-                      <span className="mx-2 text-muted-foreground">/</span>
+                      <span className="text-muted-foreground mx-2">/</span>
                       <span className="font-mono">demo123</span>
-                      <span className="ml-auto text-muted-foreground">(Admin)</span>
+                      <span className="text-muted-foreground ml-auto">
+                        (Admin)
+                      </span>
                     </Button>
                     <Button
                       type="button"
@@ -119,9 +132,11 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
                       onClick={() => fillDemoCredentials(false)}
                     >
                       <span className="font-mono">demo_user</span>
-                      <span className="mx-2 text-muted-foreground">/</span>
+                      <span className="text-muted-foreground mx-2">/</span>
                       <span className="font-mono">demo123</span>
-                      <span className="ml-auto text-muted-foreground">(User)</span>
+                      <span className="text-muted-foreground ml-auto">
+                        (User)
+                      </span>
                     </Button>
                   </div>
                 </div>
@@ -156,20 +171,19 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
               />
             </div>
             <div className="flex justify-end">
-              <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+              <Link
+                href="/forgot-password"
+                className="text-primary text-sm hover:underline"
+              >
                 Forgot your password?
               </Link>
             </div>
             {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
                 {error}
               </div>
             )}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
@@ -177,7 +191,7 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
             <>
               <div className="relative my-4">
                 <Separator />
-                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                <span className="bg-card text-muted-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 text-xs">
                   or
                 </span>
               </div>
@@ -188,7 +202,7 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
                   window.location.href = "/api/auth/sso-init";
                 }}
               >
-                <Shield className="h-4 w-4 mr-2" />
+                <Shield className="mr-2 h-4 w-4" />
                 Sign in with {ssoStatus.providerName}
               </Button>
             </>
@@ -198,4 +212,3 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
     </div>
   );
 }
-

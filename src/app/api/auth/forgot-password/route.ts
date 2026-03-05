@@ -67,19 +67,19 @@ export async function POST(req: Request) {
 
     if (user) {
       // Delete any existing tokens for this user
-      await prisma.verification_tokens.deleteMany({
+      await prisma.verification.deleteMany({
         where: { identifier: user.email! },
       });
 
       // Generate token
       const token = randomBytes(32).toString("hex");
-      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-      await prisma.verification_tokens.create({
+      await prisma.verification.create({
         data: {
           identifier: user.email!,
-          token,
-          expires,
+          value: token,
+          expiresAt,
         },
       });
 

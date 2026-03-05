@@ -1,6 +1,8 @@
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { hasPermission, hasAnyPermission, type Permission } from "./rbac";
+import prisma from "./prisma";
 
 /**
  * Block mutating operations in demo mode.
@@ -10,13 +12,13 @@ export function requireNotDemoMode() {
   if (process.env.DEMO_MODE === "true") {
     return NextResponse.json(
       { error: "This action is disabled in demo mode" },
-      { status: 403 }
+      { status: 403 },
     );
   }
   return null;
 }
 
-interface AuthUser {
+export interface AuthUser {
   id?: string;
   isAdmin?: boolean;
   canRequest?: boolean;
@@ -29,22 +31,50 @@ interface AuthUser {
 }
 
 /**
- * Get authenticated user from session
- * Throws error if not authenticated
+ * Get authenticated user from session.
+ * Fetches custom fields from Prisma since BetterAuth sessions
+ * only store standard fields.
  */
 export async function getAuthUser(): Promise<AuthUser> {
-  const session = await auth();
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
   if (!session || !session.user) {
     throw new Error("Unauthorized");
   }
 
-  // Block API access if MFA verification is still pending
-  if ((session.user as AuthUser & { mfaPending?: boolean }).mfaPending) {
+  // Fetch custom user fields from DB
+  const dbUser = await prisma.user.findUnique({
+    where: { userid: session.user.id },
+    select: {
+      userid: true,
+      username: true,
+      firstname: true,
+      lastname: true,
+      email: true,
+      isadmin: true,
+      canrequest: true,
+      organizationId: true,
+      isActive: true,
+    },
+  });
+
+  if (!dbUser || !dbUser.isActive) {
     throw new Error("Unauthorized");
   }
 
-  return session.user as AuthUser;
+  return {
+    id: dbUser.userid,
+    name: `${dbUser.firstname} ${dbUser.lastname}`,
+    email: dbUser.email,
+    username: dbUser.username || undefined,
+    firstname: dbUser.firstname,
+    lastname: dbUser.lastname,
+    isAdmin: dbUser.isadmin,
+    canRequest: dbUser.canrequest,
+    organizationId: dbUser.organizationId || undefined,
+  };
 }
 
 /**

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, type SessionUser } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -52,18 +52,24 @@ interface ApprovalsPageClientProps {
   isAdmin: boolean;
 }
 
-export default function ApprovalsPageClient({ isAdmin }: ApprovalsPageClientProps) {
+export default function ApprovalsPageClient({
+  isAdmin,
+}: ApprovalsPageClientProps) {
   const { data: session } = useSession();
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogAction, setDialogAction] = useState<"approve" | "reject">("approve");
-  const [selectedApproval, setSelectedApproval] = useState<ApprovalRequest | null>(null);
+  const [dialogAction, setDialogAction] = useState<"approve" | "reject">(
+    "approve",
+  );
+  const [selectedApproval, setSelectedApproval] =
+    useState<ApprovalRequest | null>(null);
   const [actionNotes, setActionNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const userIsAdmin = session?.user?.isAdmin || isAdmin;
+  const user = session?.user as SessionUser | undefined;
+  const userIsAdmin = user?.isadmin || isAdmin;
 
   const fetchApprovals = useCallback(async (status?: string) => {
     setIsLoading(true);
@@ -97,7 +103,10 @@ export default function ApprovalsPageClient({ isAdmin }: ApprovalsPageClientProp
     setActiveTab(value);
   };
 
-  const openConfirmDialog = (approval: ApprovalRequest, action: "approve" | "reject") => {
+  const openConfirmDialog = (
+    approval: ApprovalRequest,
+    action: "approve" | "reject",
+  ) => {
     setSelectedApproval(approval);
     setDialogAction(action);
     setActionNotes("");
@@ -127,7 +136,7 @@ export default function ApprovalsPageClient({ isAdmin }: ApprovalsPageClientProp
       toast.success(
         dialogAction === "approve"
           ? "Approval request approved successfully"
-          : "Approval request rejected successfully"
+          : "Approval request rejected successfully",
       );
 
       setDialogOpen(false);
@@ -142,11 +151,23 @@ export default function ApprovalsPageClient({ isAdmin }: ApprovalsPageClientProp
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>;
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+            Pending
+          </Badge>
+        );
       case "approved":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Approved</Badge>;
+        return (
+          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+            Approved
+          </Badge>
+        );
       case "rejected":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Rejected</Badge>;
+        return (
+          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+            Rejected
+          </Badge>
+        );
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -161,11 +182,11 @@ export default function ApprovalsPageClient({ isAdmin }: ApprovalsPageClientProp
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
           <ClipboardList className="h-6 w-6" />
           Approval Workflows
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-muted-foreground mt-1 text-sm">
           Review and manage approval requests
         </p>
       </div>
@@ -181,14 +202,16 @@ export default function ApprovalsPageClient({ isAdmin }: ApprovalsPageClientProp
 
         <TabsContent value={activeTab}>
           {isLoading ? (
-            <div className="flex justify-center items-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
             </div>
           ) : approvals.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <ClipboardList className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No approval requests found</h3>
-              <p className="text-sm text-muted-foreground mt-1">
+              <ClipboardList className="text-muted-foreground mb-4 h-12 w-12" />
+              <h3 className="text-lg font-medium">
+                No approval requests found
+              </h3>
+              <p className="text-muted-foreground mt-1 text-sm">
                 {activeTab === "all"
                   ? "There are no approval requests yet"
                   : `There are no ${activeTab} approval requests`}
@@ -215,7 +238,8 @@ export default function ApprovalsPageClient({ isAdmin }: ApprovalsPageClientProp
                         <Badge variant="outline">{approval.entityType}</Badge>
                       </TableCell>
                       <TableCell>
-                        {approval.requester.firstname} {approval.requester.lastname}
+                        {approval.requester.firstname}{" "}
+                        {approval.requester.lastname}
                       </TableCell>
                       <TableCell
                         className="font-mono text-xs"
@@ -238,17 +262,21 @@ export default function ApprovalsPageClient({ isAdmin }: ApprovalsPageClientProp
                                 size="sm"
                                 variant="default"
                                 className="bg-green-600 hover:bg-green-700"
-                                onClick={() => openConfirmDialog(approval, "approve")}
+                                onClick={() =>
+                                  openConfirmDialog(approval, "approve")
+                                }
                               >
-                                <CheckCircle className="h-4 w-4 mr-1" />
+                                <CheckCircle className="mr-1 h-4 w-4" />
                                 Approve
                               </Button>
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={() => openConfirmDialog(approval, "reject")}
+                                onClick={() =>
+                                  openConfirmDialog(approval, "reject")
+                                }
                               >
-                                <XCircle className="h-4 w-4 mr-1" />
+                                <XCircle className="mr-1 h-4 w-4" />
                                 Reject
                               </Button>
                             </div>
@@ -269,18 +297,21 @@ export default function ApprovalsPageClient({ isAdmin }: ApprovalsPageClientProp
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {dialogAction === "approve" ? "Approve Request" : "Reject Request"}
+              {dialogAction === "approve"
+                ? "Approve Request"
+                : "Reject Request"}
             </DialogTitle>
             <DialogDescription>
               {dialogAction === "approve"
                 ? "Are you sure you want to approve this request?"
                 : "Are you sure you want to reject this request?"}
               {selectedApproval && (
-                <span className="block mt-2">
+                <span className="mt-2 block">
                   <strong>Type:</strong> {selectedApproval.entityType}
                   {" | "}
                   <strong>Requester:</strong>{" "}
-                  {selectedApproval.requester.firstname} {selectedApproval.requester.lastname}
+                  {selectedApproval.requester.firstname}{" "}
+                  {selectedApproval.requester.lastname}
                 </span>
               )}
             </DialogDescription>
@@ -305,16 +336,20 @@ export default function ApprovalsPageClient({ isAdmin }: ApprovalsPageClientProp
             </Button>
             <Button
               variant={dialogAction === "approve" ? "default" : "destructive"}
-              className={dialogAction === "approve" ? "bg-green-600 hover:bg-green-700" : ""}
+              className={
+                dialogAction === "approve"
+                  ? "bg-green-600 hover:bg-green-700"
+                  : ""
+              }
               onClick={handleConfirmAction}
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : dialogAction === "approve" ? (
-                <CheckCircle className="h-4 w-4 mr-2" />
+                <CheckCircle className="mr-2 h-4 w-4" />
               ) : (
-                <XCircle className="h-4 w-4 mr-2" />
+                <XCircle className="mr-2 h-4 w-4" />
               )}
               {dialogAction === "approve" ? "Approve" : "Reject"}
             </Button>

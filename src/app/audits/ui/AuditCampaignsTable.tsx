@@ -12,20 +12,27 @@ interface Campaign {
   name: string;
   status: string;
   scopeType: string;
-  dueDate?: string | null;
-  createdAt: string;
+  dueDate?: string | Date | null;
+  createdAt: string | Date;
   creator: { userid: string; firstname: string; lastname: string };
   _count: { entries: number; auditors: number };
 }
 
-const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const statusVariant: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   draft: "secondary",
   active: "default",
   completed: "outline",
   cancelled: "destructive",
 };
 
-export default function AuditCampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
+export default function AuditCampaignsTable({
+  campaigns,
+}: {
+  campaigns: Campaign[];
+}) {
   const router = useRouter();
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -50,7 +57,7 @@ export default function AuditCampaignsTable({ campaigns }: { campaigns: Campaign
 
   if (campaigns.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
+      <div className="text-muted-foreground py-12 text-center">
         No audit campaigns found. Create your first campaign to get started.
       </div>
     );
@@ -60,7 +67,7 @@ export default function AuditCampaignsTable({ campaigns }: { campaigns: Campaign
     <div className="rounded-md border">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b bg-muted/50">
+          <tr className="bg-muted/50 border-b">
             <th className="px-4 py-3 text-left font-medium">Name</th>
             <th className="px-4 py-3 text-left font-medium">Status</th>
             <th className="px-4 py-3 text-left font-medium">Scope</th>
@@ -72,9 +79,12 @@ export default function AuditCampaignsTable({ campaigns }: { campaigns: Campaign
         </thead>
         <tbody>
           {campaigns.map((c) => (
-            <tr key={c.id} className="border-b hover:bg-muted/30">
+            <tr key={c.id} className="hover:bg-muted/30 border-b">
               <td className="px-4 py-3">
-                <Link href={`/audits/${c.id}`} className="font-medium hover:underline">
+                <Link
+                  href={`/audits/${c.id}`}
+                  className="font-medium hover:underline"
+                >
                   {c.name}
                 </Link>
               </td>
@@ -86,14 +96,12 @@ export default function AuditCampaignsTable({ campaigns }: { campaigns: Campaign
               <td className="px-4 py-3 capitalize">{c.scopeType}</td>
               <td className="px-4 py-3">{c._count.entries}</td>
               <td className="px-4 py-3">
-                {c.dueDate
-                  ? new Date(c.dueDate).toLocaleDateString()
-                  : "—"}
+                {c.dueDate ? new Date(c.dueDate).toLocaleDateString() : "—"}
               </td>
               <td className="px-4 py-3">
                 {c.creator.firstname} {c.creator.lastname}
               </td>
-              <td className="px-4 py-3 text-right space-x-2">
+              <td className="space-x-2 px-4 py-3 text-right">
                 <Button variant="ghost" size="sm" asChild>
                   <Link href={`/audits/${c.id}`}>View</Link>
                 </Button>

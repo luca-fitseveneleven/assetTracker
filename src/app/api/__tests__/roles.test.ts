@@ -4,7 +4,7 @@ import {
   parseResponse,
 } from "../../../../tests/setup/test-helpers";
 
-vi.mock("@/auth", () => ({
+vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }));
 
@@ -36,7 +36,7 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import { GET, POST } from "@/app/api/roles/route";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 const mockAuth = vi.mocked(auth);

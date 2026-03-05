@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import Breadcrumb from "@/components/Breadcrumb";
 import KanbanBoard from "./ui/KanbanBoard";
 import prisma from "@/lib/prisma";
@@ -42,12 +43,12 @@ async function getTickets() {
           },
         },
         orderBy: {
-          createdAt: 'asc',
+          createdAt: "asc",
         },
       },
     },
     orderBy: {
-      createdAt: 'desc',
+      createdAt: "desc",
     },
   });
 
@@ -72,19 +73,19 @@ async function getAdminUsers() {
       lastname: true,
     },
     orderBy: {
-      firstname: 'asc',
+      firstname: "asc",
     },
   });
 }
 
 export default async function TicketsPage() {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user) {
     redirect("/login");
   }
 
-  if (!session.user.isAdmin) {
+  if (!session.user.isadmin) {
     redirect("/dashboard");
   }
 
@@ -101,7 +102,7 @@ export default async function TicketsPage() {
         ]}
       />
       <div className="mt-6">
-        <h1 className="text-3xl font-bold mb-6">Ticket Management</h1>
+        <h1 className="mb-6 text-3xl font-bold">Ticket Management</h1>
         <KanbanBoard tickets={tickets} adminUsers={adminUsers} />
       </div>
     </div>

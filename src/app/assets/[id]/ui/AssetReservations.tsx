@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, type SessionUser } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,7 +87,8 @@ export default function AssetReservations({
   assetName,
 }: AssetReservationsProps) {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.isAdmin ?? false;
+  const user = session?.user as SessionUser | undefined;
+  const isAdmin = user?.isadmin ?? false;
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +108,7 @@ export default function AssetReservations({
     try {
       setLoading(true);
       const res = await fetch(
-        `/api/asset/reservations?assetId=${encodeURIComponent(assetId)}`
+        `/api/asset/reservations?assetId=${encodeURIComponent(assetId)}`,
       );
       if (!res.ok) {
         throw new Error("Failed to fetch reservations");
@@ -155,7 +156,9 @@ export default function AssetReservations({
       });
 
       if (res.status === 409) {
-        toast.error("This asset already has a reservation for the selected dates");
+        toast.error(
+          "This asset already has a reservation for the selected dates",
+        );
         return;
       }
 
@@ -171,9 +174,7 @@ export default function AssetReservations({
     } catch (error) {
       console.error("Error creating reservation:", error);
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to create reservation"
+        error instanceof Error ? error.message : "Failed to create reservation",
       );
     } finally {
       setSubmitting(false);
@@ -186,7 +187,7 @@ export default function AssetReservations({
 
   const handleUpdateStatus = async (
     reservationId: string,
-    newStatus: string
+    newStatus: string,
   ) => {
     try {
       const res = await fetch("/api/asset/reservations", {
@@ -210,9 +211,7 @@ export default function AssetReservations({
     } catch (error) {
       console.error("Error updating reservation:", error);
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to update reservation"
+        error instanceof Error ? error.message : "Failed to update reservation",
       );
     }
   };
@@ -234,15 +233,12 @@ export default function AssetReservations({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
+        <h3 className="flex items-center gap-2 text-lg font-semibold">
           <Calendar className="h-5 w-5" />
           Reservations
         </h3>
-        <Button
-          size="sm"
-          onClick={() => setDialogOpen(true)}
-        >
-          <Plus className="h-4 w-4 mr-1" />
+        <Button size="sm" onClick={() => setDialogOpen(true)}>
+          <Plus className="mr-1 h-4 w-4" />
           Request Reservation
         </Button>
       </div>
@@ -250,17 +246,17 @@ export default function AssetReservations({
       {/* Reservations Table */}
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
         </div>
       ) : reservations.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
+        <div className="text-muted-foreground py-8 text-center">
           No reservations found for this asset.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/50">
+              <tr className="bg-muted/50 border-b">
                 <th className="px-4 py-3 text-left font-medium">User</th>
                 <th className="px-4 py-3 text-left font-medium">Start Date</th>
                 <th className="px-4 py-3 text-left font-medium">End Date</th>
@@ -276,7 +272,7 @@ export default function AssetReservations({
                 return (
                   <tr
                     key={reservation.id}
-                    className="border-b last:border-b-0 hover:bg-muted/30"
+                    className="hover:bg-muted/30 border-b last:border-b-0"
                   >
                     <td className="px-4 py-3">
                       {reservation.user.firstname} {reservation.user.lastname}
@@ -296,7 +292,7 @@ export default function AssetReservations({
                           reservation.status.slice(1)}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 max-w-[200px] truncate">
+                    <td className="max-w-[200px] truncate px-4 py-3">
                       {reservation.notes || "-"}
                     </td>
                     <td className="px-4 py-3">
@@ -307,7 +303,7 @@ export default function AssetReservations({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              className="h-7 px-2 text-green-600 hover:bg-green-50 hover:text-green-700"
                               onClick={() =>
                                 handleUpdateStatus(reservation.id, "approved")
                               }
@@ -318,7 +314,7 @@ export default function AssetReservations({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-7 px-2 text-red-600 hover:bg-red-50 hover:text-red-700"
                               onClick={() =>
                                 handleUpdateStatus(reservation.id, "rejected")
                               }
@@ -335,7 +331,7 @@ export default function AssetReservations({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                              className="h-7 px-2 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
                               onClick={() =>
                                 handleUpdateStatus(reservation.id, "cancelled")
                               }
@@ -410,7 +406,7 @@ export default function AssetReservations({
               Cancel
             </Button>
             <Button onClick={handleCreateReservation} disabled={submitting}>
-              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit Request
             </Button>
           </DialogFooter>

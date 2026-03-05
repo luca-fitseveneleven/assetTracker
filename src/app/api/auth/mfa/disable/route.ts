@@ -5,6 +5,18 @@ import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { logger } from "@/lib/logger";
 
+/**
+ * POST /api/auth/mfa/disable
+ *
+ * Disables MFA for the authenticated user after verifying their password.
+ * Custom logic: password re-verification via bcrypt, clearing encrypted MFA
+ * secrets and backup codes, and audit logging — not handled by BetterAuth's
+ * twoFactor plugin.
+ *
+ * BetterAuth equivalent: POST /api/auth/two-factor/disable (partial overlap)
+ * TODO: Evaluate consolidating with BetterAuth's twoFactor plugin once the
+ * migration is fully stable.
+ */
 export async function POST(req: Request) {
   try {
     const demoBlock = requireNotDemoMode();

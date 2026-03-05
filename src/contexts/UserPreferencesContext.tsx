@@ -7,7 +7,7 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/auth-client";
 
 export interface UserPreferences {
   theme: string;
@@ -50,12 +50,12 @@ export function UserPreferencesProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession();
+  const { data: session, isPending } = useSession();
   const [preferences, setPreferences] =
     useState<UserPreferences>(DEFAULT_PREFERENCES);
 
   useEffect(() => {
-    if (status !== "authenticated" || !session?.user) return;
+    if (isPending || !session?.user) return;
 
     let cancelled = false;
 
@@ -78,7 +78,7 @@ export function UserPreferencesProvider({
     return () => {
       cancelled = true;
     };
-  }, [status, session?.user]);
+  }, [isPending, session?.user]);
 
   const updatePreferences = useCallback(
     async (partial: Partial<UserPreferences>) => {

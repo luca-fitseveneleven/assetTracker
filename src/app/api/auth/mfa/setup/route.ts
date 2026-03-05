@@ -6,6 +6,19 @@ import { generateMfaSecret, generateMfaUri } from "@/lib/mfa";
 import { encrypt } from "@/lib/encryption";
 import { logger } from "@/lib/logger";
 
+/**
+ * POST /api/auth/mfa/setup
+ *
+ * Custom MFA setup route — generates a TOTP secret, stores it encrypted in the
+ * database, and returns a QR code. This is kept alongside BetterAuth's twoFactor
+ * plugin because it provides custom logic: encrypted secret storage, QR code
+ * generation via the `qrcode` library, and integration with our User model's
+ * mfaEnabled / mfaSecret fields.
+ *
+ * BetterAuth equivalent: POST /api/auth/two-factor/enable
+ * TODO: Evaluate consolidating with BetterAuth's twoFactor plugin once the
+ * migration is fully stable.
+ */
 export async function POST() {
   try {
     const demoBlock = requireNotDemoMode();

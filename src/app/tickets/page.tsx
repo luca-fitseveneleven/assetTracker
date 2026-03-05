@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import Breadcrumb from "@/components/Breadcrumb";
 import TicketsPageClient from "./ui/TicketsPageClient";
 
@@ -9,7 +10,7 @@ export const metadata = {
 };
 
 export default async function Page() {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   // Require authentication
   if (!session?.user) {
@@ -24,7 +25,7 @@ export default async function Page() {
   return (
     <>
       <Breadcrumb options={breadcrumbOptions} />
-      <TicketsPageClient isAdmin={session.user.isAdmin || false} />
+      <TicketsPageClient isAdmin={session.user.isadmin || false} />
     </>
   );
 }

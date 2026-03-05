@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { requireNotDemoMode } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
 import { updateReservationSchema } from "@/lib/validation-organization";
@@ -15,7 +16,7 @@ interface RouteParams {
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const session = await auth();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // Non-admin users can only see their own reservations
-    if (!session.user.isAdmin && reservation.userId !== session.user.id) {
+    if (!session.user.isadmin && reservation.userId !== session.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -70,7 +71,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (demoBlock) return demoBlock;
 
     const { id } = await params;
-    const session = await auth();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -95,7 +96,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     // Only admin can approve/reject, but users can cancel their own
     const isOwner = existingReservation.userId === session.user.id;
-    const isAdmin = session.user.isAdmin;
+    const isAdmin = session.user.isadmin;
 
     if (validated.status === "approved" || validated.status === "rejected") {
       if (!isAdmin) {
@@ -181,7 +182,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     if (demoBlock) return demoBlock;
 
     const { id } = await params;
-    const session = await auth();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -198,7 +199,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     }
 
     // Only owner or admin can delete
-    if (reservation.userId !== session.user.id && !session.user.isAdmin) {
+    if (reservation.userId !== session.user.id && !session.user.isadmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

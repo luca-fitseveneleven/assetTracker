@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import { requireNotDemoMode } from "@/lib/api-auth";
 import { updateWebhookSchema } from "@/lib/validation-organization";
@@ -16,8 +17,8 @@ interface RouteParams {
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const session = await auth();
-    if (!session?.user?.isAdmin) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.isadmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -54,8 +55,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (demoBlock) return demoBlock;
 
     const { id } = await params;
-    const session = await auth();
-    if (!session?.user?.isAdmin) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.isadmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -120,8 +121,8 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     if (demoBlock) return demoBlock;
 
     const { id } = await params;
-    const session = await auth();
-    if (!session?.user?.isAdmin) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.isadmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

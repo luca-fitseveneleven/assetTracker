@@ -1,4 +1,5 @@
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import LandingPage from "@/components/marketing/LandingPage";
@@ -12,7 +13,7 @@ export const metadata = {
 export default async function Home() {
   let session = null;
   try {
-    session = await auth();
+    session = await auth.api.getSession({ headers: await headers() });
   } catch {
     // Ignore auth errors (e.g. stale JWT) — treat as unauthenticated
   }

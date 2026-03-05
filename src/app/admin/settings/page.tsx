@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import AdminSettingsPage from "./ui/AdminSettingsPage";
 import Breadcrumb from "@/components/Breadcrumb";
 import prisma from "@/lib/prisma";
@@ -15,14 +16,17 @@ async function getSystemSettings() {
   });
 
   // Group settings by category
-  const grouped: Record<string, Array<{
-    id: string;
-    key: string;
-    value: string | null;
-    type: string;
-    description: string | null;
-    isEncrypted: boolean;
-  }>> = {};
+  const grouped: Record<
+    string,
+    Array<{
+      id: string;
+      key: string;
+      value: string | null;
+      type: string;
+      description: string | null;
+      isEncrypted: boolean;
+    }>
+  > = {};
 
   for (const setting of settings) {
     if (!grouped[setting.category]) {
@@ -84,22 +88,28 @@ async function getDepreciationSettings() {
 }
 
 export default async function Page() {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   // Require admin access
-  if (!session?.user?.isAdmin) {
+  if (!session?.user?.isadmin) {
     redirect("/dashboard");
   }
 
-  const [settings, users, emailTemplates, labelTemplates, customFields, depreciationSettings] =
-    await Promise.all([
-      getSystemSettings(),
-      getUsers(),
-      getEmailTemplates(),
-      getLabelTemplates(),
-      getCustomFields(),
-      getDepreciationSettings(),
-    ]);
+  const [
+    settings,
+    users,
+    emailTemplates,
+    labelTemplates,
+    customFields,
+    depreciationSettings,
+  ] = await Promise.all([
+    getSystemSettings(),
+    getUsers(),
+    getEmailTemplates(),
+    getLabelTemplates(),
+    getCustomFields(),
+    getDepreciationSettings(),
+  ]);
 
   // Detect if email is configured via environment variables
   const envEmailConfig = process.env.EMAIL_PROVIDER

@@ -22,13 +22,17 @@ export async function GET(req: Request) {
     }
 
     if (!code) {
-      return NextResponse.redirect(new URL("/login?error=missing_code", req.url));
+      return NextResponse.redirect(
+        new URL("/login?error=missing_code", req.url),
+      );
     }
 
     const profile = await exchangeOidcCode(code);
 
     if (!profile.email && !profile.username) {
-      return NextResponse.redirect(new URL("/login?error=no_identity", req.url));
+      return NextResponse.redirect(
+        new URL("/login?error=no_identity", req.url),
+      );
     }
 
     // Find or create user
@@ -91,18 +95,33 @@ export async function GET(req: Request) {
 
     await prisma.system_settings.upsert({
       where: { settingKey: `sso.token.${ssoToken}` },
-      update: { settingValue: JSON.stringify({ userId: user.userid, expiresAt: expiresAt.toISOString() }), updatedAt: new Date() },
+      update: {
+        settingValue: JSON.stringify({
+          userId: user.userid,
+          expiresAt: expiresAt.toISOString(),
+        }),
+        updatedAt: new Date(),
+      },
       create: {
         settingKey: `sso.token.${ssoToken}`,
-        settingValue: JSON.stringify({ userId: user.userid, expiresAt: expiresAt.toISOString() }),
+        settingValue: JSON.stringify({
+          userId: user.userid,
+          expiresAt: expiresAt.toISOString(),
+        }),
         settingType: "json",
         category: "sso",
         updatedAt: new Date(),
       },
     });
 
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    return NextResponse.redirect(new URL(`/api/auth/sso-login?token=${ssoToken}`, baseUrl));
+    const baseUrl =
+      process.env.BETTER_AUTH_URL ||
+      process.env.NEXTAUTH_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "http://localhost:3000";
+    return NextResponse.redirect(
+      new URL(`/api/auth/sso-login?token=${ssoToken}`, baseUrl),
+    );
   } catch (error: any) {
     logger.error("OIDC callback error", { error: error.message });
     return NextResponse.redirect(new URL("/login?error=oidc_failed", req.url));

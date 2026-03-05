@@ -21,7 +21,7 @@ interface Kit {
   description?: string | null;
   isActive: boolean;
   items: KitItem[];
-  createdAt: string;
+  createdAt: string | Date;
 }
 
 export default function KitsTable({ kits }: { kits: Kit[] }) {
@@ -49,7 +49,7 @@ export default function KitsTable({ kits }: { kits: Kit[] }) {
 
   if (kits.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
+      <div className="text-muted-foreground py-12 text-center">
         No kits found. Create your first kit to get started.
       </div>
     );
@@ -59,7 +59,7 @@ export default function KitsTable({ kits }: { kits: Kit[] }) {
     <div className="rounded-md border">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b bg-muted/50">
+          <tr className="bg-muted/50 border-b">
             <th className="px-4 py-3 text-left font-medium">Name</th>
             <th className="px-4 py-3 text-left font-medium">Items</th>
             <th className="px-4 py-3 text-left font-medium">Status</th>
@@ -68,13 +68,16 @@ export default function KitsTable({ kits }: { kits: Kit[] }) {
         </thead>
         <tbody>
           {kits.map((kit) => (
-            <tr key={kit.id} className="border-b hover:bg-muted/30">
+            <tr key={kit.id} className="hover:bg-muted/30 border-b">
               <td className="px-4 py-3">
-                <Link href={`/kits/${kit.id}`} className="font-medium hover:underline">
+                <Link
+                  href={`/kits/${kit.id}`}
+                  className="font-medium hover:underline"
+                >
                   {kit.name}
                 </Link>
                 {kit.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-xs">
+                  <p className="text-muted-foreground mt-0.5 max-w-xs truncate text-xs">
                     {kit.description}
                   </p>
                 )}
@@ -85,7 +88,7 @@ export default function KitsTable({ kits }: { kits: Kit[] }) {
                   {kit.isActive ? "Active" : "Inactive"}
                 </Badge>
               </td>
-              <td className="px-4 py-3 text-right space-x-2">
+              <td className="space-x-2 px-4 py-3 text-right">
                 <Button variant="ghost" size="sm" asChild>
                   <Link href={`/kits/${kit.id}`}>View</Link>
                 </Button>

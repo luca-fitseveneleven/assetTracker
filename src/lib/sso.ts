@@ -93,16 +93,16 @@ export interface SamlUserProfile {
  * Create SAML instance from stored settings.
  */
 function createSamlInstance(settings: SsoSettings): SAML {
-  const callbackUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/auth/callback/saml`;
+  const callbackUrl = `${process.env.BETTER_AUTH_URL || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/auth/callback/saml`;
 
   return new SAML({
     callbackUrl,
     entryPoint: settings.ssoUrl,
     issuer: settings.entityId || callbackUrl,
-    cert: settings.certificate,
+    idpCert: settings.certificate,
     wantAssertionsSigned: true,
     wantAuthnResponseSigned: false,
-  });
+  } as any);
 }
 
 /**
@@ -122,9 +122,9 @@ export async function getSamlLoginUrl(): Promise<string> {
 /**
  * Validate a SAML response and extract user profile.
  */
-export async function validateSamlResponse(
-  body: { SAMLResponse: string },
-): Promise<SamlUserProfile> {
+export async function validateSamlResponse(body: {
+  SAMLResponse: string;
+}): Promise<SamlUserProfile> {
   const settings = await getSsoSettings();
   if (!settings.enabled || settings.provider !== "saml") {
     throw new Error("SAML SSO is not enabled");
@@ -145,7 +145,9 @@ export async function validateSamlResponse(
     firstName: attrs[settings.attrFirstName] || "",
     lastName: attrs[settings.attrLastName] || "",
     username: attrs[settings.attrUsername] || profile.nameID,
-    groups: settings.attrGroups ? (attrs[settings.attrGroups] as string[]) : undefined,
+    groups: settings.attrGroups
+      ? (attrs[settings.attrGroups] as string[])
+      : undefined,
   };
 }
 
@@ -269,7 +271,10 @@ export async function exchangeOidcCode(code: string): Promise<OidcUserProfile> {
     email: claims[settings.attrEmail] || claims.email,
     firstName: claims[settings.attrFirstName] || claims.given_name || "",
     lastName: claims[settings.attrLastName] || claims.family_name || "",
-    username: claims[settings.attrUsername] || claims.preferred_username || claims.email,
+    username:
+      claims[settings.attrUsername] ||
+      claims.preferred_username ||
+      claims.email,
     groups: settings.attrGroups ? claims[settings.attrGroups] : undefined,
   };
 }

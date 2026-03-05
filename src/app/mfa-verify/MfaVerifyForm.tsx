@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn, useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,6 @@ import {
 
 export default function MfaVerifyForm() {
   const router = useRouter();
-  const { data: session } = useSession();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -28,24 +27,11 @@ export default function MfaVerifyForm() {
     setIsLoading(true);
 
     try {
-      const username = session?.user?.username;
-      const mfaChallenge = (session?.user as Record<string, unknown>)
-        ?.mfaChallenge as string | undefined;
-      if (!username || !mfaChallenge) {
-        setError("Session expired. Please log in again.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Call signIn with MFA token + challenge — this triggers the mfaToken path in authorize()
-      const result = await signIn("credentials", {
-        username,
-        password: "mfa-bypass",
-        mfaToken: code.trim(),
-        isBackupCode: useBackupCode ? "true" : "false",
-        mfaChallenge,
-        redirect: false,
-      });
+      // Use BetterAuth's two-factor verification
+      const verifyFn = useBackupCode
+        ? authClient.twoFactor.verifyBackupCode
+        : authClient.twoFactor.verifyTotp;
+      const result = await verifyFn({ code: code.trim() });
 
       if (result?.error) {
         setError(

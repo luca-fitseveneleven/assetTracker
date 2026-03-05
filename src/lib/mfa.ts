@@ -1,16 +1,22 @@
-import { authenticator } from "otplib";
+import * as otplib from "otplib";
 import crypto from "crypto";
 
 export function generateMfaSecret(): string {
-  return authenticator.generateSecret();
+  return otplib.generateSecret();
 }
 
 export function generateMfaUri(secret: string, email: string): string {
-  return authenticator.keyuri(email, "AssetTracker", secret);
+  return otplib.generateURI({
+    issuer: "AssetTracker",
+    label: email,
+    secret,
+    strategy: "totp",
+  });
 }
 
 export function verifyMfaToken(secret: string, token: string): boolean {
-  return authenticator.verify({ token, secret });
+  const result = otplib.verifySync({ token, secret });
+  return result.valid;
 }
 
 export function generateBackupCodes(count = 8): string[] {

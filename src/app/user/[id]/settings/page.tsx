@@ -1,6 +1,7 @@
 import React from "react";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import Breadcrumb from "@/components/Breadcrumb";
 import prisma from "@/lib/prisma";
 import UserSettingsClient from "./ui/UserSettingsClient";
@@ -13,11 +14,11 @@ export const metadata = {
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   // Only allow the user themselves or an admin to view settings
   if (!session?.user) redirect("/login");
-  if (session.user.id !== params.id && !session.user.isAdmin) {
+  if (session.user.id !== params.id && !session.user.isadmin) {
     redirect("/dashboard");
   }
 

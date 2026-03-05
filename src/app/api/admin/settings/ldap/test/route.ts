@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { testConnection, getLdapSettings } from "@/lib/ldap";
 import { requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
@@ -13,8 +14,8 @@ export async function POST() {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
 
-    const session = await auth();
-    if (!session?.user?.isAdmin) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.isadmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -22,7 +23,11 @@ export async function POST() {
 
     if (!settings.serverUrl || !settings.bindDN || !settings.bindPassword) {
       return NextResponse.json(
-        { success: false, message: "Missing required LDAP settings. Please save settings first." },
+        {
+          success: false,
+          message:
+            "Missing required LDAP settings. Please save settings first.",
+        },
         { status: 400 },
       );
     }

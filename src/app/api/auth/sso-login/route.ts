@@ -16,7 +16,9 @@ export async function GET(req: Request) {
     const token = url.searchParams.get("token");
 
     if (!token) {
-      return NextResponse.redirect(new URL("/login?error=missing_token", req.url));
+      return NextResponse.redirect(
+        new URL("/login?error=missing_token", req.url),
+      );
     }
 
     // Look up the SSO token
@@ -26,7 +28,9 @@ export async function GET(req: Request) {
     });
 
     if (!tokenRecord || !tokenRecord.settingValue) {
-      return NextResponse.redirect(new URL("/login?error=invalid_token", req.url));
+      return NextResponse.redirect(
+        new URL("/login?error=invalid_token", req.url),
+      );
     }
 
     const data = JSON.parse(tokenRecord.settingValue);
@@ -36,7 +40,9 @@ export async function GET(req: Request) {
 
     // Check expiry
     if (new Date(data.expiresAt) < new Date()) {
-      return NextResponse.redirect(new URL("/login?error=token_expired", req.url));
+      return NextResponse.redirect(
+        new URL("/login?error=token_expired", req.url),
+      );
     }
 
     // Find the user
@@ -46,11 +52,17 @@ export async function GET(req: Request) {
     });
 
     if (!user || !user.username) {
-      return NextResponse.redirect(new URL("/login?error=user_not_found", req.url));
+      return NextResponse.redirect(
+        new URL("/login?error=user_not_found", req.url),
+      );
     }
 
     // Redirect to login page with SSO parameters that the login form can auto-submit
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl =
+      process.env.BETTER_AUTH_URL ||
+      process.env.NEXTAUTH_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "http://localhost:3000";
     const loginUrl = new URL("/login", baseUrl);
     loginUrl.searchParams.set("sso_user", user.username);
     loginUrl.searchParams.set("sso_token", token);

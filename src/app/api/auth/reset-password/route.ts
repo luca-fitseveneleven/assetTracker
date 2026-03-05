@@ -31,19 +31,19 @@ export async function POST(req: Request) {
 
     // Atomic transaction: find token, validate, update password, delete token
     const result = await prisma.$transaction(async (tx) => {
-      const verificationToken = await tx.verification_tokens.findFirst({
-        where: { identifier: normalizedEmail, token },
+      const verificationToken = await tx.verification.findFirst({
+        where: { identifier: normalizedEmail, value: token },
       });
 
       if (!verificationToken) {
         return { error: "Invalid or expired reset link", status: 400 };
       }
 
-      if (verificationToken.expires < new Date()) {
-        await tx.verification_tokens.deleteMany({
+      if (verificationToken.expiresAt < new Date()) {
+        await tx.verification.deleteMany({
           where: {
             identifier: verificationToken.identifier,
-            token: verificationToken.token,
+            value: verificationToken.value,
           },
         });
         return {
@@ -65,10 +65,10 @@ export async function POST(req: Request) {
         data: { password: hashedPassword, change_date: new Date() },
       });
 
-      await tx.verification_tokens.deleteMany({
+      await tx.verification.deleteMany({
         where: {
           identifier: verificationToken.identifier,
-          token: verificationToken.token,
+          value: verificationToken.value,
         },
       });
 

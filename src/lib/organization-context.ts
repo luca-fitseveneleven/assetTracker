@@ -1,4 +1,5 @@
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import prisma from "./prisma";
 
 export interface OrganizationContext {
@@ -18,7 +19,7 @@ export interface OrganizationContext {
  * Get the organization context for the current user session
  */
 export async function getOrganizationContext(): Promise<OrganizationContext | null> {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user?.id) {
     return null;

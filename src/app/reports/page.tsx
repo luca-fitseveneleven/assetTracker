@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import ReportsPage from "./ui/ReportsPage";
 import Breadcrumb from "@/components/Breadcrumb";
 import prisma from "@/lib/prisma";
@@ -47,7 +48,7 @@ async function getReportData() {
   // Calculate asset value
   const totalAssetValue = assets.reduce(
     (sum, a) => sum + (a.purchaseprice ? Number(a.purchaseprice) : 0),
-    0
+    0,
   );
 
   // Assets by status
@@ -59,7 +60,9 @@ async function getReportData() {
   // Assets by category
   const assetsByCategory = categories.map((category) => ({
     name: category.assetcategorytypename,
-    value: assets.filter((a) => a.assetcategorytypeid === category.assetcategorytypeid).length,
+    value: assets.filter(
+      (a) => a.assetcategorytypeid === category.assetcategorytypeid,
+    ).length,
   }));
 
   // Assets by location
@@ -71,12 +74,16 @@ async function getReportData() {
   // Assets by manufacturer
   const assetsByManufacturer = manufacturers.map((manufacturer) => ({
     name: manufacturer.manufacturername,
-    value: assets.filter((a) => a.manufacturerid === manufacturer.manufacturerid).length,
+    value: assets.filter(
+      (a) => a.manufacturerid === manufacturer.manufacturerid,
+    ).length,
   }));
 
   // Asset utilization (assigned vs unassigned)
   const assignedAssetIds = new Set(userAssets.map((ua) => ua.assetid));
-  const assignedCount = assets.filter((a) => assignedAssetIds.has(a.assetid)).length;
+  const assignedCount = assets.filter((a) =>
+    assignedAssetIds.has(a.assetid),
+  ).length;
   const unassignedCount = assets.length - assignedCount;
 
   // Monthly acquisition data (last 12 months)
@@ -91,7 +98,10 @@ async function getReportData() {
       return purchaseDate >= month && purchaseDate < nextMonth;
     }).length;
     monthlyAcquisitions.push({
-      month: month.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+      month: month.toLocaleDateString("en-US", {
+        month: "short",
+        year: "2-digit",
+      }),
       count,
     });
   }
@@ -106,7 +116,9 @@ async function getReportData() {
   }).length;
 
   // Low stock consumables
-  const lowStockConsumables = consumables.filter((c) => c.quantity <= c.minQuantity).length;
+  const lowStockConsumables = consumables.filter(
+    (c) => c.quantity <= c.minQuantity,
+  ).length;
 
   const warrantyAssets = assets
     .filter((a) => a.warrantyExpires)
@@ -124,7 +136,7 @@ async function getReportData() {
     .filter((a) => a.purchaseprice && a.purchasedate && a.assetcategorytypeid)
     .map((a) => {
       const settings = depreciationSettings.find(
-        (ds) => ds.categoryId === a.assetcategorytypeid
+        (ds) => ds.categoryId === a.assetcategorytypeid,
       );
       if (!settings) return null;
       const result = calculateDepreciation({
@@ -138,8 +150,7 @@ async function getReportData() {
         id: a.assetid,
         name: a.assetname,
         tag: a.assettag,
-        category:
-          a.assetCategoryType?.assetcategorytypename || "Uncategorized",
+        category: a.assetCategoryType?.assetcategorytypename || "Uncategorized",
         purchasePrice: Number(a.purchaseprice),
         purchaseDate: a.purchasedate!.toISOString(),
         method: settings.method as DepreciationMethod,
@@ -188,7 +199,9 @@ async function getReportData() {
         location: a.location?.locationname || "N/A",
         manufacturer: a.manufacturer?.manufacturername || "N/A",
         purchasePrice: a.purchaseprice ? Number(a.purchaseprice) : 0,
-        purchaseDate: a.purchasedate ? new Date(a.purchasedate).toISOString() : null,
+        purchaseDate: a.purchasedate
+          ? new Date(a.purchasedate).toISOString()
+          : null,
       })),
     },
     warrantyAssets,
@@ -197,7 +210,7 @@ async function getReportData() {
 }
 
 export default async function Page() {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user) {
     redirect("/login");
@@ -213,7 +226,11 @@ export default async function Page() {
   return (
     <>
       <Breadcrumb options={breadcrumbOptions} />
-      <ReportsPage data={reportData} warrantyAssets={reportData.warrantyAssets} depreciationAssets={reportData.depreciationAssets} />
+      <ReportsPage
+        data={reportData}
+        warrantyAssets={reportData.warrantyAssets}
+        depreciationAssets={reportData.depreciationAssets}
+      />
     </>
   );
 }

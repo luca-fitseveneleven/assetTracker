@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { getSsoSettings, getSamlLoginUrl, getOidcAuthorizationUrl } from "@/lib/sso";
+import {
+  getSsoSettings,
+  getSamlLoginUrl,
+  getOidcAuthorizationUrl,
+} from "@/lib/sso";
 import { logger } from "@/lib/logger";
 import crypto from "crypto";
 
@@ -12,7 +16,10 @@ export async function GET() {
     const settings = await getSsoSettings();
 
     if (!settings.enabled) {
-      return NextResponse.json({ error: "SSO is not enabled" }, { status: 400 });
+      return NextResponse.json(
+        { error: "SSO is not enabled" },
+        { status: 400 },
+      );
     }
 
     if (settings.provider === "saml") {
@@ -26,7 +33,12 @@ export async function GET() {
   } catch (error: any) {
     logger.error("SSO init error", { error: error.message });
     return NextResponse.redirect(
-      new URL(`/login?error=sso_init_failed`, process.env.NEXTAUTH_URL || "http://localhost:3000"),
+      new URL(
+        `/login?error=sso_init_failed`,
+        process.env.BETTER_AUTH_URL ||
+          process.env.NEXTAUTH_URL ||
+          "http://localhost:3000",
+      ),
     );
   }
 }

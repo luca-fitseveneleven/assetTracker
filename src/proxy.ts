@@ -1,6 +1,6 @@
-import NextAuth from "next-auth";
-import { authConfig } from "./auth.config";
+import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { generateCorrelationId } from "@/lib/logger";
 import {
   checkRateLimit,
@@ -11,11 +11,10 @@ import {
 } from "@/lib/rate-limit";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 
-const { auth } = NextAuth(authConfig);
-
-export const proxy = auth((req) => {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
+  const session = getSessionCookie(req);
+  const isLoggedIn = !!session;
 
   // Generate correlation ID for request tracing
   const correlationId =
@@ -73,7 +72,7 @@ export const proxy = auth((req) => {
 
     // Choose rate limiter based on endpoint and method
     let limiterConfig = rateLimiters.api;
-    if (pathname === "/api/auth/callback/credentials") {
+    if (pathname.startsWith("/api/auth/sign-in")) {
       limiterConfig = rateLimiters.login;
     } else if (isWriteOperation) {
       limiterConfig = rateLimiters.write;
@@ -127,7 +126,7 @@ export const proxy = auth((req) => {
   const response = NextResponse.next();
   response.headers.set("x-correlation-id", correlationId);
   return response;
-});
+}
 
 export const config = {
   matcher: [

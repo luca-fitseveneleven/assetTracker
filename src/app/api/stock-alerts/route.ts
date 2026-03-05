@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import { requireNotDemoMode } from "@/lib/api-auth";
 import {
@@ -15,7 +16,7 @@ import { logger } from "@/lib/logger";
 // Get all stock alerts with optional low-stock filter
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -67,8 +68,8 @@ export async function POST(req: NextRequest) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
 
-    const session = await auth();
-    if (!session?.user?.isAdmin) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.isadmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -155,8 +156,8 @@ export async function PUT() {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
 
-    const session = await auth();
-    if (!session?.user?.isAdmin) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user?.isadmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

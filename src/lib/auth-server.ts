@@ -54,7 +54,7 @@ function translateIdToUserid(where: Record<string, unknown>) {
 }
 
 const authPrisma = (
-  prisma as Record<string, unknown> & { $extends: Function }
+  prisma as unknown as Record<string, unknown> & { $extends: Function }
 ).$extends({
   result: {
     user: {
@@ -75,14 +75,17 @@ const authPrisma = (
         args: Record<string, unknown>;
         query: Function;
       }) {
-        if (args.where) translateIdToUserid(args.where);
-        if (args.data && "id" in args.data) {
-          args.data.userid = args.data.id;
-          delete args.data.id;
+        if (args.where)
+          translateIdToUserid(args.where as Record<string, unknown>);
+        if (args.data && typeof args.data === "object" && "id" in (args.data as Record<string, unknown>)) {
+          const data = args.data as Record<string, unknown>;
+          data.userid = data.id;
+          delete data.id;
         }
-        if (args.select && "id" in args.select) {
-          args.select.userid = args.select.id;
-          delete args.select.id;
+        if (args.select && typeof args.select === "object" && "id" in (args.select as Record<string, unknown>)) {
+          const select = args.select as Record<string, unknown>;
+          select.userid = select.id;
+          delete select.id;
         }
         return query(args);
       },

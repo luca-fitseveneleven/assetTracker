@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "NODE_OPTIONS='--inspect' next dev --turbopack",
     "build": "next build",
+    "analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "eslint src/",
     "db:seed": "prisma db seed",
@@ -24,7 +25,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "test:unit:coverage": "vitest run --coverage"
+    "test:unit:coverage": "vitest run --coverage",
+    "test:a11y": "playwright test accessibility"
   },
   "dependencies": {
     "@better-auth/prisma-adapter": "^1.5.3",
@@ -77,8 +79,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
+    "@next/bundle-analyzer": "^16.1.6",
     "@playwright/test": "^1.58.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

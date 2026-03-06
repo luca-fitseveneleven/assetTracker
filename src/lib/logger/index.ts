@@ -8,6 +8,102 @@ import { AsyncLocalStorage } from "async_hooks";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
+// --- Sensitive data masking ---
+
+const SENSITIVE_FIELD_NAMES = new Set([
+  "password",
+  "secret",
+  "token",
+  "apikey",
+  "api_key",
+  "authorization",
+  "cookie",
+  "credit_card",
+  "creditcard",
+  "ssn",
+  "cvv",
+  "pin",
+]);
+
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const BEARER_REGEX = /^Bearer\s+.+/i;
+const JWT_REGEX = /^eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/;
+
+const MASK = "***REDACTED***";
+const MAX_DEPTH = 20;
+
+function maskEmailAddress(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return MASK;
+  const visible = local.charAt(0);
+  return `${visible}***@${domain}`;
+}
+
+function maskStringValue(value: string): string {
+  if (JWT_REGEX.test(value)) {
+    return value.substring(0, 10) + "...";
+  }
+  if (BEARER_REGEX.test(value)) {
+    // Show "Bearer " prefix plus first 3 chars of the token
+    return value.substring(0, 10) + "...";
+  }
+  if (EMAIL_REGEX.test(value)) {
+    return maskEmailAddress(value);
+  }
+  return value;
+}
+
+function isSensitiveFieldName(key: string): boolean {
+  return SENSITIVE_FIELD_NAMES.has(key.toLowerCase());
+}
+
+/**
+ * Recursively masks sensitive fields in an object.
+ * - Fields whose names match known sensitive names are fully redacted.
+ * - String values matching email / Bearer / JWT patterns are partially masked.
+ */
+export function maskSensitiveData<T>(data: T, depth = 0): T {
+  if (depth > MAX_DEPTH || data === null || data === undefined) {
+    return data;
+  }
+
+  if (typeof data === "string") {
+    return maskStringValue(data) as unknown as T;
+  }
+
+  if (Array.isArray(data)) {
+    return data.map((item) =>
+      maskSensitiveData(item, depth + 1),
+    ) as unknown as T;
+  }
+
+  if (typeof data === "object" && !(data instanceof Error)) {
+    const masked: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(
+      data as Record<string, unknown>,
+    )) {
+      if (isSensitiveFieldName(key)) {
+        masked[key] = MASK;
+      } else if (typeof value === "string") {
+        masked[key] = maskStringValue(value);
+      } else if (
+        typeof value === "object" &&
+        value !== null &&
+        !(value instanceof Error)
+      ) {
+        masked[key] = maskSensitiveData(value, depth + 1);
+      } else {
+        masked[key] = value;
+      }
+    }
+    return masked as T;
+  }
+
+  return data;
+}
+
+// --- End sensitive data masking ---
+
 interface LogContext {
   [key: string]: unknown;
   timestamp?: string;
@@ -47,7 +143,7 @@ export function withCorrelationId<T>(correlationId: string, fn: () => T): T {
  */
 export async function withCorrelationIdAsync<T>(
   correlationId: string,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
 ): Promise<T> {
   return correlationIdStorage.run(correlationId, fn);
 }
@@ -61,7 +157,11 @@ class Logger {
     this.environment = process.env.NODE_ENV || "development";
   }
 
-  private formatLog(level: LogLevel, message: string, context?: LogContext): LogContext {
+  private formatLog(
+    level: LogLevel,
+    message: string,
+    context?: LogContext,
+  ): LogContext {
     const correlationId = getCorrelationId();
     const log: LogContext = {
       timestamp: new Date().toISOString(),
@@ -79,7 +179,7 @@ class Logger {
       log.errorMessage = error.message;
       log.errorName = error.name;
       log.stack = error.stack;
-      
+
       // Include any custom error properties
       if (error && typeof error === "object") {
         Object.keys(error).forEach((key) => {
@@ -95,26 +195,29 @@ class Logger {
 
   private write(level: LogLevel, message: string, context?: LogContext) {
     const log = this.formatLog(level, message, context);
+    const maskedLog = maskSensitiveData(log);
 
     // In production, output JSON for log aggregation tools
     if (this.environment === "production") {
-      console.log(JSON.stringify(log));
+      console.log(JSON.stringify(maskedLog));
     } else {
       // In development, use colored console output
       const colorMap = {
         debug: "\x1b[36m", // Cyan
-        info: "\x1b[32m",  // Green
-        warn: "\x1b[33m",  // Yellow
+        info: "\x1b[32m", // Green
+        warn: "\x1b[33m", // Yellow
         error: "\x1b[31m", // Red
       };
       const reset = "\x1b[0m";
       const color = colorMap[level];
-      
+
+      const maskedContext = context ? maskSensitiveData(context) : "";
+
       console.log(
-        `${color}[${log.timestamp}] [${level.toUpperCase()}]${reset} ${message}`,
-        context ? context : ""
+        `${color}[${maskedLog.timestamp}] [${level.toUpperCase()}]${reset} ${message}`,
+        maskedContext,
       );
-      
+
       if (context?.error) {
         console.error(context.error);
       }
@@ -147,7 +250,13 @@ class Logger {
     });
   }
 
-  apiResponse(method: string, path: string, status: number, duration?: number, context?: LogContext) {
+  apiResponse(
+    method: string,
+    path: string,
+    status: number,
+    duration?: number,
+    context?: LogContext,
+  ) {
     const level = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
     this.write(level, `API Response: ${method} ${path} - ${status}`, {
       type: "api_response",
@@ -159,7 +268,12 @@ class Logger {
     });
   }
 
-  apiError(method: string, path: string, error: Error | unknown, context?: LogContext) {
+  apiError(
+    method: string,
+    path: string,
+    error: Error | unknown,
+    context?: LogContext,
+  ) {
     this.error(`API Error: ${method} ${path}`, {
       type: "api_error",
       method,
@@ -170,7 +284,12 @@ class Logger {
   }
 
   // Database operation logging
-  dbQuery(operation: string, model: string, duration?: number, context?: LogContext) {
+  dbQuery(
+    operation: string,
+    model: string,
+    duration?: number,
+    context?: LogContext,
+  ) {
     this.debug(`DB Query: ${operation} on ${model}`, {
       type: "db_query",
       operation,
@@ -180,7 +299,12 @@ class Logger {
     });
   }
 
-  dbError(operation: string, model: string, error: Error | unknown, context?: LogContext) {
+  dbError(
+    operation: string,
+    model: string,
+    error: Error | unknown,
+    context?: LogContext,
+  ) {
     this.error(`DB Error: ${operation} on ${model}`, {
       type: "db_error",
       operation,
@@ -200,7 +324,11 @@ class Logger {
   }
 
   // Rate limiting logging
-  rateLimitExceeded(identifier: string, endpoint: string, context?: LogContext) {
+  rateLimitExceeded(
+    identifier: string,
+    endpoint: string,
+    context?: LogContext,
+  ) {
     this.warn(`Rate limit exceeded`, {
       type: "rate_limit",
       identifier,

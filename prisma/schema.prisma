@@ -843,11 +843,31 @@ model user {
   auditCampaignAuditorRoles        AuditCampaignAuditor[]
   auditEntriesAudited              AuditEntry[]              @relation("audit_entry_auditor")
   twoFactorEntries                 twoFactor[]
+  apiKeys                          ApiKey[]
 
   @@index([firstname, lastname])
   @@index([organizationId])
   @@index([departmentId])
   @@index([organizationId, lastname, firstname])
+}
+
+model ApiKey {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @db.Uuid
+  user       user      @relation(fields: [userId], references: [userid], onDelete: Cascade)
+  name       String    @db.VarChar(100)
+  keyPrefix  String    @db.VarChar(8)
+  keyHash    String    @db.VarChar(255)
+  scopes     String[]  @default([])
+  lastUsedAt DateTime? @db.Timestamp(6)
+  expiresAt  DateTime? @db.Timestamp(6)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now()) @db.Timestamp(6)
+
+  @@index([userId])
+  @@index([keyPrefix])
+  @@index([isActive])
+  @@map("api_keys")
 }
 
 model userAccessoires {

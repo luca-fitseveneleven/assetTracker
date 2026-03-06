@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { hasPermission, hasAnyPermission, type Permission } from "./rbac";
 import prisma from "./prisma";
+import { validateApiKey } from "./api-keys";
 
 /**
  * Block mutating operations in demo mode.
@@ -28,14 +29,69 @@ export interface AuthUser {
   firstname?: string;
   lastname?: string;
   organizationId?: string;
+  /** Set when authenticated via API key instead of session */
+  apiKeyId?: string;
+  /** Scopes granted to the API key (undefined for session auth) */
+  apiKeyScopes?: string[];
 }
 
 /**
- * Get authenticated user from session.
- * Fetches custom fields from Prisma since BetterAuth sessions
- * only store standard fields.
+ * Extract Bearer token from Authorization header if it looks like an API key.
+ */
+async function getApiKeyFromHeaders(): Promise<string | null> {
+  const hdrs = await headers();
+  const authHeader = hdrs.get("authorization");
+  if (!authHeader) return null;
+
+  const match = authHeader.match(/^Bearer\s+(at_.+)$/i);
+  return match ? match[1] : null;
+}
+
+/**
+ * Authenticate via API key.
+ * Returns an AuthUser or null if the key is invalid.
+ */
+async function authenticateWithApiKey(
+  apiKey: string,
+): Promise<AuthUser | null> {
+  const record = await validateApiKey(apiKey);
+  if (!record) return null;
+
+  const dbUser = record.user;
+  if (!dbUser || !dbUser.isActive) return null;
+
+  return {
+    id: dbUser.userid,
+    name: `${dbUser.firstname} ${dbUser.lastname}`,
+    email: dbUser.email,
+    username: dbUser.username || undefined,
+    firstname: dbUser.firstname,
+    lastname: dbUser.lastname,
+    isAdmin: dbUser.isadmin,
+    canRequest: dbUser.canrequest,
+    organizationId: dbUser.organizationId || undefined,
+    apiKeyId: record.id,
+    apiKeyScopes: record.scopes,
+  };
+}
+
+/**
+ * Get authenticated user from session or API key.
+ * First checks for an API key in the Authorization header (Bearer at_...),
+ * then falls back to BetterAuth session authentication.
  */
 export async function getAuthUser(): Promise<AuthUser> {
+  // Try API key authentication first
+  const apiKey = await getApiKeyFromHeaders();
+  if (apiKey) {
+    const user = await authenticateWithApiKey(apiKey);
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+    return user;
+  }
+
+  // Fall back to session authentication
   const session = await auth.api.getSession({
     headers: await headers(),
   });

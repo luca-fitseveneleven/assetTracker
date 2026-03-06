@@ -1,8 +1,8 @@
 -- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
+-- Schema is managed by Prisma via DATABASE_URL ?schema= parameter
 
 -- CreateTable
-CREATE TABLE "public"."accessorieCategoryType" (
+CREATE TABLE "accessorieCategoryType" (
     "accessoriecategorytypeid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "accessoriecategorytypename" VARCHAR NOT NULL,
 
@@ -10,7 +10,7 @@ CREATE TABLE "public"."accessorieCategoryType" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."accessories" (
+CREATE TABLE "accessories" (
     "accessorieid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "accessoriename" VARCHAR NOT NULL,
     "accessorietag" VARCHAR NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE "public"."accessories" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."accounts" (
+CREATE TABLE "accounts" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "userId" UUID NOT NULL,
     "type" TEXT NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE "public"."accounts" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."asset" (
+CREATE TABLE "asset" (
     "assetid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "assetname" VARCHAR NOT NULL,
     "assettag" VARCHAR NOT NULL,
@@ -75,7 +75,7 @@ CREATE TABLE "public"."asset" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."assetCategoryType" (
+CREATE TABLE "assetCategoryType" (
     "assetcategorytypeid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "assetcategorytypename" VARCHAR NOT NULL,
 
@@ -83,7 +83,7 @@ CREATE TABLE "public"."assetCategoryType" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."asset_attachments" (
+CREATE TABLE "asset_attachments" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "assetId" UUID NOT NULL,
     "filename" VARCHAR(255) NOT NULL,
@@ -99,7 +99,7 @@ CREATE TABLE "public"."asset_attachments" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."audit_logs" (
+CREATE TABLE "audit_logs" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "userId" UUID,
     "action" VARCHAR(50) NOT NULL,
@@ -114,7 +114,7 @@ CREATE TABLE "public"."audit_logs" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."consumable" (
+CREATE TABLE "consumable" (
     "consumableid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "consumablename" VARCHAR NOT NULL,
     "consumablecategorytypeid" UUID NOT NULL,
@@ -131,7 +131,7 @@ CREATE TABLE "public"."consumable" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."consumableCategoryType" (
+CREATE TABLE "consumableCategoryType" (
     "consumablecategorytypeid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "consumablecategorytypename" VARCHAR NOT NULL,
 
@@ -139,7 +139,7 @@ CREATE TABLE "public"."consumableCategoryType" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."custom_field_definitions" (
+CREATE TABLE "custom_field_definitions" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(100) NOT NULL,
     "fieldType" VARCHAR(20) NOT NULL,
@@ -155,7 +155,7 @@ CREATE TABLE "public"."custom_field_definitions" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."custom_field_values" (
+CREATE TABLE "custom_field_values" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "fieldId" UUID NOT NULL,
     "entityId" UUID NOT NULL,
@@ -167,7 +167,7 @@ CREATE TABLE "public"."custom_field_values" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."depreciation_settings" (
+CREATE TABLE "depreciation_settings" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "categoryId" UUID NOT NULL,
     "method" VARCHAR(30) NOT NULL,
@@ -180,7 +180,7 @@ CREATE TABLE "public"."depreciation_settings" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."email_templates" (
+CREATE TABLE "email_templates" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(100) NOT NULL,
     "subject" VARCHAR(255) NOT NULL,
@@ -194,7 +194,7 @@ CREATE TABLE "public"."email_templates" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."label_templates" (
+CREATE TABLE "label_templates" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(100) NOT NULL,
     "width" DECIMAL(5,2) NOT NULL,
@@ -211,7 +211,7 @@ CREATE TABLE "public"."label_templates" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."licence" (
+CREATE TABLE "licence" (
     "licenceid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "licencekey" VARCHAR,
     "licenceduserid" UUID,
@@ -231,7 +231,7 @@ CREATE TABLE "public"."licence" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."licenceCategoryType" (
+CREATE TABLE "licenceCategoryType" (
     "licencecategorytypeid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "licencecategorytypename" VARCHAR NOT NULL,
 
@@ -239,7 +239,7 @@ CREATE TABLE "public"."licenceCategoryType" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."location" (
+CREATE TABLE "location" (
     "locationid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "locationname" VARCHAR,
     "street" VARCHAR,
@@ -253,7 +253,7 @@ CREATE TABLE "public"."location" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."maintenance_logs" (
+CREATE TABLE "maintenance_logs" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "scheduleId" UUID NOT NULL,
     "completedBy" UUID,
@@ -266,7 +266,7 @@ CREATE TABLE "public"."maintenance_logs" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."maintenance_schedules" (
+CREATE TABLE "maintenance_schedules" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "assetId" UUID NOT NULL,
     "title" VARCHAR(255) NOT NULL,
@@ -284,7 +284,7 @@ CREATE TABLE "public"."maintenance_schedules" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."manufacturer" (
+CREATE TABLE "manufacturer" (
     "manufacturerid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "manufacturername" VARCHAR NOT NULL,
     "creation_date" TIMESTAMP(6) NOT NULL,
@@ -294,7 +294,7 @@ CREATE TABLE "public"."manufacturer" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."model" (
+CREATE TABLE "model" (
     "modelid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "modelname" VARCHAR NOT NULL,
     "modelnumber" VARCHAR,
@@ -305,7 +305,7 @@ CREATE TABLE "public"."model" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."notification_preferences" (
+CREATE TABLE "notification_preferences" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "userId" UUID NOT NULL,
     "emailAssignments" BOOLEAN NOT NULL DEFAULT true,
@@ -323,7 +323,7 @@ CREATE TABLE "public"."notification_preferences" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."notification_queue" (
+CREATE TABLE "notification_queue" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "userId" UUID,
     "type" VARCHAR(50) NOT NULL,
@@ -341,7 +341,7 @@ CREATE TABLE "public"."notification_queue" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."saved_filters" (
+CREATE TABLE "saved_filters" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "userId" UUID NOT NULL,
     "name" VARCHAR(100) NOT NULL,
@@ -356,7 +356,7 @@ CREATE TABLE "public"."saved_filters" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."sessions" (
+CREATE TABLE "sessions" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "sessionToken" TEXT NOT NULL,
     "userId" UUID NOT NULL,
@@ -366,7 +366,7 @@ CREATE TABLE "public"."sessions" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."statusType" (
+CREATE TABLE "statusType" (
     "statustypeid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "statustypename" VARCHAR NOT NULL,
 
@@ -374,7 +374,7 @@ CREATE TABLE "public"."statusType" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."supplier" (
+CREATE TABLE "supplier" (
     "supplierid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "suppliername" VARCHAR NOT NULL,
     "lastname" VARCHAR,
@@ -389,7 +389,7 @@ CREATE TABLE "public"."supplier" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."system_settings" (
+CREATE TABLE "system_settings" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "settingKey" VARCHAR(100) NOT NULL,
     "settingValue" TEXT,
@@ -404,7 +404,7 @@ CREATE TABLE "public"."system_settings" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."user" (
+CREATE TABLE "user" (
     "userid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "username" VARCHAR,
     "isadmin" BOOLEAN NOT NULL,
@@ -421,7 +421,7 @@ CREATE TABLE "public"."user" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."userAccessoires" (
+CREATE TABLE "userAccessoires" (
     "useraccessoiresid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "userid" UUID NOT NULL,
     "accessorieid" UUID NOT NULL,
@@ -432,7 +432,7 @@ CREATE TABLE "public"."userAccessoires" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."userAssets" (
+CREATE TABLE "userAssets" (
     "userassetsid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "userid" UUID NOT NULL,
     "assetid" UUID NOT NULL,
@@ -443,7 +443,7 @@ CREATE TABLE "public"."userAssets" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."userHistory" (
+CREATE TABLE "userHistory" (
     "historyid" UUID NOT NULL DEFAULT gen_random_uuid(),
     "referenceid" UUID,
     "referencetable" VARCHAR(20),
@@ -459,165 +459,165 @@ CREATE TABLE "public"."userHistory" (
 );
 
 -- CreateTable
-CREATE TABLE "public"."verification_tokens" (
+CREATE TABLE "verification_tokens" (
     "identifier" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "expires" TIMESTAMP(3) NOT NULL
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "accounts_provider_providerAccountId_key" ON "public"."accounts"("provider" ASC, "providerAccountId" ASC);
+CREATE UNIQUE INDEX "accounts_provider_providerAccountId_key" ON "accounts"("provider" ASC, "providerAccountId" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "asset_assettag_key" ON "public"."asset"("assettag" ASC);
+CREATE UNIQUE INDEX "asset_assettag_key" ON "asset"("assettag" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "asset_serialnumber_key" ON "public"."asset"("serialnumber" ASC);
+CREATE UNIQUE INDEX "asset_serialnumber_key" ON "asset"("serialnumber" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "custom_field_values_fieldId_entityId_key" ON "public"."custom_field_values"("fieldId" ASC, "entityId" ASC);
+CREATE UNIQUE INDEX "custom_field_values_fieldId_entityId_key" ON "custom_field_values"("fieldId" ASC, "entityId" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "depreciation_settings_categoryId_key" ON "public"."depreciation_settings"("categoryId" ASC);
+CREATE UNIQUE INDEX "depreciation_settings_categoryId_key" ON "depreciation_settings"("categoryId" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "email_templates_name_key" ON "public"."email_templates"("name" ASC);
+CREATE UNIQUE INDEX "email_templates_name_key" ON "email_templates"("name" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "licence_licencekey_key" ON "public"."licence"("licencekey" ASC);
+CREATE UNIQUE INDEX "licence_licencekey_key" ON "licence"("licencekey" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "notification_preferences_userId_key" ON "public"."notification_preferences"("userId" ASC);
+CREATE UNIQUE INDEX "notification_preferences_userId_key" ON "notification_preferences"("userId" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "sessions_sessionToken_key" ON "public"."sessions"("sessionToken" ASC);
+CREATE UNIQUE INDEX "sessions_sessionToken_key" ON "sessions"("sessionToken" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "system_settings_settingKey_key" ON "public"."system_settings"("settingKey" ASC);
+CREATE UNIQUE INDEX "system_settings_settingKey_key" ON "system_settings"("settingKey" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "user_email_key" ON "public"."user"("email" ASC);
+CREATE UNIQUE INDEX "user_email_key" ON "user"("email" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "user_username_key" ON "public"."user"("username" ASC);
+CREATE UNIQUE INDEX "user_username_key" ON "user"("username" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "verification_tokens_identifier_token_key" ON "public"."verification_tokens"("identifier" ASC, "token" ASC);
+CREATE UNIQUE INDEX "verification_tokens_identifier_token_key" ON "verification_tokens"("identifier" ASC, "token" ASC);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "verification_tokens_token_key" ON "public"."verification_tokens"("token" ASC);
+CREATE UNIQUE INDEX "verification_tokens_token_key" ON "verification_tokens"("token" ASC);
 
 -- AddForeignKey
-ALTER TABLE "public"."accessories" ADD CONSTRAINT "fk_accessories_accessoriecategorytype_c_accessoriecategorytypei" FOREIGN KEY ("accessoriecategorytypeid") REFERENCES "public"."accessorieCategoryType"("accessoriecategorytypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "accessories" ADD CONSTRAINT "fk_accessories_accessoriecategorytype_c_accessoriecategorytypei" FOREIGN KEY ("accessoriecategorytypeid") REFERENCES "accessorieCategoryType"("accessoriecategorytypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."accessories" ADD CONSTRAINT "fk_accessories_location_c_locationid" FOREIGN KEY ("locationid") REFERENCES "public"."location"("locationid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "accessories" ADD CONSTRAINT "fk_accessories_location_c_locationid" FOREIGN KEY ("locationid") REFERENCES "location"("locationid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."accessories" ADD CONSTRAINT "fk_accessories_manufacturer_c_manufacturerid" FOREIGN KEY ("manufacturerid") REFERENCES "public"."manufacturer"("manufacturerid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "accessories" ADD CONSTRAINT "fk_accessories_manufacturer_c_manufacturerid" FOREIGN KEY ("manufacturerid") REFERENCES "manufacturer"("manufacturerid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."accessories" ADD CONSTRAINT "fk_accessories_model_c_modelid" FOREIGN KEY ("modelid") REFERENCES "public"."model"("modelid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "accessories" ADD CONSTRAINT "fk_accessories_model_c_modelid" FOREIGN KEY ("modelid") REFERENCES "model"("modelid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."accessories" ADD CONSTRAINT "fk_accessories_statustype_c_statustypeid" FOREIGN KEY ("statustypeid") REFERENCES "public"."statusType"("statustypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "accessories" ADD CONSTRAINT "fk_accessories_statustype_c_statustypeid" FOREIGN KEY ("statustypeid") REFERENCES "statusType"("statustypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."accessories" ADD CONSTRAINT "fk_accessories_supplier_c_supplierid" FOREIGN KEY ("supplierid") REFERENCES "public"."supplier"("supplierid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "accessories" ADD CONSTRAINT "fk_accessories_supplier_c_supplierid" FOREIGN KEY ("supplierid") REFERENCES "supplier"("supplierid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."asset" ADD CONSTRAINT "fk_asset_assetcategorytype_c_assetcategorytypeid" FOREIGN KEY ("assetcategorytypeid") REFERENCES "public"."assetCategoryType"("assetcategorytypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "asset" ADD CONSTRAINT "fk_asset_assetcategorytype_c_assetcategorytypeid" FOREIGN KEY ("assetcategorytypeid") REFERENCES "assetCategoryType"("assetcategorytypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."asset" ADD CONSTRAINT "fk_asset_location_c_locationid" FOREIGN KEY ("locationid") REFERENCES "public"."location"("locationid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "asset" ADD CONSTRAINT "fk_asset_location_c_locationid" FOREIGN KEY ("locationid") REFERENCES "location"("locationid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."asset" ADD CONSTRAINT "fk_asset_manufacturer_c_manufacturerid" FOREIGN KEY ("manufacturerid") REFERENCES "public"."manufacturer"("manufacturerid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "asset" ADD CONSTRAINT "fk_asset_manufacturer_c_manufacturerid" FOREIGN KEY ("manufacturerid") REFERENCES "manufacturer"("manufacturerid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."asset" ADD CONSTRAINT "fk_asset_model_c_modelid" FOREIGN KEY ("modelid") REFERENCES "public"."model"("modelid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "asset" ADD CONSTRAINT "fk_asset_model_c_modelid" FOREIGN KEY ("modelid") REFERENCES "model"("modelid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."asset" ADD CONSTRAINT "fk_asset_statustype_c_statustypeid" FOREIGN KEY ("statustypeid") REFERENCES "public"."statusType"("statustypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "asset" ADD CONSTRAINT "fk_asset_statustype_c_statustypeid" FOREIGN KEY ("statustypeid") REFERENCES "statusType"("statustypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."asset" ADD CONSTRAINT "fk_asset_supplier_c_supplierid" FOREIGN KEY ("supplierid") REFERENCES "public"."supplier"("supplierid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "asset" ADD CONSTRAINT "fk_asset_supplier_c_supplierid" FOREIGN KEY ("supplierid") REFERENCES "supplier"("supplierid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."asset_attachments" ADD CONSTRAINT "asset_attachments_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "public"."asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "asset_attachments" ADD CONSTRAINT "asset_attachments_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."asset_attachments" ADD CONSTRAINT "asset_attachments_uploadedBy_fkey" FOREIGN KEY ("uploadedBy") REFERENCES "public"."user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "asset_attachments" ADD CONSTRAINT "asset_attachments_uploadedBy_fkey" FOREIGN KEY ("uploadedBy") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."audit_logs" ADD CONSTRAINT "audit_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."consumable" ADD CONSTRAINT "fk_consumable_consumablecategorytype_c_consumablecategorytypeid" FOREIGN KEY ("consumablecategorytypeid") REFERENCES "public"."consumableCategoryType"("consumablecategorytypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "consumable" ADD CONSTRAINT "fk_consumable_consumablecategorytype_c_consumablecategorytypeid" FOREIGN KEY ("consumablecategorytypeid") REFERENCES "consumableCategoryType"("consumablecategorytypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."consumable" ADD CONSTRAINT "fk_consumable_manufacturer_c_manufacturerid" FOREIGN KEY ("manufacturerid") REFERENCES "public"."manufacturer"("manufacturerid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "consumable" ADD CONSTRAINT "fk_consumable_manufacturer_c_manufacturerid" FOREIGN KEY ("manufacturerid") REFERENCES "manufacturer"("manufacturerid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."consumable" ADD CONSTRAINT "fk_consumable_supplier_c_supplierid" FOREIGN KEY ("supplierid") REFERENCES "public"."supplier"("supplierid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "consumable" ADD CONSTRAINT "fk_consumable_supplier_c_supplierid" FOREIGN KEY ("supplierid") REFERENCES "supplier"("supplierid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."custom_field_values" ADD CONSTRAINT "custom_field_values_fieldId_fkey" FOREIGN KEY ("fieldId") REFERENCES "public"."custom_field_definitions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "custom_field_values" ADD CONSTRAINT "custom_field_values_fieldId_fkey" FOREIGN KEY ("fieldId") REFERENCES "custom_field_definitions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."depreciation_settings" ADD CONSTRAINT "depreciation_settings_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "public"."assetCategoryType"("assetcategorytypeid") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "depreciation_settings" ADD CONSTRAINT "depreciation_settings_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "assetCategoryType"("assetcategorytypeid") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."licence" ADD CONSTRAINT "fk_licence_licencecategorytype_c_licencecategorytypeid" FOREIGN KEY ("licencecategorytypeid") REFERENCES "public"."licenceCategoryType"("licencecategorytypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "licence" ADD CONSTRAINT "fk_licence_licencecategorytype_c_licencecategorytypeid" FOREIGN KEY ("licencecategorytypeid") REFERENCES "licenceCategoryType"("licencecategorytypeid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."licence" ADD CONSTRAINT "fk_licence_manufacturer_c_manufacturerid" FOREIGN KEY ("manufacturerid") REFERENCES "public"."manufacturer"("manufacturerid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "licence" ADD CONSTRAINT "fk_licence_manufacturer_c_manufacturerid" FOREIGN KEY ("manufacturerid") REFERENCES "manufacturer"("manufacturerid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."licence" ADD CONSTRAINT "fk_licence_supplier_c_supplierid" FOREIGN KEY ("supplierid") REFERENCES "public"."supplier"("supplierid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "licence" ADD CONSTRAINT "fk_licence_supplier_c_supplierid" FOREIGN KEY ("supplierid") REFERENCES "supplier"("supplierid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."licence" ADD CONSTRAINT "fk_licence_user_c_licenceduser_userid" FOREIGN KEY ("licenceduserid") REFERENCES "public"."user"("userid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "licence" ADD CONSTRAINT "fk_licence_user_c_licenceduser_userid" FOREIGN KEY ("licenceduserid") REFERENCES "user"("userid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."maintenance_logs" ADD CONSTRAINT "maintenance_logs_completedBy_fkey" FOREIGN KEY ("completedBy") REFERENCES "public"."user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "maintenance_logs" ADD CONSTRAINT "maintenance_logs_completedBy_fkey" FOREIGN KEY ("completedBy") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."maintenance_logs" ADD CONSTRAINT "maintenance_logs_scheduleId_fkey" FOREIGN KEY ("scheduleId") REFERENCES "public"."maintenance_schedules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "maintenance_logs" ADD CONSTRAINT "maintenance_logs_scheduleId_fkey" FOREIGN KEY ("scheduleId") REFERENCES "maintenance_schedules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."maintenance_schedules" ADD CONSTRAINT "maintenance_schedules_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "public"."asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "maintenance_schedules" ADD CONSTRAINT "maintenance_schedules_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."maintenance_schedules" ADD CONSTRAINT "maintenance_schedules_assignedTo_fkey" FOREIGN KEY ("assignedTo") REFERENCES "public"."user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "maintenance_schedules" ADD CONSTRAINT "maintenance_schedules_assignedTo_fkey" FOREIGN KEY ("assignedTo") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."notification_preferences" ADD CONSTRAINT "notification_preferences_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "notification_preferences" ADD CONSTRAINT "notification_preferences_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."notification_queue" ADD CONSTRAINT "notification_queue_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "notification_queue" ADD CONSTRAINT "notification_queue_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."saved_filters" ADD CONSTRAINT "saved_filters_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "saved_filters" ADD CONSTRAINT "saved_filters_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."sessions" ADD CONSTRAINT "sessions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "sessions" ADD CONSTRAINT "sessions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."userAccessoires" ADD CONSTRAINT "fk_useraccessoires_accessories_c_accessorieid" FOREIGN KEY ("accessorieid") REFERENCES "public"."accessories"("accessorieid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "userAccessoires" ADD CONSTRAINT "fk_useraccessoires_accessories_c_accessorieid" FOREIGN KEY ("accessorieid") REFERENCES "accessories"("accessorieid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."userAccessoires" ADD CONSTRAINT "fk_useraccessoires_user_c_userid" FOREIGN KEY ("userid") REFERENCES "public"."user"("userid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "userAccessoires" ADD CONSTRAINT "fk_useraccessoires_user_c_userid" FOREIGN KEY ("userid") REFERENCES "user"("userid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."userAssets" ADD CONSTRAINT "fk_userassets_asset_c_assetid" FOREIGN KEY ("assetid") REFERENCES "public"."asset"("assetid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "userAssets" ADD CONSTRAINT "fk_userassets_asset_c_assetid" FOREIGN KEY ("assetid") REFERENCES "asset"("assetid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."userAssets" ADD CONSTRAINT "fk_userassets_user_c_userid" FOREIGN KEY ("userid") REFERENCES "public"."user"("userid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "userAssets" ADD CONSTRAINT "fk_userassets_user_c_userid" FOREIGN KEY ("userid") REFERENCES "user"("userid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "public"."userHistory" ADD CONSTRAINT "fk_userhistory_user_c_userid" FOREIGN KEY ("userid") REFERENCES "public"."user"("userid") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "userHistory" ADD CONSTRAINT "fk_userhistory_user_c_userid" FOREIGN KEY ("userid") REFERENCES "user"("userid") ON DELETE NO ACTION ON UPDATE NO ACTION;
 

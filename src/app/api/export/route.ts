@@ -10,6 +10,10 @@ import {
   type ExportColumn,
   type ExportFormat,
 } from "@/lib/export";
+import {
+  buildStreamingCsvResponse,
+  type StreamingExportConfig,
+} from "@/lib/streaming-export";
 import { logger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
@@ -84,7 +88,15 @@ type EntityKey =
 interface EntityConfig {
   columns: ExportColumn[];
   sheetName: string;
+  /** Full fetch for XLSX (needs all data in memory) */
   fetch: (orgId?: string | null) => Promise<Record<string, unknown>[]>;
+  /** Batch fetch for streaming CSV */
+  fetchBatch: (
+    orgId: string | null | undefined,
+    params: { skip: number; take: number },
+  ) => Promise<Record<string, unknown>[]>;
+  /** Optional row transform (e.g., strip sensitive fields) */
+  transformRow?: (row: Record<string, unknown>) => Record<string, unknown>;
 }
 
 function stripPassword(user: Record<string, unknown>): Record<string, unknown> {
@@ -104,6 +116,16 @@ const ENTITIES: Record<EntityKey, EntityConfig> = {
       });
       return items as unknown as Record<string, unknown>[];
     },
+    fetchBatch: async (orgId, { skip, take }) => {
+      const where = scopeToOrganization({}, orgId);
+      const items = await prisma.asset.findMany({
+        where,
+        orderBy: { creation_date: "desc" },
+        skip,
+        take,
+      });
+      return items as unknown as Record<string, unknown>[];
+    },
   },
   users: {
     columns: USER_COLUMNS,
@@ -118,6 +140,17 @@ const ENTITIES: Record<EntityKey, EntityConfig> = {
         stripPassword(u as unknown as Record<string, unknown>),
       );
     },
+    fetchBatch: async (orgId, { skip, take }) => {
+      const where = scopeToOrganization({}, orgId);
+      const items = await prisma.user.findMany({
+        where,
+        orderBy: { lastname: "asc" },
+        skip,
+        take,
+      });
+      return items as unknown as Record<string, unknown>[];
+    },
+    transformRow: stripPassword,
   },
   licences: {
     columns: LICENCE_COLUMNS,
@@ -127,6 +160,16 @@ const ENTITIES: Record<EntityKey, EntityConfig> = {
       const items = await prisma.licence.findMany({
         where,
         orderBy: { creation_date: "desc" },
+      });
+      return items as unknown as Record<string, unknown>[];
+    },
+    fetchBatch: async (orgId, { skip, take }) => {
+      const where = scopeToOrganization({}, orgId);
+      const items = await prisma.licence.findMany({
+        where,
+        orderBy: { creation_date: "desc" },
+        skip,
+        take,
       });
       return items as unknown as Record<string, unknown>[];
     },
@@ -142,6 +185,16 @@ const ENTITIES: Record<EntityKey, EntityConfig> = {
       });
       return items as unknown as Record<string, unknown>[];
     },
+    fetchBatch: async (orgId, { skip, take }) => {
+      const where = scopeToOrganization({}, orgId);
+      const items = await prisma.accessories.findMany({
+        where,
+        orderBy: { creation_date: "desc" },
+        skip,
+        take,
+      });
+      return items as unknown as Record<string, unknown>[];
+    },
   },
   consumables: {
     columns: CONSUMABLE_COLUMNS,
@@ -151,6 +204,16 @@ const ENTITIES: Record<EntityKey, EntityConfig> = {
       const items = await prisma.consumable.findMany({
         where,
         orderBy: { consumablename: "asc" },
+      });
+      return items as unknown as Record<string, unknown>[];
+    },
+    fetchBatch: async (orgId, { skip, take }) => {
+      const where = scopeToOrganization({}, orgId);
+      const items = await prisma.consumable.findMany({
+        where,
+        orderBy: { consumablename: "asc" },
+        skip,
+        take,
       });
       return items as unknown as Record<string, unknown>[];
     },
@@ -190,11 +253,23 @@ export async function GET(req: NextRequest) {
     }
 
     const config = ENTITIES[entityParam];
-    const data = await config.fetch(orgId);
-
     const dateStr = new Date().toISOString().split("T")[0];
     const filename = `${entityParam}-export-${dateStr}`;
 
+    // Use streaming for CSV exports to handle large datasets without
+    // loading everything into memory at once.
+    if (formatParam === "csv") {
+      const streamConfig: StreamingExportConfig = {
+        columns: config.columns,
+        fetchBatch: (params) => config.fetchBatch(orgId, params),
+        batchSize: 1000,
+        transformRow: config.transformRow,
+      };
+      return buildStreamingCsvResponse(streamConfig, filename);
+    }
+
+    // XLSX requires all data in memory (library limitation)
+    const data = await config.fetch(orgId);
     return buildExportResponse(
       data,
       config.columns,

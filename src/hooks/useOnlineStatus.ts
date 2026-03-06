@@ -10,36 +10,39 @@ interface OnlineStatus {
 /**
  * Tracks browser online/offline status.
  *
- * - `isOnline` reflects `navigator.onLine` and updates on `online`/`offline` events.
+ * Uses `navigator.onLine` as a fast signal, then confirms with a real
+ * network probe (HEAD request to the app itself) to avoid false negatives.
+ * `navigator.onLine` is unreliable in some environments (VPNs, proxies,
+ * certain browsers) and can report `false` even when the network works.
+ *
+ * - `isOnline` reflects the confirmed connectivity state.
  * - `wasOffline` is `true` for 5 seconds after the connection is restored,
  *   allowing the UI to show a "back online" message before it disappears.
  */
 export function useOnlineStatus(): OnlineStatus {
-  // Always default to true to avoid SSR/hydration mismatch.
-  // The real browser value is synced after mount in the useEffect below.
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
   const wasOfflineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleOnline = useCallback(() => {
-    setIsOnline(true);
-    setWasOffline(true);
-
-    // Clear any existing timer so we don't get stale resets
-    if (wasOfflineTimerRef.current) {
-      clearTimeout(wasOfflineTimerRef.current);
-    }
-
-    wasOfflineTimerRef.current = setTimeout(() => {
-      setWasOffline(false);
-      wasOfflineTimerRef.current = null;
-    }, 5_000);
+  const markOnline = useCallback(() => {
+    setIsOnline((prev) => {
+      if (!prev) {
+        // Was offline, now online — show "back online" message
+        setWasOffline(true);
+        if (wasOfflineTimerRef.current) {
+          clearTimeout(wasOfflineTimerRef.current);
+        }
+        wasOfflineTimerRef.current = setTimeout(() => {
+          setWasOffline(false);
+          wasOfflineTimerRef.current = null;
+        }, 5_000);
+      }
+      return true;
+    });
   }, []);
 
-  const handleOffline = useCallback(() => {
+  const markOffline = useCallback(() => {
     setIsOnline(false);
-
-    // If a "wasOffline" timer is running, cancel it — we're offline again
     if (wasOfflineTimerRef.current) {
       clearTimeout(wasOfflineTimerRef.current);
       wasOfflineTimerRef.current = null;
@@ -47,22 +50,67 @@ export function useOnlineStatus(): OnlineStatus {
     setWasOffline(false);
   }, []);
 
+  const probeConnection = useCallback(async (): Promise<boolean> => {
+    try {
+      const resp = await fetch("/api/health", {
+        method: "HEAD",
+        cache: "no-store",
+        signal: AbortSignal.timeout(5_000),
+      });
+      return resp.ok;
+    } catch {
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
-    // Sync with actual browser state after mount
-    setIsOnline(navigator.onLine);
+    let mounted = true;
+
+    // On mount: if navigator says offline, double-check with a real probe
+    // This catches the false-negative case where navigator.onLine is wrong
+    const checkInitial = async () => {
+      if (!navigator.onLine) {
+        const reachable = await probeConnection();
+        if (mounted) {
+          if (reachable) {
+            setIsOnline(true);
+          } else {
+            setIsOnline(false);
+          }
+        }
+      }
+    };
+    checkInitial();
+
+    const handleOnline = () => {
+      markOnline();
+    };
+
+    const handleOffline = async () => {
+      // navigator says offline — confirm with a probe before showing the banner
+      const reachable = await probeConnection();
+      if (mounted) {
+        if (reachable) {
+          // False alarm — navigator is wrong, we're actually online
+          setIsOnline(true);
+        } else {
+          markOffline();
+        }
+      }
+    };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
     return () => {
+      mounted = false;
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
-
       if (wasOfflineTimerRef.current) {
         clearTimeout(wasOfflineTimerRef.current);
       }
     };
-  }, [handleOnline, handleOffline]);
+  }, [markOnline, markOffline, probeConnection]);
 
   return { isOnline, wasOffline };
 }

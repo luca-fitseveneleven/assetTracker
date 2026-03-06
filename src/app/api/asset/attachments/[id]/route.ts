@@ -35,7 +35,7 @@ export async function DELETE(
       );
     }
 
-    const storage = getStorage();
+    const storage = await getStorage();
     try {
       await storage.delete(attachment.filename);
       if (attachment.thumbnailPath) {

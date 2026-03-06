@@ -31,7 +31,7 @@ export async function GET(
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    const storage = getStorage();
+    const storage = await getStorage();
 
     // Check for thumbnail variant
     const { searchParams } = new URL(req.url);

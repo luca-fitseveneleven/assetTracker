@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const storage = getStorage();
+    const storage = await getStorage();
     await storage.upload(uniqueFilename, buffer, file.type);
 
     // Generate thumbnails for images

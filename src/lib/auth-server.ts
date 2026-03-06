@@ -8,7 +8,6 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { twoFactor } from "better-auth/plugins/two-factor";
-import { username } from "better-auth/plugins/username";
 import { nextCookies } from "better-auth/next-js";
 import { createAuthMiddleware } from "@better-auth/core/api";
 import prisma from "@/lib/prisma";
@@ -23,20 +22,77 @@ import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { parseDeviceName, parseBrowser } from "@/lib/session-tracking";
 
+/**
+ * BetterAuth-specific Prisma client extension.
+ *
+ * BetterAuth's adapter factory has a bug: it overwrites the `id` field schema
+ * in both transformInput and transformOutput, destroying any custom field name
+ * mapping (e.g. `id: "userid"`). This extension works around the bug by
+ * translating `id` ↔ `userid` at the Prisma query level for the user model.
+ */
+function translateIdToUserid(where: Record<string, unknown>) {
+  if (!where || typeof where !== "object") return;
+  if ("id" in where) {
+    (where as Record<string, unknown>).userid = where.id;
+    delete where.id;
+  }
+  for (const key of ["AND", "OR", "NOT"]) {
+    const val = (where as Record<string, unknown>)[key];
+    if (Array.isArray(val)) {
+      val.forEach((clause: Record<string, unknown>) =>
+        translateIdToUserid(clause),
+      );
+    } else if (val && typeof val === "object") {
+      translateIdToUserid(val as Record<string, unknown>);
+    }
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const authPrisma = (prisma as any).$extends({
+  result: {
+    user: {
+      id: {
+        needs: { userid: true },
+        compute(user: { userid: string }) {
+          return user.userid;
+        },
+      },
+    },
+  },
+  query: {
+    user: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      $allOperations({ args, query }: { args: any; query: any }) {
+        if (args.where) translateIdToUserid(args.where);
+        if (args.data && "id" in args.data) {
+          args.data.userid = args.data.id;
+          delete args.data.id;
+        }
+        if (args.select && "id" in args.select) {
+          args.select.userid = args.select.id;
+          delete args.select.id;
+        }
+        return query(args);
+      },
+    },
+  },
+});
+
 export const auth = betterAuth({
   appName: "AssetTracker",
   baseURL: process.env.BETTER_AUTH_URL || process.env.NEXTAUTH_URL,
   basePath: "/api/auth",
   secret: process.env.BETTER_AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 
-  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  database: prismaAdapter(authPrisma, { provider: "postgresql" }),
 
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 12,
     password: {
       async hash(password: string) {
-        return bcrypt.hash(password, 10);
+        return bcrypt.hash(password, 12);
       },
       async verify({ hash, password }: { hash: string; password: string }) {
         return bcrypt.compare(password, hash);
@@ -48,6 +104,7 @@ export const auth = betterAuth({
   user: {
     modelName: "user",
     fields: {
+      id: "userid",
       name: "firstname", // BetterAuth expects 'name', map to firstname
       email: "email",
       emailVerified: "emailVerified",
@@ -56,6 +113,11 @@ export const auth = betterAuth({
       updatedAt: "updatedAt",
     },
     additionalFields: {
+      username: {
+        type: "string",
+        required: false,
+        input: true,
+      },
       lastname: {
         type: "string",
         required: true,
@@ -140,7 +202,6 @@ export const auth = betterAuth({
   },
 
   plugins: [
-    username(),
     twoFactor({
       issuer: "AssetTracker",
     }),
@@ -149,19 +210,19 @@ export const auth = betterAuth({
 
   advanced: {
     database: {
-      generateId: false, // Let PostgreSQL generate UUIDs
+      generateId: () => crypto.randomUUID(),
     },
   },
 
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
-      if (ctx.path !== "/sign-in/email" && ctx.path !== "/sign-in/username") return;
+      if (ctx.path !== "/sign-in/email") return;
 
       const body = ctx.body as
-        | { email?: string; username?: string; password?: string }
+        | { email?: string; password?: string }
         | undefined;
-      const identifier = body?.email || body?.username;
-      if (!identifier) return;
+      if (!body?.email) return;
+      const rawIdentifier = body.email;
 
       // Rate limit by IP
       const ip =
@@ -176,19 +237,10 @@ export const auth = betterAuth({
         throw new Error("Too many login attempts. Please try again later.");
       }
 
-      // Check account lockout
-      const lockStatus = isAccountLocked(identifier);
-      if (lockStatus.locked) {
-        logger.securityEvent("Login attempt on locked account", {
-          identifier,
-        });
-        throw new Error("Account is temporarily locked.");
-      }
-
       // Look up user by email OR username
       const user = await prisma.user.findFirst({
         where: {
-          OR: [{ email: identifier }, { username: identifier }],
+          OR: [{ email: rawIdentifier }, { username: rawIdentifier }],
         },
         select: {
           userid: true,
@@ -199,25 +251,42 @@ export const auth = betterAuth({
         },
       });
 
+      // Use canonical email for lockout tracking (consistent key)
+      const lockoutKey = user?.email ?? rawIdentifier;
+
+      // Check account lockout
+      const lockStatus = isAccountLocked(lockoutKey);
+      if (lockStatus.locked) {
+        logger.securityEvent("Login attempt on locked account", {
+          identifier: lockoutKey,
+        });
+        throw new Error("Invalid credentials");
+      }
+
       if (user && !user.isActive) {
-        throw new Error("Account has been deactivated.");
+        throw new Error("Invalid credentials");
+      }
+
+      // If user was found by username, rewrite email so BetterAuth can find them
+      if (user?.email && user.email !== rawIdentifier) {
+        body.email = user.email;
       }
 
       // Handle LDAP users — sync password to credential account
       if (user?.authProvider === "ldap" && body?.password) {
         const { authenticateUser: ldapAuth } = await import("@/lib/ldap");
         const ldapResult = await ldapAuth(
-          user.username || identifier,
+          user.username || rawIdentifier,
           body.password,
         );
 
         if (!ldapResult.success) {
-          recordFailedAttempt(identifier);
+          // Don't record here — after hook handles all failed attempt tracking
           throw new Error("Invalid credentials");
         }
 
         // LDAP auth succeeded — sync password hash so BetterAuth can verify
-        const hashedPassword = await bcrypt.hash(body.password, 10);
+        const hashedPassword = await bcrypt.hash(body.password, 12);
         await prisma.accounts.upsert({
           where: {
             providerId_accountId: {
@@ -234,18 +303,43 @@ export const auth = betterAuth({
           },
         });
       }
+
+      // Migrate local users from NextAuth: create credential account from user.password
+      if (user && user.authProvider !== "ldap") {
+        const fullUser = await prisma.user.findUnique({
+          where: { userid: user.userid },
+          select: { password: true },
+        });
+
+        if (fullUser?.password) {
+          await prisma.accounts.upsert({
+            where: {
+              providerId_accountId: {
+                providerId: "credential",
+                accountId: user.userid,
+              },
+            },
+            update: {},
+            create: {
+              userId: user.userid,
+              providerId: "credential",
+              accountId: user.userid,
+              password: fullUser.password,
+            },
+          });
+        }
+      }
     }),
     after: createAuthMiddleware(async (ctx) => {
-      if (ctx.path !== "/sign-in/email" && ctx.path !== "/sign-in/username") return;
+      if (ctx.path !== "/sign-in/email") return;
 
-      const body = ctx.body as { email?: string; username?: string } | undefined;
-      const identifier = body?.email || body?.username;
-      if (!identifier) return;
+      const body = ctx.body as { email?: string } | undefined;
+      if (!body?.email) return;
+      const identifier = body.email;
 
       // Check if login succeeded (session cookie was set)
       const setCookie = ctx.context.responseHeaders?.get("set-cookie");
       if (setCookie) {
-        // Login succeeded
         recordSuccessfulLogin(identifier);
 
         const user = await prisma.user.findFirst({
@@ -295,7 +389,7 @@ export const auth = betterAuth({
           }
         }
       } else {
-        // Login failed
+        // Login failed — single place for recording failed attempts
         recordFailedAttempt(identifier);
       }
     }),

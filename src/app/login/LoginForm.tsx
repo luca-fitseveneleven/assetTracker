@@ -46,23 +46,16 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
       .catch(() => {});
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      // Support both username and email login
-      const isEmail = formData.username.includes("@");
-      const result = isEmail
-        ? await signIn.email({
-            email: formData.username,
-            password: formData.password,
-          })
-        : await (signIn as any).username({
-            username: formData.username,
-            password: formData.password,
-          });
+      const result = await signIn.email({
+        email: formData.username, // accepts username or email; hook resolves username→email
+        password: formData.password,
+      });
 
       if (result?.error) {
         setError(result.error.message || "Invalid username or password");
@@ -82,7 +75,7 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
     }
   };
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,

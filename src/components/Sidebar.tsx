@@ -10,42 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  LayoutDashboard,
-  Users,
-  UsersRound,
-  Boxes,
-  Puzzle,
-  ClipboardList,
-  Factory,
-  Truck,
-  MapPin,
-  BadgeCheck,
-  PanelLeftClose,
-  PanelRightOpen,
-  Layers,
-  FolderOpen,
-  FolderCog,
-  FolderKey,
-  Tags,
-  CircleDot,
-  Ticket,
-  FileJson,
-  ClipboardCheck,
-  QrCode,
-  Upload,
-  Wrench,
-  Settings,
-  Zap,
-  Shield,
-  ShieldCheck,
-  BarChart3,
-  FileSearch,
-  ChevronDown,
-  Cpu,
-  Package,
-  SearchCheck,
-} from "lucide-react";
+import { PanelLeftClose, PanelRightOpen, ChevronDown } from "lucide-react";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -53,104 +18,10 @@ import {
 } from "@/components/ui/collapsible";
 import { PlusIcon as SidebarPlusIcon } from "../ui/Icons";
 import SearchTypeahead from "./SearchTypeahead";
-
-const navSections = [
-  {
-    title: "Overview",
-    items: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, exact: true },
-      { label: "Users", href: "/user", icon: Users },
-      { label: "Assets", href: "/assets", icon: Boxes },
-      { label: "Accessories", href: "/accessories", icon: Puzzle },
-    ],
-  },
-  {
-    title: "Inventory",
-    items: [
-      { label: "Consumables", href: "/consumables", icon: ClipboardList },
-      { label: "Components", href: "/components", icon: Cpu },
-      { label: "Licences", href: "/licences", icon: BadgeCheck },
-      { label: "Manufacturers", href: "/manufacturers", icon: Factory },
-      { label: "Suppliers", href: "/suppliers", icon: Truck },
-      { label: "Locations", href: "/locations", icon: MapPin },
-    ],
-  },
-  {
-    title: "Categories",
-    collapsible: true,
-    items: [
-      { label: "Asset Categories", href: "/assetCategories", icon: Layers },
-      {
-        label: "Accessory Categories",
-        href: "/accessoryCategories",
-        icon: FolderOpen,
-      },
-      {
-        label: "Consumable Categories",
-        href: "/consumableCategories",
-        icon: FolderCog,
-      },
-      { label: "Licence Categories", href: "/licenceCategories", icon: FolderKey },
-      { label: "Models", href: "/models", icon: Tags },
-      { label: "Status Types", href: "/statusTypes", icon: CircleDot },
-      { label: "IT Tickets", href: "/tickets", icon: Ticket },
-    ],
-  },
-  {
-    title: "Tools",
-    items: [
-      { label: "Maintenance", href: "/maintenance", icon: Wrench },
-      { label: "Kits", href: "/kits", icon: Package },
-      { label: "Audits", href: "/audits", icon: SearchCheck },
-      { label: "Approvals", href: "/approvals", icon: ClipboardCheck },
-      { label: "QR Scanner", href: "/scanner", icon: QrCode },
-      { label: "Import", href: "/import", icon: Upload },
-    ],
-  },
-  {
-    title: "Administration",
-    collapsible: true,
-    items: [
-      { label: "Reports", href: "/reports", icon: BarChart3 },
-      {
-        label: "Workflows",
-        href: "/admin/workflows",
-        icon: Zap,
-        adminOnly: true,
-      },
-      { label: "API Docs", href: "/api-docs", icon: FileJson },
-      {
-        label: "Audit Logs",
-        href: "/admin/audit-logs",
-        icon: FileSearch,
-        adminOnly: true,
-      },
-      { label: "GDPR", href: "/admin/gdpr", icon: Shield, adminOnly: true },
-      {
-        label: "Compliance",
-        href: "/admin/compliance",
-        icon: ShieldCheck,
-        adminOnly: true,
-      },
-      { label: "Team", href: "/admin/team", icon: UsersRound, adminOnly: true },
-      {
-        label: "Admin Settings",
-        href: "/admin/settings",
-        icon: Settings,
-        adminOnly: true,
-      },
-    ],
-  },
-];
+import { useSession, type SessionUser } from "@/lib/auth-client";
+import { navSections, isActivePath, filterSectionsForUser } from "@/lib/nav-config";
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
-
-function isActivePath(pathname, href, exact = false) {
-  if (exact) {
-    return pathname === href;
-  }
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
 
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -158,6 +29,14 @@ const useIsomorphicLayoutEffect =
 const Sidebar = ({ initialCollapsed = false }) => {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
+  const { data: session } = useSession();
+  const user = session?.user as SessionUser | undefined;
+  const isAdmin = !!user?.isadmin;
+
+  const filteredSections = useMemo(
+    () => filterSectionsForUser(navSections, isAdmin),
+    [isAdmin],
+  );
 
   useIsomorphicLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -176,14 +55,14 @@ const Sidebar = ({ initialCollapsed = false }) => {
   }, [initialCollapsed]);
 
   const activeMap = useMemo(() => {
-    const map = new Map();
-    navSections.forEach((section) => {
+    const map = new Map<string, boolean>();
+    filteredSections.forEach((section) => {
       section.items.forEach((item) => {
         map.set(item.href, isActivePath(pathname, item.href, item.exact));
       });
     });
     return map;
-  }, [pathname]);
+  }, [pathname, filteredSections]);
 
   return (
     <TooltipProvider>
@@ -238,7 +117,7 @@ const Sidebar = ({ initialCollapsed = false }) => {
           </div>
         )}
         <div className="flex-1 overflow-y-auto px-2 py-4">
-          {navSections.map((section) => {
+          {filteredSections.map((section) => {
             const hasActiveChild = section.items.some((item) =>
               activeMap.get(item.href),
             );

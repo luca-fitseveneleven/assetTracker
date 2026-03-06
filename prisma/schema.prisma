@@ -392,6 +392,7 @@ model asset_attachments {
   mimeType     String   @db.VarChar(100)
   size         Int
   path         String   @db.VarChar(500)
+  thumbnailPath String?  @db.VarChar(500)
   isPrimary    Boolean  @default(false)
   uploadedBy   String?  @db.Uuid
   createdAt    DateTime @default(now()) @db.Timestamp(6)

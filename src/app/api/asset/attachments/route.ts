@@ -5,9 +5,10 @@ import {
   getOrganizationContext,
   scopeToOrganization,
 } from "@/lib/organization-context";
-import { writeFile, mkdir } from "fs/promises";
-import { join, basename, extname } from "path";
+import { basename, extname } from "path";
 import crypto from "crypto";
+import { getStorage } from "@/lib/storage";
+import { isImageMimeType, generateThumbnails } from "@/lib/storage/thumbnails";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -141,12 +142,22 @@ export async function POST(req: NextRequest) {
     const safeName = sanitizeFilename(file.name);
     const uniqueFilename = `${crypto.randomUUID()}${ext}`;
 
-    const uploadDir = join(process.cwd(), "uploads/attachments");
-    await mkdir(uploadDir, { recursive: true });
-
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await writeFile(join(uploadDir, uniqueFilename), buffer);
+
+    const storage = getStorage();
+    await storage.upload(uniqueFilename, buffer, file.type);
+
+    // Generate thumbnails for images
+    let thumbnailPath: string | null = null;
+    if (isImageMimeType(file.type)) {
+      try {
+        const uuid = uniqueFilename.replace(/\.[^.]+$/, "");
+        thumbnailPath = await generateThumbnails(storage, uuid, buffer);
+      } catch {
+        // Thumbnail generation is non-critical
+      }
+    }
 
     const attachment = await prisma.asset_attachments.create({
       data: {
@@ -156,6 +167,7 @@ export async function POST(req: NextRequest) {
         mimeType: file.type,
         size: file.size,
         path: `/api/asset/attachments/file/${uniqueFilename}`,
+        thumbnailPath,
         isPrimary,
         uploadedBy: user.id,
       },

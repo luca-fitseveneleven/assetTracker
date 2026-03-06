@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Paperclip, Trash2, Star, Image } from "lucide-react";
 import { toast } from "sonner";
 import { FileDropZone } from "@/components/FileDropZone";
+import AssetPhotoGallery from "@/components/AssetPhotoGallery";
 
 interface Attachment {
   id: string;
@@ -14,6 +15,7 @@ interface Attachment {
   mimeType: string;
   size: number;
   path: string;
+  thumbnailPath: string | null;
   isPrimary: boolean;
   createdAt: string;
   user?: { userid: string; firstname: string; lastname: string } | null;
@@ -30,7 +32,10 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function AssetAttachments({ assetId, readOnly = false }: AssetAttachmentsProps) {
+export default function AssetAttachments({
+  assetId,
+  readOnly = false,
+}: AssetAttachmentsProps) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
 
@@ -50,43 +55,51 @@ export default function AssetAttachments({ assetId, readOnly = false }: AssetAtt
     fetchAttachments();
   }, [fetchAttachments]);
 
-  const uploadFile = useCallback(async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("assetId", assetId);
+  const uploadFile = useCallback(
+    async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("assetId", assetId);
 
-    const res = await fetch("/api/asset/attachments", {
-      method: "POST",
-      body: formData,
-    });
+      const res = await fetch("/api/asset/attachments", {
+        method: "POST",
+        body: formData,
+      });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.error || "Upload failed");
-    }
-
-    return file.name;
-  }, [assetId]);
-
-  const handleFilesSelected = useCallback(async (files: File[]) => {
-    setUploading(true);
-    try {
-      for (const file of files) {
-        await uploadFile(file);
-        toast.success("File uploaded", { description: file.name });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Upload failed");
       }
-      fetchAttachments();
-    } catch (err) {
-      toast.error("Upload failed", { description: (err as Error).message });
-    } finally {
-      setUploading(false);
-    }
-  }, [uploadFile, fetchAttachments]);
+
+      return file.name;
+    },
+    [assetId],
+  );
+
+  const handleFilesSelected = useCallback(
+    async (files: File[]) => {
+      setUploading(true);
+      try {
+        for (const file of files) {
+          await uploadFile(file);
+          toast.success("File uploaded", { description: file.name });
+        }
+        fetchAttachments();
+      } catch (err) {
+        toast.error("Upload failed", { description: (err as Error).message });
+      } finally {
+        setUploading(false);
+      }
+    },
+    [uploadFile, fetchAttachments],
+  );
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"?`)) return;
     try {
-      const res = await fetch(`/api/asset/attachments/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/asset/attachments/${id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error("Delete failed");
       toast.success("Attachment deleted");
       setAttachments((prev) => prev.filter((a) => a.id !== id));
@@ -111,14 +124,24 @@ export default function AssetAttachments({ assetId, readOnly = false }: AssetAtt
 
   const isImage = (mimeType: string) => mimeType.startsWith("image/");
 
+  const { images, documents } = useMemo(() => {
+    const imgs: Attachment[] = [];
+    const docs: Attachment[] = [];
+    for (const att of attachments) {
+      if (isImage(att.mimeType)) imgs.push(att);
+      else docs.push(att);
+    }
+    return { images: imgs, documents: docs };
+  }, [attachments]);
+
   return (
-    <section className="rounded-lg border border-default-200 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-foreground-600">
+    <section className="border-default-200 rounded-lg border p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-foreground-600 text-sm font-semibold">
           Attachments {attachments.length > 0 && `(${attachments.length})`}
         </h2>
         {uploading && (
-          <span className="text-xs text-muted-foreground">Uploading...</span>
+          <span className="text-muted-foreground text-xs">Uploading...</span>
         )}
       </div>
 
@@ -133,52 +156,91 @@ export default function AssetAttachments({ assetId, readOnly = false }: AssetAtt
       )}
 
       {attachments.length === 0 ? (
-        <p className="text-sm text-foreground-500 mt-3">No attachments.</p>
+        <p className="text-foreground-500 mt-3 text-sm">No attachments.</p>
       ) : (
-        <div className="space-y-2">
-          {attachments.map((att) => (
-            <div key={att.id} className="flex items-center justify-between text-sm gap-2 p-2 rounded hover:bg-muted/50">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                {isImage(att.mimeType) ? (
-                  <Image className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                ) : (
-                  <Paperclip className="h-4 w-4 text-foreground-400 flex-shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <a
-                    href={att.path}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium truncate block hover:underline text-primary"
-                  >
-                    {att.originalName}
-                  </a>
-                  <span className="text-xs text-foreground-500">
-                    {formatFileSize(att.size)}
-                    {att.user && ` • ${att.user.firstname} ${att.user.lastname}`}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {att.isPrimary && (
-                  <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
-                )}
-                {!readOnly && (
-                  <>
-                    {isImage(att.mimeType) && !att.isPrimary && (
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleSetPrimary(att.id)} title="Set as primary photo">
-                        <Star className="h-3.5 w-3.5" />
+        <>
+          {images.length > 0 && (
+            <div className="mt-3">
+              <AssetPhotoGallery
+                images={images}
+                onSetPrimary={readOnly ? undefined : handleSetPrimary}
+                readOnly={readOnly}
+              />
+            </div>
+          )}
+
+          {documents.length > 0 && (
+            <div className="space-y-2">
+              {documents.map((att) => (
+                <div
+                  key={att.id}
+                  className="hover:bg-muted/50 flex items-center justify-between gap-2 rounded p-2 text-sm"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <Paperclip className="text-foreground-400 h-4 w-4 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <a
+                        href={att.path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary block truncate font-medium hover:underline"
+                      >
+                        {att.originalName}
+                      </a>
+                      <span className="text-foreground-500 text-xs">
+                        {formatFileSize(att.size)}
+                        {att.user &&
+                          ` • ${att.user.firstname} ${att.user.lastname}`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-shrink-0 items-center gap-1">
+                    {!readOnly && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-destructive h-7 w-7"
+                        onClick={() => handleDelete(att.id, att.originalName)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(att.id, att.originalName)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Image list (for delete access) */}
+          {images.length > 0 && !readOnly && (
+            <div className="mt-2 space-y-1">
+              {images.map((att) => (
+                <div
+                  key={att.id}
+                  className="hover:bg-muted/50 flex items-center justify-between gap-2 rounded p-1 px-2 text-sm"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <Image className="h-3.5 w-3.5 flex-shrink-0 text-blue-500" />
+                    <span className="text-foreground-500 truncate text-xs">
+                      {att.originalName}
+                    </span>
+                    {att.isPrimary && (
+                      <Star className="h-3 w-3 flex-shrink-0 fill-yellow-500 text-yellow-500" />
+                    )}
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-destructive h-6 w-6"
+                    onClick={() => handleDelete(att.id, att.originalName)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </section>
   );

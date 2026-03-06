@@ -5,8 +5,8 @@ import {
   getOrganizationContext,
   scopeToOrganization,
 } from "@/lib/organization-context";
-import { unlink } from "fs/promises";
-import { join } from "path";
+import { getStorage } from "@/lib/storage";
+import { deleteThumbnails } from "@/lib/storage/thumbnails";
 
 export async function DELETE(
   req: NextRequest,
@@ -35,11 +35,15 @@ export async function DELETE(
       );
     }
 
+    const storage = getStorage();
     try {
-      const filePath = join(process.cwd(), "public", attachment.path);
-      await unlink(filePath);
+      await storage.delete(attachment.filename);
+      if (attachment.thumbnailPath) {
+        const uuid = attachment.filename.replace(/\.[^.]+$/, "");
+        await deleteThumbnails(storage, uuid);
+      }
     } catch {
-      // File may already be deleted from disk, continue with DB cleanup
+      // File may already be deleted from storage, continue with DB cleanup
     }
 
     await prisma.asset_attachments.delete({

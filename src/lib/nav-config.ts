@@ -124,10 +124,13 @@ export function isActivePath(pathname: string, href: string, exact = false) {
 
 export function filterSectionsForUser(sections: NavSection[], isAdmin: boolean): NavSection[] {
   if (isAdmin) return sections;
-  return sections
-    .map((section) => ({
-      ...section,
-      items: section.items.filter((item) => !item.adminOnly),
-    }))
-    .filter((section) => section.items.length > 0);
+  return sections.reduce<NavSection[]>((acc, section) => {
+    if (!section.items.some((item) => item.adminOnly)) {
+      acc.push(section);
+      return acc;
+    }
+    const filtered = section.items.filter((item) => !item.adminOnly);
+    if (filtered.length > 0) acc.push({ ...section, items: filtered });
+    return acc;
+  }, []);
 }

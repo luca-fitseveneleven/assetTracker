@@ -20,8 +20,7 @@ import { PlusIcon as SidebarPlusIcon } from "../ui/Icons";
 import SearchTypeahead from "./SearchTypeahead";
 import { useSession, type SessionUser } from "@/lib/auth-client";
 import { navSections, isActivePath, filterSectionsForUser } from "@/lib/nav-config";
-
-const cx = (...classes) => classes.filter(Boolean).join(" ");
+import { cn } from "@/lib/utils";
 
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -69,7 +68,7 @@ const Sidebar = ({ initialCollapsed = false }) => {
       <aside
         role="navigation"
         aria-label="Main navigation"
-        className={cx(
+        className={cn(
           "border-border bg-card/80 hidden border-r backdrop-blur-sm transition-[width] duration-300 ease-in-out lg:flex lg:flex-col",
           collapsed ? "w-20" : "w-64",
         )}
@@ -80,7 +79,7 @@ const Sidebar = ({ initialCollapsed = false }) => {
             className="text-foreground flex items-center gap-2 font-semibold"
           >
             <span
-              className={cx("text-lg tracking-tight", collapsed && "sr-only")}
+              className={cn("text-lg tracking-tight", collapsed && "sr-only")}
             >
               Asset Tracker
             </span>
@@ -127,7 +126,7 @@ const Sidebar = ({ initialCollapsed = false }) => {
                 {section.items.map((item) => {
                   const Icon = item.icon;
                   const active = activeMap.get(item.href);
-                  const linkClasses = cx(
+                  const linkClasses = cn(
                     "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                     collapsed && "justify-center px-2",
                     active

@@ -11,6 +11,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 import { useSession, type SessionUser } from "@/lib/auth-client";
 import {
   navSections,
@@ -44,13 +45,14 @@ export default function MobileNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center gap-0.5 px-2 py-2 text-[10px] font-medium transition-colors touch-target ${
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 px-2 py-2 text-[10px] font-medium transition-colors touch-target",
                 active
                   ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
-              <Icon className={`h-5 w-5 ${active ? "text-primary" : ""}`} />
+              <Icon className={cn("h-5 w-5", active && "text-primary")} />
               <span>{item.label}</span>
             </Link>
           );
@@ -89,11 +91,12 @@ export default function MobileNav() {
                           key={item.href}
                           href={item.href}
                           onClick={() => setSheetOpen(false)}
-                          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors touch-target ${
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors touch-target",
                             active
                               ? "bg-primary/10 text-primary"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                          }`}
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                          )}
                         >
                           <Icon className="h-5 w-5 shrink-0" />
                           <span className="truncate">{item.label}</span>

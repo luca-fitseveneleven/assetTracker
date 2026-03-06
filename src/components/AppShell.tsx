@@ -8,6 +8,7 @@ import KeyboardShortcuts from "./KeyboardShortcuts";
 import DemoBanner from "./DemoBanner";
 import OnboardingWizard from "./OnboardingWizard";
 import PageTransition from "./PageTransition";
+import { isActivePath } from "@/lib/nav-config";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -36,9 +37,7 @@ export default function AppShell({
 
   const isPublicRoute =
     pathname === "/" ||
-    PUBLIC_ROUTES.some(
-      (route) => pathname === route || pathname.startsWith(route + "/"),
-    );
+    PUBLIC_ROUTES.some((route) => isActivePath(pathname, route));
 
   if (isPublicRoute) {
     return <>{children}</>;

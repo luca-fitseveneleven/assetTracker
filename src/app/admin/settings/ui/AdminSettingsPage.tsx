@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import {
   Settings,
   Mail,
@@ -21,6 +19,8 @@ import {
   MessageSquare,
   MapPin,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import EmailSettingsTab from "./EmailSettingsTab";
 import UsersSettingsTab from "./UsersSettingsTab";
 import LabelSettingsTab from "./LabelSettingsTab";
@@ -37,6 +37,61 @@ import SSOSettingsTab from "./SSOSettingsTab";
 import LDAPSettingsTab from "./LDAPSettingsTab";
 import IntegrationsTab from "./IntegrationsTab";
 import LocationTrackingTab from "./LocationTrackingTab";
+
+interface NavItem {
+  value: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const settingsNav: NavGroup[] = [
+  {
+    title: "General",
+    items: [
+      { value: "general", label: "General", icon: Settings },
+      { value: "users", label: "Users", icon: Users },
+    ],
+  },
+  {
+    title: "Communication",
+    items: [
+      { value: "email", label: "Email", icon: Mail },
+      { value: "notifications", label: "Notifications", icon: Bell },
+      { value: "labels", label: "Labels", icon: Tag },
+    ],
+  },
+  {
+    title: "Asset Configuration",
+    items: [
+      { value: "depreciation", label: "Depreciation", icon: Calculator },
+      { value: "custom-fields", label: "Custom Fields", icon: FileText },
+    ],
+  },
+  {
+    title: "Access & Security",
+    items: [
+      { value: "roles", label: "Roles", icon: Shield },
+      { value: "sso", label: "SSO", icon: KeyRound },
+      { value: "ldap", label: "LDAP", icon: Server },
+      { value: "locationTracking", label: "Location Tracking", icon: MapPin },
+    ],
+  },
+  {
+    title: "Integrations",
+    items: [
+      { value: "freshdesk", label: "Freshdesk", icon: Ticket },
+      { value: "webhooks", label: "Webhooks", icon: Webhook },
+      { value: "integrations", label: "Integrations", icon: MessageSquare },
+      { value: "organizations", label: "Organizations", icon: Building2 },
+      { value: "departments", label: "Departments", icon: FolderTree },
+    ],
+  },
+];
 
 interface AdminSettingsPageProps {
   settings: Record<
@@ -117,147 +172,97 @@ export default function AdminSettingsPage({
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold">Admin Settings</h1>
-        <p className="text-sm text-foreground-500 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Configure system settings, manage users, and customize the application
         </p>
       </div>
 
-      <Separator />
+      <div className="flex gap-8">
+        {/* Sidebar navigation */}
+        <nav className="hidden md:block w-56 shrink-0" aria-label="Settings navigation">
+          <div className="sticky top-24 space-y-6">
+            {settingsNav.map((group) => (
+              <div key={group.title}>
+                <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                  {group.title}
+                </p>
+                <div className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = activeTab === item.value;
+                    return (
+                      <button
+                        key={item.value}
+                        onClick={() => setActiveTab(item.value)}
+                        className={cn(
+                          "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-primary/8 text-foreground font-semibold"
+                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                        )}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </nav>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="flex flex-wrap gap-2 h-auto p-1">
-          <TabsTrigger value="general" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">General</span>
-          </TabsTrigger>
-          <TabsTrigger value="email" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            <span className="hidden sm:inline">Email</span>
-          </TabsTrigger>
-          <TabsTrigger value="freshdesk" className="flex items-center gap-2">
-            <Ticket className="h-4 w-4" />
-            <span className="hidden sm:inline">Freshdesk</span>
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Notifications</span>
-          </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Users</span>
-          </TabsTrigger>
-          <TabsTrigger value="labels" className="flex items-center gap-2">
-            <Tag className="h-4 w-4" />
-            <span className="hidden sm:inline">Labels</span>
-          </TabsTrigger>
-          <TabsTrigger value="depreciation" className="flex items-center gap-2">
-            <Calculator className="h-4 w-4" />
-            <span className="hidden sm:inline">Depreciation</span>
-          </TabsTrigger>
-          <TabsTrigger value="custom-fields" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Custom Fields</span>
-          </TabsTrigger>
-          <TabsTrigger value="organizations" className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Organizations</span>
-          </TabsTrigger>
-          <TabsTrigger value="departments" className="flex items-center gap-2">
-            <FolderTree className="h-4 w-4" />
-            <span className="hidden sm:inline">Departments</span>
-          </TabsTrigger>
-          <TabsTrigger value="roles" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline">Roles</span>
-          </TabsTrigger>
-          <TabsTrigger value="webhooks" className="flex items-center gap-2">
-            <Webhook className="h-4 w-4" />
-            <span className="hidden sm:inline">Webhooks</span>
-          </TabsTrigger>
-          <TabsTrigger value="sso" className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4" />
-            <span className="hidden sm:inline">SSO</span>
-          </TabsTrigger>
-          <TabsTrigger value="ldap" className="flex items-center gap-2">
-            <Server className="h-4 w-4" />
-            <span className="hidden sm:inline">LDAP</span>
-          </TabsTrigger>
-          <TabsTrigger value="integrations" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            <span className="hidden sm:inline">Integrations</span>
-          </TabsTrigger>
-          <TabsTrigger value="locationTracking" className="flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            <span className="hidden sm:inline">Location Tracking</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <div className="mt-6">
-          <TabsContent value="general">
-            <GeneralSettingsTab settings={settings.general || []} />
-          </TabsContent>
-
-          <TabsContent value="email">
-            <EmailSettingsTab settings={settings.email || []} envEmailConfig={envEmailConfig} />
-          </TabsContent>
-
-          <TabsContent value="freshdesk">
-            <FreshdeskSettingsTab settings={settings.freshdesk || []} />
-          </TabsContent>
-
-          <TabsContent value="notifications">
-            <NotificationSettingsTab settings={settings.notifications || []} />
-          </TabsContent>
-
-          <TabsContent value="users">
-            <UsersSettingsTab users={users} />
-          </TabsContent>
-
-          <TabsContent value="labels">
-            <LabelSettingsTab templates={labelTemplates} />
-          </TabsContent>
-
-          <TabsContent value="depreciation">
-            <DepreciationSettingsTab settings={depreciationSettings} />
-          </TabsContent>
-
-          <TabsContent value="custom-fields">
-            <CustomFieldsAdminTab />
-          </TabsContent>
-
-          <TabsContent value="organizations">
-            <OrganizationsTab />
-          </TabsContent>
-
-          <TabsContent value="departments">
-            <DepartmentsTab />
-          </TabsContent>
-
-          <TabsContent value="roles">
-            <RolesTab />
-          </TabsContent>
-
-          <TabsContent value="webhooks">
-            <WebhooksTab />
-          </TabsContent>
-
-          <TabsContent value="sso">
-            <SSOSettingsTab />
-          </TabsContent>
-
-          <TabsContent value="ldap">
-            <LDAPSettingsTab />
-          </TabsContent>
-
-          <TabsContent value="integrations">
-            <IntegrationsTab />
-          </TabsContent>
-
-          <TabsContent value="locationTracking">
-            <LocationTrackingTab />
-          </TabsContent>
+        {/* Mobile dropdown */}
+        <div className="md:hidden w-full">
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium"
+          >
+            {settingsNav.map((group) =>
+              group.items.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {group.title} — {item.label}
+                </option>
+              )),
+            )}
+          </select>
         </div>
-      </Tabs>
+
+        {/* Content area */}
+        <div className="min-w-0 flex-1">
+          {activeTab === "general" && (
+            <GeneralSettingsTab settings={settings.general || []} />
+          )}
+          {activeTab === "email" && (
+            <EmailSettingsTab settings={settings.email || []} envEmailConfig={envEmailConfig} />
+          )}
+          {activeTab === "freshdesk" && (
+            <FreshdeskSettingsTab settings={settings.freshdesk || []} />
+          )}
+          {activeTab === "notifications" && (
+            <NotificationSettingsTab settings={settings.notifications || []} />
+          )}
+          {activeTab === "users" && (
+            <UsersSettingsTab users={users} />
+          )}
+          {activeTab === "labels" && (
+            <LabelSettingsTab templates={labelTemplates} />
+          )}
+          {activeTab === "depreciation" && (
+            <DepreciationSettingsTab settings={depreciationSettings} />
+          )}
+          {activeTab === "custom-fields" && <CustomFieldsAdminTab />}
+          {activeTab === "organizations" && <OrganizationsTab />}
+          {activeTab === "departments" && <DepartmentsTab />}
+          {activeTab === "roles" && <RolesTab />}
+          {activeTab === "webhooks" && <WebhooksTab />}
+          {activeTab === "sso" && <SSOSettingsTab />}
+          {activeTab === "ldap" && <LDAPSettingsTab />}
+          {activeTab === "integrations" && <IntegrationsTab />}
+          {activeTab === "locationTracking" && <LocationTrackingTab />}
+        </div>
+      </div>
     </div>
   );
 }

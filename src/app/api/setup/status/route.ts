@@ -14,7 +14,8 @@ export async function GET() {
     return NextResponse.json({ needsSetup: userCount === 0 });
   } catch (error) {
     logger.error("GET /api/setup/status error", { error });
-    return NextResponse.json({ needsSetup: false }, { status: 500 });
+    // If DB is unreachable, assume setup is needed rather than redirecting to login
+    return NextResponse.json({ needsSetup: true }, { status: 500 });
   }
 }
 

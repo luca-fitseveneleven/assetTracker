@@ -34,14 +34,15 @@ export default function SetupForm() {
     fetch("/api/setup/status")
       .then((res) => res.json())
       .then((data) => {
-        if (!data.needsSetup) {
-          router.replace("/login");
-        } else {
+        if (data.needsSetup) {
           setChecking(false);
+        } else {
+          router.replace("/login");
         }
       })
       .catch(() => {
-        router.replace("/login");
+        // If the status check fails (DB issue), show setup form anyway
+        setChecking(false);
       });
   }, [router]);
 

@@ -10,7 +10,7 @@ import { logger } from "@/lib/logger";
  */
 export async function GET() {
   try {
-    const userCount = await prisma.user.count({ take: 1 });
+    const userCount = await prisma.user.count();
     return NextResponse.json({ needsSetup: userCount === 0 });
   } catch (error) {
     logger.error("GET /api/setup/status error", { error });

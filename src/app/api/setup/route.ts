@@ -39,7 +39,7 @@ function generateSlug(name: string): string {
 export async function POST(req: Request) {
   try {
     // Guard: only allow setup when no users exist
-    const userCount = await prisma.user.count({ take: 1 });
+    const userCount = await prisma.user.count();
     if (userCount > 0) {
       return NextResponse.json(
         { message: "Setup has already been completed." },

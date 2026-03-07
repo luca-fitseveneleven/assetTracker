@@ -106,6 +106,16 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
   const { token: turnstileToken, reset: resetTurnstile } =
     useTurnstile(turnstileRef);
 
+  // Redirect to initial setup when no users exist yet
+  useEffect(() => {
+    fetch("/api/setup/status")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.needsSetup) router.replace("/setup");
+      })
+      .catch(() => {});
+  }, [router]);
+
   useEffect(() => {
     fetch("/api/auth/sso-status")
       .then((res) => res.json())

@@ -9,14 +9,9 @@ import {
   BarChart3,
   Building2,
   ArrowRight,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import MarketingNav from "@/components/marketing/MarketingNav";
 import MarketingFooter from "@/components/marketing/MarketingFooter";
 
@@ -59,6 +54,27 @@ const features = [
   },
 ];
 
+const steps = [
+  {
+    number: "01",
+    title: "Create your workspace",
+    description:
+      "Sign up and set up your organization in under two minutes. No credit card required.",
+  },
+  {
+    number: "02",
+    title: "Import or add assets",
+    description:
+      "Bulk-import from CSV or add assets manually. Tag them, assign owners, and set locations.",
+  },
+  {
+    number: "03",
+    title: "Track everything",
+    description:
+      "Monitor check-outs, license expirations, maintenance schedules, and consumable stock levels.",
+  },
+];
+
 const stats = [
   { value: "10,000+", label: "Assets Tracked" },
   { value: "500+", label: "Organizations" },
@@ -67,35 +83,41 @@ const stats = [
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="relative flex min-h-screen flex-col bg-background">
       <MarketingNav />
 
-      <main className="flex-1">
+      {/* Main content sits above the fixed footer */}
+      <main className="relative z-10 flex-1 bg-background">
         {/* Hero Section */}
-        <section className="relative overflow-hidden">
-          {/* Gradient background */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
-          <div className="pointer-events-none absolute -top-40 left-1/2 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl" />
-
-          <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-24 sm:px-6 sm:pb-28 sm:pt-32 lg:px-8">
+        <section className="pb-24 pt-32 sm:pb-32 sm:pt-40">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-3xl text-center">
+              <p className="mb-5 inline-block rounded-full border border-border/60 px-4 py-1.5 text-xs font-medium tracking-wide text-muted-foreground">
+                Modern Asset Management Platform
+              </p>
               <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-                Modern Asset Management{" "}
-                <span className="text-primary/80">for Teams</span>
+                Track every asset.
+                <br />
+                Stay in control.
               </h1>
-              <p className="mt-6 text-lg leading-relaxed text-muted-foreground sm:text-xl">
-                Track assets, manage licenses, and monitor consumables across
-                your organization. Everything your team needs to stay organized
-                and compliant, in one place.
+              <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
+                The complete platform to manage hardware, software licenses, and
+                consumables across your organization. Built for IT teams that
+                need clarity, not complexity.
               </p>
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                <Button size="lg" asChild>
+                <Button size="lg" className="rounded-full px-8" asChild>
                   <Link href="/register">
                     Get Started Free
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-                <Button variant="outline" size="lg" asChild>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="rounded-full px-8"
+                  asChild
+                >
                   <Link href="/pricing">View Pricing</Link>
                 </Button>
               </div>
@@ -103,50 +125,16 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Features Grid */}
-        <section id="features" className="scroll-mt-20 py-20 sm:py-28">
+        {/* Stats / Trust */}
+        <section className="border-y border-border/40 py-14">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                Everything you need to manage your assets
-              </h2>
-              <p className="mt-4 text-lg text-muted-foreground">
-                A complete toolkit for tracking, managing, and optimizing your
-                organization's assets.
-              </p>
-            </div>
-
-            <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map((feature) => (
-                <Card
-                  key={feature.title}
-                  className="group relative overflow-hidden transition-shadow hover:shadow-md"
-                >
-                  <CardHeader>
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                      <feature.icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg">{feature.title}</CardTitle>
-                    <CardDescription className="text-sm leading-relaxed">
-                      {feature.description}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Stats Bar */}
-        <section className="border-y border-border/40 bg-muted/30 py-16">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <p className="mb-10 text-center text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            <p className="mb-10 text-center text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Trusted by teams worldwide
             </p>
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
               {stats.map((stat) => (
                 <div key={stat.label} className="text-center">
-                  <p className="text-3xl font-bold text-foreground sm:text-4xl">
+                  <p className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                     {stat.value}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -158,23 +146,142 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Features Grid */}
+        <section id="features" className="scroll-mt-20 py-24 sm:py-32">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="mb-3 inline-block rounded-full border border-border/60 px-4 py-1.5 text-xs font-medium tracking-wide text-muted-foreground">
+                Features
+              </p>
+              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                Everything you need to manage your assets
+              </h2>
+              <p className="mt-4 text-base text-muted-foreground">
+                A complete toolkit for tracking, managing, and optimizing your
+                organization&apos;s inventory.
+              </p>
+            </div>
+
+            <div className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {features.map((feature) => (
+                <div
+                  key={feature.title}
+                  className="group rounded-2xl border border-border/50 bg-background p-6 transition-all hover:border-border hover:shadow-sm"
+                >
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-border/50 bg-muted/50">
+                    <feature.icon className="h-5 w-5 text-foreground" />
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {feature.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section
+          id="how-it-works"
+          className="scroll-mt-20 border-t border-border/40 bg-muted/20 py-24 sm:py-32"
+        >
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="mb-3 inline-block rounded-full border border-border/60 px-4 py-1.5 text-xs font-medium tracking-wide text-muted-foreground">
+                How it works
+              </p>
+              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                Up and running in minutes
+              </h2>
+              <p className="mt-4 text-base text-muted-foreground">
+                Three simple steps to full visibility over your assets.
+              </p>
+            </div>
+
+            <div className="mt-16 grid gap-8 md:grid-cols-3">
+              {steps.map((step) => (
+                <div key={step.number} className="relative">
+                  <span className="text-5xl font-bold text-border/60">
+                    {step.number}
+                  </span>
+                  <h3 className="mt-4 text-lg font-semibold text-foreground">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {step.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Checklist / Why us */}
+        <section className="py-24 sm:py-32">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid items-center gap-16 lg:grid-cols-2">
+              <div>
+                <p className="mb-3 inline-block rounded-full border border-border/60 px-4 py-1.5 text-xs font-medium tracking-wide text-muted-foreground">
+                  Why Asset Tracker
+                </p>
+                <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                  Built for IT teams that value simplicity
+                </h2>
+                <p className="mt-4 text-base text-muted-foreground">
+                  No bloated feature lists. Just the tools you actually need to
+                  keep your assets organized and your team accountable.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                {[
+                  "Full asset lifecycle tracking from procurement to disposal",
+                  "License compliance monitoring with expiry alerts",
+                  "Automated maintenance reminders and scheduling",
+                  "Check-in / check-out with full audit history",
+                  "Multi-organization support with SSO",
+                  "Custom fields, categories, and workflows",
+                ].map((item) => (
+                  <div key={item} className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {item}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* CTA Section */}
-        <section className="py-20 sm:py-28">
+        <section className="border-t border-border/40 bg-muted/20 py-24 sm:py-32">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                Ready to get started?
+                Ready to take control?
               </h2>
-              <p className="mt-4 text-lg text-muted-foreground">
+              <p className="mt-4 text-base text-muted-foreground">
                 Join hundreds of organizations already using Asset Tracker to
                 streamline their asset management.
               </p>
-              <div className="mt-8">
-                <Button size="lg" asChild>
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Button size="lg" className="rounded-full px-8" asChild>
                   <Link href="/register">
                     Get Started Free
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="rounded-full px-8"
+                  asChild
+                >
+                  <Link href="/login">Sign In</Link>
                 </Button>
               </div>
             </div>

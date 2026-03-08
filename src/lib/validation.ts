@@ -4,7 +4,10 @@ import { z } from "zod";
  * Authentication schemas
  */
 export const loginSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters").max(50, "Username too long"),
+  username: z
+    .string()
+    .min(3, "Username must be at least 3 characters")
+    .max(50, "Username too long"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -16,10 +19,15 @@ export const createUserSchema = z.object({
   email: z.string().email().nullable().optional(),
   firstname: z.string().min(1).max(100),
   lastname: z.string().min(1).max(100),
-  password: z.string().min(8, "Password must be at least 8 characters").max(100),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100)
+    .optional(),
   isadmin: z.boolean().default(false),
   canrequest: z.boolean().default(false),
   lan: z.string().max(50).nullable().optional(),
+  passwordMode: z.enum(["generate", "manual", "invite"]).default("manual"),
 });
 
 export const updateUserSchema = z.object({
@@ -153,25 +161,29 @@ export const createAssetCategoryTypeSchema = z.object({
   assetcategorytypename: z.string().min(1).max(255),
 });
 
-export const updateAssetCategoryTypeSchema = createAssetCategoryTypeSchema.partial();
+export const updateAssetCategoryTypeSchema =
+  createAssetCategoryTypeSchema.partial();
 
 export const createAccessoryCategoryTypeSchema = z.object({
   accessoriecategorytypename: z.string().min(1).max(255),
 });
 
-export const updateAccessoryCategoryTypeSchema = createAccessoryCategoryTypeSchema.partial();
+export const updateAccessoryCategoryTypeSchema =
+  createAccessoryCategoryTypeSchema.partial();
 
 export const createConsumableCategoryTypeSchema = z.object({
   consumablecategorytypename: z.string().min(1).max(255),
 });
 
-export const updateConsumableCategoryTypeSchema = createConsumableCategoryTypeSchema.partial();
+export const updateConsumableCategoryTypeSchema =
+  createConsumableCategoryTypeSchema.partial();
 
 export const createLicenceCategoryTypeSchema = z.object({
   licencecategorytypename: z.string().min(1).max(255),
 });
 
-export const updateLicenceCategoryTypeSchema = createLicenceCategoryTypeSchema.partial();
+export const updateLicenceCategoryTypeSchema =
+  createLicenceCategoryTypeSchema.partial();
 
 /**
  * Model schemas

@@ -234,6 +234,24 @@ export const emailTemplates = {
     <p>Best regards,<br>Asset Tracker System</p>
   </div>`,
   },
+
+  setPassword: {
+    subject: "Set Your Password - Asset Tracker",
+    html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #333;">Welcome to Asset Tracker</h2>
+      <p>Hello {{userName}},</p>
+      <p>An account has been created for you at <strong>{{organizationName}}</strong>. Please set your password to get started.</p>
+      <p style="margin: 30px 0;">
+        <a href="{{setPasswordUrl}}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Set Your Password</a>
+      </p>
+      <p>Or copy and paste this link into your browser:</p>
+      <p style="word-break: break-all; color: #2563eb;">{{setPasswordUrl}}</p>
+      <p style="color: #666; font-size: 14px; margin-top: 30px;">This link expires in 72 hours. If you didn't expect this email, you can safely ignore it.</p>
+      <p>Best regards,<br>Asset Tracker System</p>
+    </div>
+  `,
+  },
 };
 
 export type TemplateType = keyof typeof emailTemplates;

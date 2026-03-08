@@ -9,6 +9,8 @@ import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { checkUserLimit } from "@/lib/tenant-limits";
+import { sendSetPasswordLink } from "@/lib/magic-link";
+import crypto from "crypto";
 import { logger } from "@/lib/logger";
 
 // POST /api/user/addUser
@@ -53,15 +55,38 @@ export async function POST(request) {
       email,
       lan,
       password,
+      passwordMode = "manual",
     } = validationResult.data;
 
-    // Hash the password before storing
-    const hashedPassword = await hashPassword(password);
+    // Modes that need email
+    if (passwordMode !== "manual" && !email) {
+      return NextResponse.json(
+        { error: "Email is required for this password mode" },
+        { status: 400 },
+      );
+    }
+
+    // Generate password if needed
+    let finalPassword = password;
+    let generatedPassword: string | null = null;
+    if (passwordMode === "generate") {
+      const chars =
+        "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*";
+      generatedPassword = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+        .map((b) => chars[b % chars.length])
+        .join("");
+      finalPassword = generatedPassword;
+    }
+
+    // Hash password (skip for invite-only)
+    const hashedPassword = finalPassword
+      ? await hashPassword(finalPassword)
+      : null;
 
     // Get organization context for the creating admin
     const orgContext = await getOrganizationContext();
 
-    // Create user with hashed password
+    // Create user
     const created = await prisma.user.create({
       data: {
         username: username ?? null,
@@ -77,6 +102,84 @@ export async function POST(request) {
       } as Prisma.userUncheckedCreateInput,
     });
 
+    // Create credential account if password was set
+    if (hashedPassword) {
+      await prisma.accounts.upsert({
+        where: {
+          providerId_accountId: {
+            providerId: "credential",
+            accountId: created.userid,
+          },
+        },
+        update: { password: hashedPassword },
+        create: {
+          userId: created.userid,
+          providerId: "credential",
+          accountId: created.userid,
+          password: hashedPassword,
+        },
+      });
+    }
+
+    // Send magic link for generate/manual modes (if email exists)
+    let magicLinkSent = false;
+    if (passwordMode !== "invite" && email) {
+      magicLinkSent = await sendSetPasswordLink({
+        userId: created.userid,
+        email,
+        userName: `${firstname} ${lastname}`.trim(),
+        organizationName: orgContext?.organization?.name,
+      });
+    }
+
+    // For invite mode, create a team invitation
+    if (passwordMode === "invite" && email && orgContext?.organization?.id) {
+      const inviteToken = crypto.randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      await prisma.teamInvitation.create({
+        data: {
+          email: email.toLowerCase(),
+          organizationId: orgContext.organization.id,
+          invitedBy: admin.id!,
+          token: inviteToken,
+          status: "pending",
+          expiresAt,
+        },
+      });
+
+      // Send invitation email
+      try {
+        const { renderTemplate, emailTemplates } =
+          await import("@/lib/email/templates");
+        const { sendEmail } = await import("@/lib/email/service");
+        const baseUrl =
+          process.env.BETTER_AUTH_URL ||
+          process.env.NEXTAUTH_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          "http://localhost:3000";
+        const inviteUrl = `${baseUrl}/invite/${inviteToken}`;
+
+        const subject = renderTemplate(emailTemplates.teamInvitation.subject, {
+          organizationName: orgContext.organization.name,
+        });
+        const html = renderTemplate(emailTemplates.teamInvitation.html, {
+          inviterName:
+            `${(admin as any).firstname || ""} ${(admin as any).lastname || ""}`.trim() ||
+            "Admin",
+          organizationName: orgContext.organization.name,
+          inviteUrl,
+        });
+        await sendEmail({ to: email.toLowerCase(), subject, html });
+        magicLinkSent = true;
+      } catch (emailError) {
+        logger.warn("Failed to send invitation email during user creation", {
+          error: emailError,
+        });
+      }
+    }
+
     // Create audit log
     await createAuditLog({
       userId: admin.id,
@@ -87,6 +190,7 @@ export async function POST(request) {
         username: created.username,
         isadmin: created.isadmin,
         canrequest: created.canrequest,
+        passwordMode,
       },
     });
 
@@ -102,7 +206,14 @@ export async function POST(request) {
     // Remove password from response
     const { password: _, ...userWithoutPassword } = created;
 
-    return NextResponse.json(userWithoutPassword, { status: 201 });
+    return NextResponse.json(
+      {
+        ...userWithoutPassword,
+        ...(generatedPassword && { generatedPassword }),
+        magicLinkSent,
+      },
+      { status: 201 },
+    );
   } catch (error) {
     logger.error("POST /api/user/addUser error", { error });
 

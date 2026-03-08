@@ -1,23 +1,23 @@
 CREATE SCHEMA IF NOT EXISTS "assettool";
 SET search_path TO "assettool";
 -- AlterTable
-ALTER TABLE "accessories" ADD COLUMN     "organizationId" UUID;
+ALTER TABLE "accessories" ADD COLUMN IF NOT EXISTS "organizationId" UUID;
 
 -- AlterTable
-ALTER TABLE "asset" ADD COLUMN     "organizationId" UUID;
+ALTER TABLE "asset" ADD COLUMN IF NOT EXISTS "organizationId" UUID;
 
 -- AlterTable
-ALTER TABLE "consumable" ADD COLUMN     "organizationId" UUID;
+ALTER TABLE "consumable" ADD COLUMN IF NOT EXISTS "organizationId" UUID;
 
 -- AlterTable
-ALTER TABLE "licence" ADD COLUMN     "organizationId" UUID;
+ALTER TABLE "licence" ADD COLUMN IF NOT EXISTS "organizationId" UUID;
 
 -- AlterTable
-ALTER TABLE "user" ADD COLUMN     "departmentId" UUID,
-ADD COLUMN     "organizationId" UUID;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "departmentId" UUID;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "organizationId" UUID;
 
 -- CreateTable
-CREATE TABLE "organizations" (
+CREATE TABLE IF NOT EXISTS "organizations" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(100) NOT NULL,
     "slug" VARCHAR(50) NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE "organizations" (
 );
 
 -- CreateTable
-CREATE TABLE "departments" (
+CREATE TABLE IF NOT EXISTS "departments" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(100) NOT NULL,
     "description" TEXT,
@@ -44,7 +44,7 @@ CREATE TABLE "departments" (
 );
 
 -- CreateTable
-CREATE TABLE "roles" (
+CREATE TABLE IF NOT EXISTS "roles" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(100) NOT NULL,
     "description" TEXT,
@@ -58,7 +58,7 @@ CREATE TABLE "roles" (
 );
 
 -- CreateTable
-CREATE TABLE "user_roles" (
+CREATE TABLE IF NOT EXISTS "user_roles" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "userId" UUID NOT NULL,
     "roleId" UUID NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE "user_roles" (
 );
 
 -- CreateTable
-CREATE TABLE "webhooks" (
+CREATE TABLE IF NOT EXISTS "webhooks" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(100) NOT NULL,
     "url" VARCHAR(500) NOT NULL,
@@ -85,7 +85,7 @@ CREATE TABLE "webhooks" (
 );
 
 -- CreateTable
-CREATE TABLE "webhook_deliveries" (
+CREATE TABLE IF NOT EXISTS "webhook_deliveries" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "webhookId" UUID NOT NULL,
     "event" VARCHAR(100) NOT NULL,
@@ -101,7 +101,7 @@ CREATE TABLE "webhook_deliveries" (
 );
 
 -- CreateTable
-CREATE TABLE "asset_reservations" (
+CREATE TABLE IF NOT EXISTS "asset_reservations" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "assetId" UUID NOT NULL,
     "userId" UUID NOT NULL,
@@ -118,7 +118,7 @@ CREATE TABLE "asset_reservations" (
 );
 
 -- CreateTable
-CREATE TABLE "stock_alerts" (
+CREATE TABLE IF NOT EXISTS "stock_alerts" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "consumableId" UUID NOT NULL,
     "minThreshold" INTEGER NOT NULL DEFAULT 10,
@@ -133,7 +133,7 @@ CREATE TABLE "stock_alerts" (
 );
 
 -- CreateTable
-CREATE TABLE "import_jobs" (
+CREATE TABLE IF NOT EXISTS "import_jobs" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "userId" UUID NOT NULL,
     "entityType" VARCHAR(50) NOT NULL,
@@ -153,76 +153,127 @@ CREATE TABLE "import_jobs" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "organizations_slug_key" ON "organizations"("slug");
+CREATE UNIQUE INDEX IF NOT EXISTS "organizations_slug_key" ON "organizations"("slug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "roles_name_organizationId_key" ON "roles"("name", "organizationId");
+CREATE UNIQUE INDEX IF NOT EXISTS "roles_name_organizationId_key" ON "roles"("name", "organizationId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "user_roles_userId_roleId_key" ON "user_roles"("userId", "roleId");
+CREATE UNIQUE INDEX IF NOT EXISTS "user_roles_userId_roleId_key" ON "user_roles"("userId", "roleId");
 
 -- CreateIndex
-CREATE INDEX "webhook_deliveries_webhookId_idx" ON "webhook_deliveries"("webhookId");
+CREATE INDEX IF NOT EXISTS "webhook_deliveries_webhookId_idx" ON "webhook_deliveries"("webhookId");
 
 -- CreateIndex
-CREATE INDEX "asset_reservations_assetId_idx" ON "asset_reservations"("assetId");
+CREATE INDEX IF NOT EXISTS "asset_reservations_assetId_idx" ON "asset_reservations"("assetId");
 
 -- CreateIndex
-CREATE INDEX "asset_reservations_userId_idx" ON "asset_reservations"("userId");
+CREATE INDEX IF NOT EXISTS "asset_reservations_userId_idx" ON "asset_reservations"("userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "stock_alerts_consumableId_key" ON "stock_alerts"("consumableId");
+CREATE UNIQUE INDEX IF NOT EXISTS "stock_alerts_consumableId_key" ON "stock_alerts"("consumableId");
 
 -- CreateIndex
-CREATE INDEX "import_jobs_userId_idx" ON "import_jobs"("userId");
+CREATE INDEX IF NOT EXISTS "import_jobs_userId_idx" ON "import_jobs"("userId");
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "departments" ADD CONSTRAINT "departments_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "departments" ADD CONSTRAINT "departments_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "roles" ADD CONSTRAINT "roles_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "webhooks" ADD CONSTRAINT "webhooks_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "webhook_deliveries" ADD CONSTRAINT "webhook_deliveries_webhookId_fkey" FOREIGN KEY ("webhookId") REFERENCES "webhooks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "asset_reservations" ADD CONSTRAINT "asset_reservations_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "asset_reservations" ADD CONSTRAINT "asset_reservations_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "stock_alerts" ADD CONSTRAINT "stock_alerts_consumableId_fkey" FOREIGN KEY ("consumableId") REFERENCES "consumable"("consumableid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "import_jobs" ADD CONSTRAINT "import_jobs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "accessories" ADD CONSTRAINT "accessories_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "asset" ADD CONSTRAINT "asset_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "consumable" ADD CONSTRAINT "consumable_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "licence" ADD CONSTRAINT "licence_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "user" ADD CONSTRAINT "user_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
 ALTER TABLE "user" ADD CONSTRAINT "user_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

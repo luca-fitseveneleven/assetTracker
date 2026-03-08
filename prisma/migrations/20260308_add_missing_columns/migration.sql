@@ -392,81 +392,165 @@ CREATE INDEX IF NOT EXISTS "consumable_checkouts_userId_idx" ON "consumable_chec
 -- ============================================================
 
 -- asset_checkouts
-ALTER TABLE "asset_checkouts" ADD CONSTRAINT "asset_checkouts_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "asset_checkouts" ADD CONSTRAINT "asset_checkouts_checkedOutTo_fkey" FOREIGN KEY ("checkedOutTo") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "asset_checkouts" ADD CONSTRAINT "asset_checkouts_checkedOutToLocationId_fkey" FOREIGN KEY ("checkedOutToLocationId") REFERENCES "location"("locationid") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "asset_checkouts" ADD CONSTRAINT "asset_checkouts_checkedOutToAssetId_fkey" FOREIGN KEY ("checkedOutToAssetId") REFERENCES "asset"("assetid") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "asset_checkouts" ADD CONSTRAINT "asset_checkouts_checkedOutBy_fkey" FOREIGN KEY ("checkedOutBy") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "asset_checkouts" ADD CONSTRAINT "asset_checkouts_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "asset_checkouts" ADD CONSTRAINT "asset_checkouts_checkedOutTo_fkey" FOREIGN KEY ("checkedOutTo") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "asset_checkouts" ADD CONSTRAINT "asset_checkouts_checkedOutToLocationId_fkey" FOREIGN KEY ("checkedOutToLocationId") REFERENCES "location"("locationid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "asset_checkouts" ADD CONSTRAINT "asset_checkouts_checkedOutToAssetId_fkey" FOREIGN KEY ("checkedOutToAssetId") REFERENCES "asset"("assetid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "asset_checkouts" ADD CONSTRAINT "asset_checkouts_checkedOutBy_fkey" FOREIGN KEY ("checkedOutBy") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- asset_transfers
-ALTER TABLE "asset_transfers" ADD CONSTRAINT "asset_transfers_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "asset_transfers" ADD CONSTRAINT "asset_transfers_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- approval_requests
-ALTER TABLE "approval_requests" ADD CONSTRAINT "approval_requests_requesterId_fkey" FOREIGN KEY ("requesterId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "approval_requests" ADD CONSTRAINT "approval_requests_approverId_fkey" FOREIGN KEY ("approverId") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "approval_requests" ADD CONSTRAINT "approval_requests_requesterId_fkey" FOREIGN KEY ("requesterId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "approval_requests" ADD CONSTRAINT "approval_requests_approverId_fkey" FOREIGN KEY ("approverId") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- automation_rules
-ALTER TABLE "automation_rules" ADD CONSTRAINT "automation_rules_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "automation_rules" ADD CONSTRAINT "automation_rules_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- components
-ALTER TABLE "components" ADD CONSTRAINT "components_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "component_categories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "components" ADD CONSTRAINT "components_manufacturerId_fkey" FOREIGN KEY ("manufacturerId") REFERENCES "manufacturer"("manufacturerid") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "components" ADD CONSTRAINT "components_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "supplier"("supplierid") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "components" ADD CONSTRAINT "components_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "location"("locationid") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "components" ADD CONSTRAINT "components_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "components" ADD CONSTRAINT "components_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "component_categories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "components" ADD CONSTRAINT "components_manufacturerId_fkey" FOREIGN KEY ("manufacturerId") REFERENCES "manufacturer"("manufacturerid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "components" ADD CONSTRAINT "components_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "supplier"("supplierid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "components" ADD CONSTRAINT "components_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "location"("locationid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "components" ADD CONSTRAINT "components_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- component_checkouts
-ALTER TABLE "component_checkouts" ADD CONSTRAINT "component_checkouts_componentId_fkey" FOREIGN KEY ("componentId") REFERENCES "components"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "component_checkouts" ADD CONSTRAINT "component_checkouts_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "component_checkouts" ADD CONSTRAINT "component_checkouts_checkedOutBy_fkey" FOREIGN KEY ("checkedOutBy") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "component_checkouts" ADD CONSTRAINT "component_checkouts_componentId_fkey" FOREIGN KEY ("componentId") REFERENCES "components"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "component_checkouts" ADD CONSTRAINT "component_checkouts_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "component_checkouts" ADD CONSTRAINT "component_checkouts_checkedOutBy_fkey" FOREIGN KEY ("checkedOutBy") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- licence_seat_assignments
-ALTER TABLE "licence_seat_assignments" ADD CONSTRAINT "licence_seat_assignments_licenceId_fkey" FOREIGN KEY ("licenceId") REFERENCES "licence"("licenceid") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "licence_seat_assignments" ADD CONSTRAINT "licence_seat_assignments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "licence_seat_assignments" ADD CONSTRAINT "licence_seat_assignments_assignedBy_fkey" FOREIGN KEY ("assignedBy") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "licence_seat_assignments" ADD CONSTRAINT "licence_seat_assignments_licenceId_fkey" FOREIGN KEY ("licenceId") REFERENCES "licence"("licenceid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "licence_seat_assignments" ADD CONSTRAINT "licence_seat_assignments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "licence_seat_assignments" ADD CONSTRAINT "licence_seat_assignments_assignedBy_fkey" FOREIGN KEY ("assignedBy") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- eula_templates
-ALTER TABLE "eula_templates" ADD CONSTRAINT "eula_templates_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "eula_templates" ADD CONSTRAINT "eula_templates_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- eula_acceptances
-ALTER TABLE "eula_acceptances" ADD CONSTRAINT "eula_acceptances_eulaTemplateId_fkey" FOREIGN KEY ("eulaTemplateId") REFERENCES "eula_templates"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "eula_acceptances" ADD CONSTRAINT "eula_acceptances_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "eula_acceptances" ADD CONSTRAINT "eula_acceptances_checkoutId_fkey" FOREIGN KEY ("checkoutId") REFERENCES "asset_checkouts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "eula_acceptances" ADD CONSTRAINT "eula_acceptances_eulaTemplateId_fkey" FOREIGN KEY ("eulaTemplateId") REFERENCES "eula_templates"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "eula_acceptances" ADD CONSTRAINT "eula_acceptances_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "eula_acceptances" ADD CONSTRAINT "eula_acceptances_checkoutId_fkey" FOREIGN KEY ("checkoutId") REFERENCES "asset_checkouts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- assetCategoryType -> eula_templates FK
-ALTER TABLE "assetCategoryType" ADD CONSTRAINT "assetCategoryType_eulaTemplateId_fkey" FOREIGN KEY ("eulaTemplateId") REFERENCES "eula_templates"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "assetCategoryType" ADD CONSTRAINT "assetCategoryType_eulaTemplateId_fkey" FOREIGN KEY ("eulaTemplateId") REFERENCES "eula_templates"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- kits
-ALTER TABLE "kits" ADD CONSTRAINT "kits_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "kits" ADD CONSTRAINT "kits_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- kit_items
-ALTER TABLE "kit_items" ADD CONSTRAINT "kit_items_kitId_fkey" FOREIGN KEY ("kitId") REFERENCES "kits"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "kit_items" ADD CONSTRAINT "kit_items_kitId_fkey" FOREIGN KEY ("kitId") REFERENCES "kits"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- audit_campaigns
-ALTER TABLE "audit_campaigns" ADD CONSTRAINT "audit_campaigns_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "audit_campaigns" ADD CONSTRAINT "audit_campaigns_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "audit_campaigns" ADD CONSTRAINT "audit_campaigns_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "audit_campaigns" ADD CONSTRAINT "audit_campaigns_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- audit_campaign_auditors
-ALTER TABLE "audit_campaign_auditors" ADD CONSTRAINT "audit_campaign_auditors_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "audit_campaigns"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "audit_campaign_auditors" ADD CONSTRAINT "audit_campaign_auditors_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "audit_campaign_auditors" ADD CONSTRAINT "audit_campaign_auditors_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "audit_campaigns"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "audit_campaign_auditors" ADD CONSTRAINT "audit_campaign_auditors_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- audit_entries
-ALTER TABLE "audit_entries" ADD CONSTRAINT "audit_entries_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "audit_campaigns"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "audit_entries" ADD CONSTRAINT "audit_entries_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "audit_entries" ADD CONSTRAINT "audit_entries_auditedBy_fkey" FOREIGN KEY ("auditedBy") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "audit_entries" ADD CONSTRAINT "audit_entries_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "location"("locationid") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "audit_entries" ADD CONSTRAINT "audit_entries_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "audit_campaigns"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "audit_entries" ADD CONSTRAINT "audit_entries_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "asset"("assetid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "audit_entries" ADD CONSTRAINT "audit_entries_auditedBy_fkey" FOREIGN KEY ("auditedBy") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "audit_entries" ADD CONSTRAINT "audit_entries_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "location"("locationid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- team_invitations
-ALTER TABLE "team_invitations" ADD CONSTRAINT "team_invitations_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "team_invitations" ADD CONSTRAINT "team_invitations_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-ALTER TABLE "team_invitations" ADD CONSTRAINT "team_invitations_invitedBy_fkey" FOREIGN KEY ("invitedBy") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "team_invitations" ADD CONSTRAINT "team_invitations_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "team_invitations" ADD CONSTRAINT "team_invitations_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "team_invitations" ADD CONSTRAINT "team_invitations_invitedBy_fkey" FOREIGN KEY ("invitedBy") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- dashboard_widgets
-ALTER TABLE "dashboard_widgets" ADD CONSTRAINT "dashboard_widgets_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "dashboard_widgets" ADD CONSTRAINT "dashboard_widgets_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- user_preferences
-ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- consumable_checkouts
-ALTER TABLE "consumable_checkouts" ADD CONSTRAINT "consumable_checkouts_consumableId_fkey" FOREIGN KEY ("consumableId") REFERENCES "consumable"("consumableid") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "consumable_checkouts" ADD CONSTRAINT "consumable_checkouts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "consumable_checkouts" ADD CONSTRAINT "consumable_checkouts_consumableId_fkey" FOREIGN KEY ("consumableId") REFERENCES "consumable"("consumableid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "consumable_checkouts" ADD CONSTRAINT "consumable_checkouts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

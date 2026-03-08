@@ -1,7 +1,7 @@
 CREATE SCHEMA IF NOT EXISTS "assettool";
 SET search_path TO "assettool";
 -- CreateTable
-CREATE TABLE "api_keys" (
+CREATE TABLE IF NOT EXISTS "api_keys" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "userId" UUID NOT NULL,
     "name" VARCHAR(100) NOT NULL,
@@ -17,13 +17,15 @@ CREATE TABLE "api_keys" (
 );
 
 -- CreateIndex
-CREATE INDEX "api_keys_userId_idx" ON "api_keys"("userId");
+CREATE INDEX IF NOT EXISTS "api_keys_userId_idx" ON "api_keys"("userId");
 
 -- CreateIndex
-CREATE INDEX "api_keys_keyPrefix_idx" ON "api_keys"("keyPrefix");
+CREATE INDEX IF NOT EXISTS "api_keys_keyPrefix_idx" ON "api_keys"("keyPrefix");
 
 -- CreateIndex
-CREATE INDEX "api_keys_isActive_idx" ON "api_keys"("isActive");
+CREATE INDEX IF NOT EXISTS "api_keys_isActive_idx" ON "api_keys"("isActive");
 
 -- AddForeignKey
-ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("userid") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

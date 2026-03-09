@@ -8,6 +8,10 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { twoFactor } from "better-auth/plugins/two-factor";
+import {
+  genericOAuth,
+  microsoftEntraId,
+} from "better-auth/plugins/generic-oauth";
 import { nextCookies } from "better-auth/next-js";
 import { createAuthMiddleware } from "@better-auth/core/api";
 import prisma from "@/lib/prisma";
@@ -219,6 +223,19 @@ export const auth = betterAuth({
     twoFactor({
       issuer: "AssetTracker",
     }),
+    ...(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET
+      ? [
+          genericOAuth({
+            config: [
+              microsoftEntraId({
+                clientId: process.env.MICROSOFT_CLIENT_ID,
+                clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+                tenantId: process.env.MICROSOFT_TENANT_ID || "common",
+              }),
+            ],
+          }),
+        ]
+      : []),
     nextCookies(),
   ],
 

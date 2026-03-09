@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { signIn } from "@/lib/auth-client";
+import { signIn, authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import { Info, Shield } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+const MICROSOFT_AUTH_ENABLED =
+  process.env.NEXT_PUBLIC_AUTH_MICROSOFT === "true";
 
 /**
  * Lightweight Turnstile hook — loads the script once and renders the widget
@@ -278,7 +280,7 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          {ssoStatus && (
+          {(ssoStatus || MICROSOFT_AUTH_ENABLED) && (
             <>
               <div className="relative my-4">
                 <Separator />
@@ -286,16 +288,40 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
                   or
                 </span>
               </div>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  window.location.href = "/api/auth/sso-init";
-                }}
-              >
-                <Shield className="mr-2 h-4 w-4" />
-                Sign in with {ssoStatus.providerName}
-              </Button>
+              <div className="flex flex-col gap-2">
+                {MICROSOFT_AUTH_ENABLED && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={async () => {
+                      await authClient.signIn.oauth2({
+                        providerId: "microsoft-entra-id",
+                        callbackURL: "/dashboard",
+                      });
+                    }}
+                  >
+                    <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21" fill="none">
+                      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+                      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+                      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+                      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+                    </svg>
+                    Sign in with Microsoft
+                  </Button>
+                )}
+                {ssoStatus && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      window.location.href = "/api/auth/sso-init";
+                    }}
+                  >
+                    <Shield className="mr-2 h-4 w-4" />
+                    Sign in with {ssoStatus.providerName}
+                  </Button>
+                )}
+              </div>
             </>
           )}
         </CardContent>

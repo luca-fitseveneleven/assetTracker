@@ -1,80 +1,116 @@
-<p align="center">
-  <h1 align="center">Asset Tracker</h1>
-  <p align="center">
-    Open-source IT asset management platform for organizations of any size.
-    <br />
-    Track hardware, software, licences, consumables, and more — with RBAC, audit logging, and integrations.
-  </p>
-</p>
+<div align="center">
 
-<p align="center">
-  <a href="#features">Features</a> •
-  <a href="#tech-stack">Tech Stack</a> •
-  <a href="#getting-started">Getting Started</a> •
-  <a href="#deployment">Deployment</a> •
-  <a href="#contributing">Contributing</a>
-</p>
+# Asset Tracker
 
-<p align="center">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg" />
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" />
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript&logoColor=white" />
-  <img alt="Prisma" src="https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma" />
-  <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white" />
-</p>
+**Open-source IT asset management for teams of any size.**
+
+Track hardware, software licences, consumables, and accessories — with role-based access, audit logging, SSO, and integrations built in.
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma)](https://www.prisma.io/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+
+[Features](#features) · [Quick Start](#quick-start) · [Deployment](#deployment) · [Configuration](#configuration) · [Contributing](#contributing)
+
+</div>
 
 ---
 
 ## Features
 
+<table>
+<tr>
+<td width="50%" valign="top">
+
 ### Asset Management
-- Full CRUD with detailed asset profiles and lifecycle management (procure → deploy → retire)
-- Transfers between users, locations, and organizations
-- Reservations and booking with approval workflows
-- File attachments, depreciation tracking, warranty alerts
-- Custom fields, QR code generation, printing, and scanning
+- Full lifecycle tracking (procure, deploy, maintain, retire)
+- Check-out / check-in with audit trail
+- Reservations and approval workflows
+- File attachments with image gallery and thumbnails
+- QR code generation, printing, and scanning
+- Custom fields per asset category
+- Depreciation tracking and warranty alerts
+
+</td>
+<td width="50%" valign="top">
 
 ### Users & Access Control
-- 35 granular RBAC permissions across 30+ API routes
+- 35 granular RBAC permissions
 - Multi-tenancy with organization and department scoping
-- Per-user preferences with regional formatting (date, number, currency)
-- User activity history and admin tooling
+- Microsoft Entra ID (Azure AD) SSO
+- LDAP / Active Directory authentication
+- SAML SSO support
+- MFA / 2FA with TOTP and backup codes
+- Per-user preferences (date, number, currency formats)
 
-### Consumables, Accessories & Licences
-- Stock level tracking with quantity minimums and reorder alerts
-- Check-out system with usage tracking
-- Licence management and seat assignment
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### Inventory
+- **Licences** — seat assignment and compliance monitoring
+- **Accessories** — check-out tracking with quantity management
+- **Consumables** — stock levels with reorder alerts
+- **Components** — categorized tracking and assignment
+
+</td>
+<td valign="top">
 
 ### Ticketing & Workflows
-- Built-in ticket system with Kanban board and user views
-- Automated workflow engine with condition evaluation and 5 action types
-- Maintenance scheduling and tracking
+- Built-in ticket system with Kanban board
+- Automated workflow engine (conditions + 5 action types)
+- Maintenance scheduling and reminders
+- Request and approval flows
+
+</td>
+</tr>
+<tr>
+<td valign="top">
 
 ### Integrations
-- **Slack & Microsoft Teams** — real-time notifications for asset, user, maintenance, and stock events
-- **Webhooks** — HMAC-signed with retry backoff and delivery log viewer
-- **SSO/SAML** and **LDAP/AD** authentication
+- **Slack & Microsoft Teams** notifications
+- **Webhooks** — HMAC-signed with retry and delivery logs
 - **Freshdesk** ticket sync
-- **Stripe** billing for SaaS mode
+- **Stripe** billing (SaaS mode)
+- **Email** — Brevo, SendGrid, Mailgun, Postmark, SES
+
+</td>
+<td valign="top">
 
 ### Security & Compliance
-- MFA/2FA with TOTP and backup codes
-- AES-256-GCM encryption at rest for secrets
+- AES-256-GCM encryption at rest
 - Audit logging with full entity diffs
-- GDPR data retention enforcement with automated cron jobs
-- Rate limiting, account lockout, concurrent session management
-- Full CSP, HSTS, and security headers
+- GDPR data retention enforcement (automated cron)
+- Rate limiting and account lockout
+- Concurrent session management
+- CSP, HSTS, and security headers
+
+</td>
+</tr>
+<tr>
+<td valign="top">
 
 ### Dashboard & Reporting
-- Customizable dashboard with drag-and-drop widgets
-- 5+ chart types: lifecycle, cost breakdown, location distribution, maintenance trends, depreciation forecast
+- Drag-and-drop customizable widgets
+- Charts: lifecycle, cost, location, maintenance, depreciation
 - CSV and PDF export
-- Search with typeahead and filterable URLs
+- Typeahead search with filterable URLs
+
+</td>
+<td valign="top">
 
 ### Mobile & PWA
-- Progressive Web App with offline support and install prompt
-- Mobile-optimized navigation with responsive tables
+- Progressive Web App with install prompt
+- Mobile-optimized navigation and tables
 - QR scanning for asset lookup
+
+</td>
+</tr>
+</table>
 
 ---
 
@@ -82,58 +118,72 @@
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | [Next.js 16](https://nextjs.org/) (App Router + Turbopack) |
-| Language | [TypeScript](https://www.typescriptlang.org/) |
-| Database | [PostgreSQL](https://www.postgresql.org/) + [Prisma 7](https://www.prisma.io/) |
-| Auth | [NextAuth v5](https://authjs.dev/) with JWT sessions |
-| UI | [Tailwind CSS 4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) (Radix) |
+| Framework | [Next.js 16](https://nextjs.org/) (App Router, Turbopack) |
+| Language | [TypeScript 5.9](https://www.typescriptlang.org/) |
+| Database | [PostgreSQL](https://www.postgresql.org/) + [Prisma 7](https://www.prisma.io/) (42 models) |
+| Auth | [BetterAuth](https://www.better-auth.com/) — sessions, SSO, MFA |
+| UI | [Tailwind CSS 4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
 | Validation | [Zod](https://zod.dev/) |
 | Charts | [Recharts](https://recharts.org/) |
 | Monitoring | [Sentry](https://sentry.io/) |
-| Testing | [Vitest](https://vitest.dev/) (unit) + [Playwright](https://playwright.dev/) (E2E) |
-| Payments | [Stripe](https://stripe.com/) |
+| Testing | [Vitest](https://vitest.dev/) + [Playwright](https://playwright.dev/) |
 
 ---
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
-- **Node.js** 18+ (or [Bun](https://bun.sh/))
+- **Node.js 18+** or [Bun](https://bun.sh/)
 - **PostgreSQL** database
 
-### Installation
+### 1. Clone and install
 
 ```bash
-git clone https://github.com/LucaGerlich/assettTracker.git
-cd assettTracker
-
-# Install dependencies
+git clone https://github.com/luca-fitseveneleven/assetTracker.git
+cd assetTracker
 bun install
-
-# Configure environment
-cp .env.example .env
-# Edit .env — set DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL at minimum
-# Generate a secret: openssl rand -base64 32
-
-# Set up database
-npx prisma db push
-npx prisma generate
-
-# (Optional) Seed with sample data
-bun run db:seed
-
-# Start development server
-bun dev
 ```
 
-Open **http://localhost:3000** to get started.
+### 2. Configure environment
 
-### Create an Admin User
+```bash
+cp .env.example .env
+```
+
+Set at minimum:
+
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/assettracker
+BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_SECRET=          # generate with: openssl rand -base64 32
+ENCRYPTION_KEY=              # generate with: openssl rand -hex 32
+```
+
+### 3. Set up the database
+
+```bash
+npx prisma migrate deploy
+npx prisma generate
+```
+
+### 4. Create an admin user
 
 ```bash
 bun run create-admin
 ```
+
+### 5. Start the server
+
+```bash
+bun dev
+```
+
+Open **http://localhost:3000** and sign in.
+
+---
+
+## Deployment
 
 ### Docker
 
@@ -142,22 +192,78 @@ docker build -t asset-tracker .
 docker run -p 3000:3000 --env-file .env asset-tracker
 ```
 
+### Docker Compose
+
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file: .env
+    depends_on:
+      - db
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: assettracker
+      POSTGRES_USER: assettracker
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+```
+
+### Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/luca-fitseveneleven/assetTracker)
+
+Set the environment variables in the Vercel dashboard and connect your PostgreSQL database.
+
+### Any Node.js Host
+
+```bash
+bun run build
+bun start
+```
+
+---
+
+## Configuration
+
+All configuration is via environment variables. Copy `.env.example` for the full reference.
+
+| Category | Key Variables | Required |
+|----------|--------------|:--------:|
+| **Database** | `DATABASE_URL` | Yes |
+| **Auth** | `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET` | Yes |
+| **Encryption** | `ENCRYPTION_KEY` | Recommended |
+| **Microsoft SSO** | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` | No |
+| **Email** | `EMAIL_PROVIDER`, provider API keys | No |
+| **Storage** | `STORAGE_PROVIDER` (`local`, `s3`, `azure`) | No |
+| **Integrations** | Slack/Teams webhooks, Freshdesk API key | No |
+| **Billing** | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | No |
+| **Redis** | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | No |
+| **CAPTCHA** | `TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | No |
+| **Self-hosted** | `SELF_HOSTED=true` — disables landing page, pricing, registration | No |
+
 ---
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `bun dev` | Start dev server with Turbopack |
+| `bun dev` | Start dev server (Turbopack) |
 | `bun run build` | Production build |
 | `bun start` | Start production server |
-| `bun run lint` | Run ESLint |
-| `bun run format` | Format code with Prettier |
-| `bun run test` | Run unit tests (Vitest) |
-| `bun run test:e2e` | Run E2E tests (Playwright) |
-| `bun run db:seed` | Seed the database |
-| `bun run db:demo-seed` | Seed with demo data |
-| `bun run create-admin` | Create an admin user |
+| `bun run lint` | ESLint |
+| `bun run format` | Prettier |
+| `bun run test` | Unit tests (Vitest) |
+| `bun run test:e2e` | E2E tests (Playwright) |
+| `bun run db:seed` | Seed database |
+| `bun run create-admin` | Create admin user |
 
 ---
 
@@ -165,66 +271,24 @@ docker run -p 3000:3000 --env-file .env asset-tracker
 
 ```
 src/
-├── app/                    # Next.js App Router pages & API routes
+├── app/                    # Next.js App Router — pages & API routes
 │   ├── api/                # 100+ REST API endpoints
 │   ├── assets/             # Asset management pages
-│   ├── dashboard/          # Dashboard with customizable widgets
+│   ├── dashboard/          # Customizable widget dashboard
 │   ├── admin/              # Admin settings & configuration
-│   ├── login/              # Auth pages (login, MFA, password reset)
-│   └── ...                 # Accessories, licences, consumables, etc.
-├── components/             # Shared UI components (shadcn/ui based)
-├── hooks/                  # Custom React hooks (usePermissions, useSession, etc.)
+│   └── ...                 # Licences, accessories, consumables, etc.
+├── components/             # Shared UI components (shadcn/ui)
+├── hooks/                  # Custom React hooks
 ├── lib/                    # Core utilities
-│   ├── integrations/       # Slack/Teams notification module
+│   ├── integrations/       # Slack / Teams notification module
+│   ├── storage/            # Pluggable file storage (local, S3, Azure)
 │   ├── rbac.ts             # Permission system (35 permissions)
 │   ├── workflow-engine.ts  # Automated workflow execution
-│   ├── gdpr-retention.ts   # GDPR retention enforcement
-│   ├── tenant-limits.ts    # Plan-based resource limits
 │   └── ...                 # Auth, validation, encryption, webhooks
 └── ui/                     # Page-specific UI components
 prisma/
 └── schema.prisma           # Data model (42 models)
 ```
-
----
-
-## Environment Variables
-
-Copy `.env.example` for the full list. Key groups:
-
-| Category | Variables | Required |
-|----------|-----------|----------|
-| Database | `DATABASE_URL` | Yes |
-| Auth | `NEXTAUTH_URL`, `NEXTAUTH_SECRET` | Yes |
-| Encryption | `ENCRYPTION_KEY` | Recommended |
-| Email | `EMAIL_PROVIDER`, provider-specific keys | No |
-| Storage | `STORAGE_PROVIDER`, `S3_*` or `UPLOAD_DIR` | No |
-| Integrations | Slack/Teams webhook URLs, Freshdesk keys | No |
-| Billing | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | No |
-| Redis | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | No |
-
----
-
-## Deployment
-
-Asset Tracker can be deployed anywhere that supports Next.js:
-
-- **Vercel** — zero-config deployment with built-in cron scheduling
-- **Docker** — self-hosted with the included Dockerfile
-- **Any Node.js host** — `bun run build && bun start`
-
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment guide for Vercel, Docker, and self-hosting |
-| [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md) | Developer quick start — auth patterns, permissions, multi-tenancy |
-| [SECURITY_GUIDE.md](docs/SECURITY_GUIDE.md) | Security architecture and implementation details |
-| [DEVELOPMENT_NOTES.md](docs/DEVELOPMENT_NOTES.md) | Architecture decisions and implementation history |
 
 ---
 
@@ -234,10 +298,9 @@ Contributions are welcome! Please:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Make your changes and add tests where appropriate
-4. Run linting and tests (`bun run lint && bun run test`)
-5. Commit with a conventional commit message
-6. Open a Pull Request
+3. Run linting and tests (`bun run lint && bun run test`)
+4. Commit with a conventional commit message
+5. Open a Pull Request
 
 This project uses [Husky](https://typicode.github.io/husky/) pre-commit hooks with Prettier and ESLint.
 
@@ -245,6 +308,6 @@ This project uses [Husky](https://typicode.github.io/husky/) pre-commit hooks wi
 
 ## License
 
-This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.
 
 Copyright (c) 2026 Luca Gerlich

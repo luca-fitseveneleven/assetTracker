@@ -72,7 +72,7 @@ export default function DepartmentsTab() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ name: "", description: "", organizationId: organizations[0]?.id || "", parentId: "" });
+    setForm({ name: "", description: "", organizationId: organizations[0]?.id || "", parentId: "none" });
     setDialogOpen(true);
   };
 
@@ -82,7 +82,7 @@ export default function DepartmentsTab() {
       name: dept.name,
       description: dept.description || "",
       organizationId: dept.organizationId,
-      parentId: dept.parentId || "",
+      parentId: dept.parentId || "none",
     });
     setDialogOpen(true);
   };
@@ -108,7 +108,7 @@ export default function DepartmentsTab() {
         description: form.description.trim() || null,
         organizationId: form.organizationId,
       };
-      if (form.parentId) body.parentId = form.parentId;
+      if (form.parentId && form.parentId !== "none") body.parentId = form.parentId;
 
       const res = await fetch(url, {
         method,
@@ -245,7 +245,7 @@ export default function DepartmentsTab() {
               <Label htmlFor="dept-org">Organization</Label>
               <Select
                 value={form.organizationId}
-                onValueChange={(v) => setForm((f) => ({ ...f, organizationId: v, parentId: "" }))}
+                onValueChange={(v) => setForm((f) => ({ ...f, organizationId: v, parentId: "none" }))}
               >
                 <SelectTrigger id="dept-org">
                   <SelectValue placeholder="Select organization..." />
@@ -268,7 +268,7 @@ export default function DepartmentsTab() {
                     <SelectValue placeholder="None (top-level)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None (top-level)</SelectItem>
+                    <SelectItem value="none">None (top-level)</SelectItem>
                     {parentOptions.map((d) => (
                       <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                     ))}

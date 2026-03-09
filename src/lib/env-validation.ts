@@ -46,9 +46,9 @@ export const ENV_CONFIG: EnvVarConfig[] = [
     validateMessage: "Must be 'true' or 'false'",
   },
 
-  // NextAuth
+  // BetterAuth
   {
-    name: "NEXTAUTH_URL",
+    name: "BETTER_AUTH_URL",
     required: true,
     description: "Base URL of the application (e.g., http://localhost:3000)",
     validate: (v) => {
@@ -62,10 +62,10 @@ export const ENV_CONFIG: EnvVarConfig[] = [
     validateMessage: "Must be a valid URL",
   },
   {
-    name: "NEXTAUTH_SECRET",
+    name: "BETTER_AUTH_SECRET",
     required: true,
     description:
-      "Secret key for NextAuth.js session encryption (generate with: openssl rand -base64 32)",
+      "Secret key for session encryption (generate with: openssl rand -base64 32)",
     sensitive: true,
     validate: (v) => v.length >= 32,
     validateMessage: "Must be at least 32 characters long",

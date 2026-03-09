@@ -18,8 +18,6 @@ import { Info, Shield } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
-const MICROSOFT_AUTH_ENABLED =
-  process.env.NEXT_PUBLIC_AUTH_MICROSOFT === "true";
 
 /**
  * Lightweight Turnstile hook — loads the script once and renders the widget
@@ -87,6 +85,7 @@ function useTurnstile(containerRef: React.RefObject<HTMLDivElement | null>) {
 
 interface LoginPageProps {
   isDemo?: boolean;
+  microsoftEnabled?: boolean;
 }
 
 interface SsoStatus {
@@ -95,7 +94,7 @@ interface SsoStatus {
   providerName: string;
 }
 
-export default function LoginPage({ isDemo = false }: LoginPageProps) {
+export default function LoginPage({ isDemo = false, microsoftEnabled = false }: LoginPageProps) {
   const router = useRouter();
   const [formData, setFormData] = useState({
     username: "",
@@ -280,7 +279,7 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          {(ssoStatus || MICROSOFT_AUTH_ENABLED) && (
+          {(ssoStatus || microsoftEnabled) && (
             <>
               <div className="relative my-4">
                 <Separator />
@@ -289,7 +288,7 @@ export default function LoginPage({ isDemo = false }: LoginPageProps) {
                 </span>
               </div>
               <div className="flex flex-col gap-2">
-                {MICROSOFT_AUTH_ENABLED && (
+                {microsoftEnabled && (
                   <Button
                     variant="outline"
                     className="w-full"

@@ -184,6 +184,10 @@ export const auth = betterAuth({
   },
 
   account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["microsoft"],
+    },
     modelName: "accounts",
     fields: {
       userId: "userId",

@@ -19,6 +19,7 @@ import { Toaster, toast } from "sonner";
 import SelectWithQuickCreate, {
   type QuickCreateOption,
 } from "@/components/SelectWithQuickCreate";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 
 const statusSort = (a, b) => a.statustypename.localeCompare(b.statustypename);
 
@@ -115,6 +116,12 @@ export default function AccessoryCreateForm({
     () => [...statusOptions].sort((a, b) => a.label.localeCompare(b.label)),
     [statusOptions],
   );
+
+  const isDirty =
+    mode === "create"
+      ? form.accessoriename !== "" || form.accessorietag !== ""
+      : JSON.stringify(form) !== JSON.stringify(initialData);
+  useUnsavedChanges(isDirty);
 
   const onChange = (e) => {
     const { name, value } = e.target;

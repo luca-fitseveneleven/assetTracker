@@ -19,12 +19,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Toaster, toast } from "sonner";
+import { Wand2 } from "lucide-react";
 import CustomFieldsSection from "@/components/CustomFieldsSection";
 import SelectWithQuickCreate, {
   type QuickCreateOption,
 } from "@/components/SelectWithQuickCreate";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 
 export default function AssetCreateForm({
   categories: initialCategories,
@@ -75,6 +77,7 @@ export default function AssetCreateForm({
       })),
   );
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -82,28 +85,32 @@ export default function AssetCreateForm({
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [assettagTaken, setAssettagTaken] = useState(false);
   const [serialTaken, setSerialTaken] = useState(false);
+  const [generatingTag, setGeneratingTag] = useState(false);
   const [customFieldValues, setCustomFieldValues] = useState<
     Record<string, string | null>
   >({});
-  const [form, setForm] = useState({
-    assetname: "",
+  const [form, setForm] = useState(() => ({
+    assetname: searchParams.get("assetname") || "",
     assettag: "",
     serialnumber: "",
-    modelid: "",
-    specs: "",
+    modelid: searchParams.get("modelid") || "",
+    specs: searchParams.get("specs") || "",
     notes: "",
-    purchaseprice: "",
+    purchaseprice: searchParams.get("purchaseprice") || "",
     purchasedate: "",
-    mobile: false,
-    requestable: false,
-    assetcategorytypeid: "",
-    statustypeid: "",
-    supplierid: "",
-    locationid: "",
-    manufacturerid: "",
-    warrantyMonths: "",
+    mobile: searchParams.get("mobile") === "true",
+    requestable: searchParams.get("requestable") === "true",
+    assetcategorytypeid: searchParams.get("assetcategorytypeid") || "",
+    statustypeid: searchParams.get("statustypeid") || "",
+    supplierid: searchParams.get("supplierid") || "",
+    locationid: searchParams.get("locationid") || "",
+    manufacturerid: searchParams.get("manufacturerid") || "",
+    warrantyMonths: searchParams.get("warrantyMonths") || "",
     warrantyExpires: "",
-  });
+  }));
+  const isDirty =
+    form.assetname !== "" || form.assettag !== "" || form.serialnumber !== "";
+  useUnsavedChanges(isDirty);
 
   // Preselect default status "Available" if present
   useEffect(() => {
@@ -489,24 +496,50 @@ export default function AssetCreateForm({
             <div className="grid grid-cols-1 gap-3">
               <div>
                 <Label htmlFor="assettag">Asset Tag *</Label>
-                <Input
-                  id="assettag"
-                  name="assettag"
-                  value={form.assettag}
-                  onChange={onChange}
-                  onBlur={async () => {
-                    if (!form.assettag) return;
-                    try {
-                      const res = await fetch(
-                        `/api/asset/validate?assettag=${encodeURIComponent(form.assettag)}`,
-                      );
-                      const data = await res.json();
-                      setAssettagTaken(Boolean(data?.assettag?.exists));
-                    } catch {}
-                  }}
-                  className={assettagTaken ? "border-red-500" : ""}
-                  required
-                />
+                <div className="flex gap-1.5">
+                  <Input
+                    id="assettag"
+                    name="assettag"
+                    value={form.assettag}
+                    onChange={onChange}
+                    onBlur={async () => {
+                      if (!form.assettag) return;
+                      try {
+                        const res = await fetch(
+                          `/api/asset/validate?assettag=${encodeURIComponent(form.assettag)}`,
+                        );
+                        const data = await res.json();
+                        setAssettagTaken(Boolean(data?.assettag?.exists));
+                      } catch {}
+                    }}
+                    className={assettagTaken ? "border-red-500" : ""}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    title="Generate asset tag"
+                    disabled={generatingTag}
+                    onClick={async () => {
+                      setGeneratingTag(true);
+                      try {
+                        const res = await fetch("/api/asset/nextTag");
+                        if (!res.ok) throw new Error("Failed to generate tag");
+                        const data = await res.json();
+                        setForm((f) => ({ ...f, assettag: data.tag }));
+                        setAssettagTaken(false);
+                      } catch (err) {
+                        toast.error("Failed to generate tag");
+                      } finally {
+                        setGeneratingTag(false);
+                      }
+                    }}
+                  >
+                    <Wand2 className="h-4 w-4" />
+                  </Button>
+                </div>
                 {assettagTaken && (
                   <p className="mt-1 text-sm text-red-500">
                     Asset tag already exists

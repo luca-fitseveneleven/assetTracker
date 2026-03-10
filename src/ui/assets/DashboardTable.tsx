@@ -1,5 +1,11 @@
 "use client";
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useUrlState } from "@/hooks/useUrlState";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import { Badge } from "@/components/ui/badge";
@@ -116,37 +122,38 @@ export default function App({
   // Derived values from URL state
   const filterValue = urlState.search;
   const page = Number(urlState.page) || 1;
-  const rowsPerPage = Number(urlState.pageSize) || Number(selectOptions[0].value);
+  const rowsPerPage =
+    Number(urlState.pageSize) || Number(selectOptions[0].value);
   const sortDescriptor = useMemo(
     () => ({ column: urlState.sortCol, direction: urlState.sortDir }),
-    [urlState.sortCol, urlState.sortDir]
+    [urlState.sortCol, urlState.sortDir],
   );
   const statusFilter = useMemo<Set<string>>(
     () => new Set(urlState.status ? urlState.status.split(",") : []),
-    [urlState.status]
+    [urlState.status],
   );
 
   // Convenience setters that update URL state
   const setFilterValue = useCallback(
     (v: string) => setUrlState({ search: v, page: "1" }),
-    [setUrlState]
+    [setUrlState],
   );
   const setPage = useCallback(
     (p: number) => setUrlState({ page: String(p) }),
-    [setUrlState]
+    [setUrlState],
   );
   const setRowsPerPage = useCallback(
     (n: number) => setUrlState({ pageSize: String(n), page: "1" }),
-    [setUrlState]
+    [setUrlState],
   );
   const setSortDescriptor = useCallback(
     (desc: { column: string; direction: string }) =>
       setUrlState({ sortCol: desc.column, sortDir: desc.direction }),
-    [setUrlState]
+    [setUrlState],
   );
   const setStatusFilter = useCallback(
     (s: Set<string>) => setUrlState({ status: Array.from(s).join(",") }),
-    [setUrlState]
+    [setUrlState],
   );
 
   // -- Local-only state (not shareable via URL) --
@@ -154,12 +161,15 @@ export default function App({
   const [deleteButtonActive, setDeleteButtonActive] = useState(false);
   const [persistedColumns, setPersistedColumns] = usePersistentState<string[]>(
     "columns:assets",
-    INITIAL_VISIBLE_COLUMNS
+    INITIAL_VISIBLE_COLUMNS,
   );
-  const visibleColumns = useMemo(() => new Set(persistedColumns), [persistedColumns]);
+  const visibleColumns = useMemo(
+    () => new Set(persistedColumns),
+    [persistedColumns],
+  );
   const setVisibleColumns = useCallback(
     (s: Set<string>) => setPersistedColumns(Array.from(s)),
-    [setPersistedColumns]
+    [setPersistedColumns],
   );
   const [assetsData, setAssetsData] = useState(data);
   const [userAssetsData, setUserAssetsData] = useState(userAssets);
@@ -167,12 +177,17 @@ export default function App({
   const [lastUpdated, setLastUpdated] = useState(null);
   const [now, setNow] = useState(null);
   const [mounted, setMounted] = useState(false);
-  
+
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isQRCodeModalOpen, setIsQRCodeModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
+  const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
+  const [isBulkLocationModalOpen, setIsBulkLocationModalOpen] = useState(false);
+  const [bulkStatusId, setBulkStatusId] = useState("");
+  const [bulkLocationId, setBulkLocationId] = useState("");
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -193,14 +208,18 @@ export default function App({
         const updated = await res.json();
         toast.success("Status updated", { description: updated.assettag });
         setAssetsData((prev) =>
-          prev.map((a) => (a.assetid === assetId ? { ...a, statustypeid: updated.statustypeid } : a))
+          prev.map((a) =>
+            a.assetid === assetId
+              ? { ...a, statustypeid: updated.statustypeid }
+              : a,
+          ),
         );
       } catch (e) {
         console.error(e);
         toast.error("Status update failed", { description: e.message });
       }
     },
-    [setAssetsData]
+    [setAssetsData],
   );
 
   const hasSearchFilter = Boolean(filterValue);
@@ -227,14 +246,18 @@ export default function App({
           description: `${assetId} deleted successfully`,
         });
 
-        setAssetsData((prevItems) => prevItems.filter((item) => item.assetid !== assetId));
-        setUserAssetsData((prev) => prev.filter((ua) => ua.assetid !== assetId));
+        setAssetsData((prevItems) =>
+          prevItems.filter((item) => item.assetid !== assetId),
+        );
+        setUserAssetsData((prev) =>
+          prev.filter((ua) => ua.assetid !== assetId),
+        );
       } catch (error) {
         toast.error("Error deleting asset", { description: error });
         console.error(error);
       }
     },
-    [setAssetsData, setUserAssetsData]
+    [setAssetsData, setUserAssetsData],
   );
 
   const handleAssign = useCallback(
@@ -261,13 +284,20 @@ export default function App({
           const existing = prev.find((ua) => ua.assetid === assetId);
           if (existing) {
             return prev.map((ua) =>
-              ua.assetid === assetId ? { ...ua, userid: userId, change_date: new Date().toISOString() } : ua
+              ua.assetid === assetId
+                ? {
+                    ...ua,
+                    userid: userId,
+                    change_date: new Date().toISOString(),
+                  }
+                : ua,
             );
           }
           return [
             ...prev,
             {
-              userassetsid: result?.userAsset?.userassetsid || `${assetId}-${userId}`,
+              userassetsid:
+                result?.userAsset?.userassetsid || `${assetId}-${userId}`,
               assetid: assetId,
               userid: userId,
               creation_date: new Date().toISOString(),
@@ -276,19 +306,24 @@ export default function App({
           ];
         });
         // Also reflect status = Active locally if we can resolve it
-        const active = status.find((s) => s.statustypename?.toLowerCase() === "active");
+        const active = status.find(
+          (s) => s.statustypename?.toLowerCase() === "active",
+        );
         if (active) {
           setAssetsData((prev) =>
-            prev.map((a) => (a.assetid === assetId ? { ...a, statustypeid: active.statustypeid } : a))
+            prev.map((a) =>
+              a.assetid === assetId
+                ? { ...a, statustypeid: active.statustypeid }
+                : a,
+            ),
           );
         }
       } catch (error) {
         console.error("Error:", error);
       }
     },
-    [setAssetsData, setUserAssetsData, status]
+    [setAssetsData, setUserAssetsData, status],
   );
-
 
   const handleUnassign = useCallback(
     async (assetId, userId) => {
@@ -308,24 +343,99 @@ export default function App({
 
         const result = await response.json();
         // Remove mapping locally
-        setUserAssetsData((prev) => prev.filter((ua) => ua.assetid !== assetId));
+        setUserAssetsData((prev) =>
+          prev.filter((ua) => ua.assetid !== assetId),
+        );
         // Reflect status = Available locally if we can resolve it
-        const available = status.find((s) => s.statustypename?.toLowerCase() === "available");
+        const available = status.find(
+          (s) => s.statustypename?.toLowerCase() === "available",
+        );
         if (available) {
           setAssetsData((prev) =>
-            prev.map((a) => (a.assetid === assetId ? { ...a, statustypeid: available.statustypeid } : a))
+            prev.map((a) =>
+              a.assetid === assetId
+                ? { ...a, statustypeid: available.statustypeid }
+                : a,
+            ),
           );
         }
       } catch (error) {
         console.error("Error:", error);
       }
     },
-    [setAssetsData, setUserAssetsData, status]
+    [setAssetsData, setUserAssetsData, status],
   );
+
+  const handleBulkStatusChange = useCallback(async () => {
+    if (!bulkStatusId || selectedKeys.size === 0) return;
+    setBulkUpdating(true);
+    try {
+      const ids = Array.from(selectedKeys);
+      await Promise.all(
+        ids.map((assetId) =>
+          fetch("/api/asset/updateStatus", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assetId, statusTypeId: bulkStatusId }),
+          }),
+        ),
+      );
+      setAssetsData((prev) =>
+        prev.map((a) =>
+          selectedKeys.has(a.assetid)
+            ? { ...a, statustypeid: bulkStatusId }
+            : a,
+        ),
+      );
+      toast.success(`Status updated for ${ids.length} asset(s)`);
+      setIsBulkStatusModalOpen(false);
+      setBulkStatusId("");
+      setSelectedKeys(new Set([]));
+    } catch (e) {
+      toast.error("Bulk status update failed", { description: e.message });
+    } finally {
+      setBulkUpdating(false);
+    }
+  }, [bulkStatusId, selectedKeys, setAssetsData]);
+
+  const handleBulkLocationChange = useCallback(async () => {
+    if (!bulkLocationId || selectedKeys.size === 0) return;
+    setBulkUpdating(true);
+    try {
+      const ids = Array.from(selectedKeys);
+      await Promise.all(
+        ids.map((assetId) =>
+          fetch("/api/asset", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              assetid: assetId,
+              locationid: bulkLocationId,
+            }),
+          }),
+        ),
+      );
+      setAssetsData((prev) =>
+        prev.map((a) =>
+          selectedKeys.has(a.assetid)
+            ? { ...a, locationid: bulkLocationId }
+            : a,
+        ),
+      );
+      toast.success(`Location updated for ${ids.length} asset(s)`);
+      setIsBulkLocationModalOpen(false);
+      setBulkLocationId("");
+      setSelectedKeys(new Set([]));
+    } catch (e) {
+      toast.error("Bulk location update failed", { description: e.message });
+    } finally {
+      setBulkUpdating(false);
+    }
+  }, [bulkLocationId, selectedKeys, setAssetsData]);
 
   const handleUserSelection = (value) => {
     // Check if value is empty or null and set selectedUser accordingly
-    if (!value || value.size === 0 || (typeof value === 'string' && !value)) {
+    if (!value || value.size === 0 || (typeof value === "string" && !value)) {
       setSelectedUser(null);
     } else if (value instanceof Set) {
       // If it's a Set, get the first value
@@ -357,47 +467,44 @@ export default function App({
     setDeleteButtonActive(selectedKeys.size > 0);
   }, [selectedKeys]);
 
-  const handleOpenModal = useCallback(
-    (asset, target) => {
-      switch (target) {
-        case "assign":
-          setSelectedAsset(asset);
-          setIsAssignModalOpen(true);
-          break;
-        case "status":
-          setSelectedAsset(asset);
-          setIsStatusModalOpen(true);
-          break;
-        case "delete":
-          setSelectedAsset(asset);
-          setDeleteMode("single");
-          setIsDeleteModalOpen(true);
-          break;
-        case "delete-bulk":
-          setSelectedAsset(null);
-          setDeleteMode("bulk");
-          setIsDeleteModalOpen(true);
-          break;
-        case "qrcode":
-          setSelectedAsset(asset);
-          setIsQRCodeModalOpen(true);
-          break;
-        case "label":
-          setSelectedAsset(asset);
-          setIsLabelModalOpen(true);
-          break;
-        default:
-          break;
-      }
-    },
-    []
-  );
+  const handleOpenModal = useCallback((asset, target) => {
+    switch (target) {
+      case "assign":
+        setSelectedAsset(asset);
+        setIsAssignModalOpen(true);
+        break;
+      case "status":
+        setSelectedAsset(asset);
+        setIsStatusModalOpen(true);
+        break;
+      case "delete":
+        setSelectedAsset(asset);
+        setDeleteMode("single");
+        setIsDeleteModalOpen(true);
+        break;
+      case "delete-bulk":
+        setSelectedAsset(null);
+        setDeleteMode("bulk");
+        setIsDeleteModalOpen(true);
+        break;
+      case "qrcode":
+        setSelectedAsset(asset);
+        setIsQRCodeModalOpen(true);
+        break;
+      case "label":
+        setSelectedAsset(asset);
+        setIsLabelModalOpen(true);
+        break;
+      default:
+        break;
+    }
+  }, []);
 
   const headerColumns = useMemo(() => {
     if (visibleColumns.size === columns?.length) return columns;
 
     return columns?.filter((column) =>
-      Array.from(visibleColumns).includes(column.uid)
+      Array.from(visibleColumns).includes(column.uid),
     );
   }, [visibleColumns, columns]);
 
@@ -409,13 +516,13 @@ export default function App({
         (data) =>
           data.assetname.toLowerCase().includes(filterValue.toLowerCase()) ||
           data.assettag.toLowerCase().includes(filterValue.toLowerCase()) ||
-          data.serialnumber.toLowerCase().includes(filterValue.toLowerCase())
+          data.serialnumber.toLowerCase().includes(filterValue.toLowerCase()),
       );
     }
     if (statusFilter.size !== statusOptions.length) {
       filteredAssets = filteredAssets.filter((asset) => {
         const assetStatus = status.find(
-          (stat) => stat.statustypeid === asset.statustypeid
+          (stat) => stat.statustypeid === asset.statustypeid,
         );
         return (
           assetStatus &&
@@ -440,20 +547,20 @@ export default function App({
       switch (sortDescriptor.column) {
         case "locationid":
           const locationA = locations.find(
-            (loc) => loc.locationid === a.locationid
+            (loc) => loc.locationid === a.locationid,
           );
           const locationB = locations.find(
-            (loc) => loc.locationid === b.locationid
+            (loc) => loc.locationid === b.locationid,
           );
           first = locationA ? locationA.locationname : "";
           second = locationB ? locationB.locationname : "";
           break;
         case "manufacturerid":
           const manufacturerA = manufacturers.find(
-            (manu) => manu.manufacturerid === a.manufacturerid
+            (manu) => manu.manufacturerid === a.manufacturerid,
           );
           const manufacturerB = manufacturers.find(
-            (manu) => manu.manufacturerid === b.manufacturerid
+            (manu) => manu.manufacturerid === b.manufacturerid,
           );
           first = manufacturerA ? manufacturerA.manufacturername : "";
           second = manufacturerB ? manufacturerB.manufacturername : "";
@@ -466,20 +573,20 @@ export default function App({
           break;
         case "assetcategorytypeid":
           const categoryA = categories.find(
-            (cat) => cat.assetcategorytypeid === a.assetcategorytypeid
+            (cat) => cat.assetcategorytypeid === a.assetcategorytypeid,
           );
           const categoryB = categories.find(
-            (cat) => cat.assetcategorytypeid === b.assetcategorytypeid
+            (cat) => cat.assetcategorytypeid === b.assetcategorytypeid,
           );
           first = categoryA ? categoryA.assetcategorytypename : "";
           second = categoryB ? categoryB.assetcategorytypename : "";
           break;
         case "statustypeid":
           const statusA = status.find(
-            (st) => st.statustypeid === a.statustypeid
+            (st) => st.statustypeid === a.statustypeid,
           );
           const statusB = status.find(
-            (st) => st.statustypeid === b.statustypeid
+            (st) => st.statustypeid === b.statustypeid,
           );
           first = statusA ? statusA.statustypename : "";
           second = statusB ? statusB.statustypename : "";
@@ -543,14 +650,14 @@ export default function App({
         case "serialnumber":
           return (
             <div className="flex flex-col">
-              <p className="text-bold  text-small capitalize ">
+              <p className="text-bold text-small capitalize">
                 {asset.serialnumber}
               </p>
             </div>
           );
         case "belongsto":
           const userAssetEntry = userAssetsData.find(
-            (ua) => ua.assetid === asset.assetid
+            (ua) => ua.assetid === asset.assetid,
           );
           if (!userAssetEntry) {
             return (
@@ -560,7 +667,7 @@ export default function App({
             );
           }
           const belongingUser = user.find(
-            (user) => user.userid === userAssetEntry.userid
+            (user) => user.userid === userAssetEntry.userid,
           );
           const userName = belongingUser
             ? belongingUser.firstname + " " + belongingUser.lastname
@@ -573,7 +680,7 @@ export default function App({
           );
         case "manufacturerid":
           const manu = manufacturers.find(
-            (manu) => manu.manufacturerid === asset.manufacturerid
+            (manu) => manu.manufacturerid === asset.manufacturerid,
           );
           return (
             <div className="flex flex-col">
@@ -607,9 +714,10 @@ export default function App({
           );
         case "statustypeid":
           const stat = status.find(
-            (s) => s.statustypeid === asset.statustypeid
+            (s) => s.statustypeid === asset.statustypeid,
           );
-          const badgeVariant = statusColorMap[stat?.statustypename] || "default";
+          const badgeVariant =
+            statusColorMap[stat?.statustypename] || "default";
           return (
             <Badge className="capitalize" variant={badgeVariant}>
               {stat?.statustypename || "Unknown"}
@@ -617,7 +725,7 @@ export default function App({
           );
         case "assetcategorytypeid":
           const cat = categories.find(
-            (cat) => cat.assetcategorytypeid === asset.assetcategorytypeid
+            (cat) => cat.assetcategorytypeid === asset.assetcategorytypeid,
           );
           return (
             <div className="flex flex-col">
@@ -641,7 +749,7 @@ export default function App({
         case "locationid":
           // Find the matching location object based on the asset's locationid
           const location = locations.find(
-            (loc) => loc.locationid === asset.locationid
+            (loc) => loc.locationid === asset.locationid,
           );
           return (
             <div className="flex flex-col">
@@ -662,7 +770,7 @@ export default function App({
           return (
             <div className="relative flex items-center gap-0">
               <Button
-                className="text-lg text-muted-foreground cursor-pointer hover:opacity-80 h-6 w-6"
+                className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
                 asChild
                 size="icon"
                 variant="ghost"
@@ -672,7 +780,7 @@ export default function App({
                 </Link>
               </Button>
               <Button
-                className="text-lg text-muted-foreground cursor-pointer hover:opacity-80 h-6 w-6"
+                className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
                 asChild
                 size="icon"
                 variant="ghost"
@@ -682,7 +790,7 @@ export default function App({
                 </Link>
               </Button>
               <Button
-                className="text-lg text-muted-foreground cursor-pointer hover:opacity-80 h-6 w-6"
+                className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
                 size="icon"
                 variant="ghost"
                 onClick={() => handleOpenModal(asset, "assign")}
@@ -693,7 +801,7 @@ export default function App({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    className="text-lg text-muted-foreground cursor-pointer hover:opacity-80 h-6 w-6"
+                    className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
                     size="icon"
                     variant="ghost"
                   >
@@ -743,16 +851,22 @@ export default function App({
       user,
       userAssetsData,
       handleOpenModal,
-    ]
+    ],
   );
 
-  const onRowsPerPageChange = useCallback((e) => {
-    setRowsPerPage(Number(e.target.value));
-  }, [setRowsPerPage]);
+  const onRowsPerPageChange = useCallback(
+    (e) => {
+      setRowsPerPage(Number(e.target.value));
+    },
+    [setRowsPerPage],
+  );
 
-  const onSearchChange = useCallback((value) => {
-    setFilterValue(value);
-  }, [setFilterValue]);
+  const onSearchChange = useCallback(
+    (value) => {
+      setFilterValue(value);
+    },
+    [setFilterValue],
+  );
 
   const onClear = useCallback(() => {
     setFilterValue("");
@@ -817,7 +931,11 @@ export default function App({
       if (e.key !== "r" && e.key !== "R") return;
       const target = e.target;
       const tag = target?.tagName?.toLowerCase();
-      const isEditable = target?.isContentEditable || tag === "input" || tag === "textarea" || tag === "select";
+      const isEditable =
+        target?.isContentEditable ||
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select";
       if (isEditable) return;
       e.preventDefault();
       refreshData();
@@ -865,9 +983,9 @@ export default function App({
 
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex justify-between gap-3 items-end">
+        <div className="flex items-end justify-between gap-3">
           <div className="relative w-full sm:max-w-[44%]">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               className="pl-9"
               placeholder="Search for an Item..."
@@ -938,9 +1056,12 @@ export default function App({
                 columns: Array.from(visibleColumns),
               }}
               onApplyFilter={(filters: Record<string, unknown>) => {
-                if (filters.search !== undefined) setFilterValue(filters.search as string);
-                if (filters.statuses) setStatusFilter(new Set(filters.statuses as string[]));
-                if (filters.columns) setVisibleColumns(new Set(filters.columns as string[]));
+                if (filters.search !== undefined)
+                  setFilterValue(filters.search as string);
+                if (filters.statuses)
+                  setStatusFilter(new Set(filters.statuses as string[]));
+                if (filters.columns)
+                  setVisibleColumns(new Set(filters.columns as string[]));
               }}
             />
             <DropdownMenu>
@@ -951,7 +1072,16 @@ export default function App({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>Edit Entries</DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setIsBulkStatusModalOpen(true)}
+                >
+                  Change Status
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setIsBulkLocationModalOpen(true)}
+                >
+                  Change Location
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={() => handleOpenModal(null, "delete-bulk")}
@@ -960,7 +1090,11 @@ export default function App({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" onClick={() => refreshData()} disabled={isRefreshing}>
+            <Button
+              variant="outline"
+              onClick={() => refreshData()}
+              disabled={isRefreshing}
+            >
               {isRefreshing ? "Refreshing..." : "Refresh"}
             </Button>
             <Button asChild>
@@ -971,16 +1105,27 @@ export default function App({
             </Button>
           </div>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground text-sm">
             Total: {assetsData.length} Entries
           </span>
-          <span className="text-sm text-muted-foreground" suppressHydrationWarning>
-            Last updated: {mounted && now ? formatRelativeTime(lastUpdated, now) : "-"}
+          <span
+            className="text-muted-foreground text-sm"
+            suppressHydrationWarning
+          >
+            Last updated:{" "}
+            {mounted && now ? formatRelativeTime(lastUpdated, now) : "-"}
           </span>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Rows per page:</span>
-            <Select value={String(rowsPerPage)} onValueChange={(value) => { setRowsPerPage(Number(value)); }}>
+            <span className="text-muted-foreground text-sm">
+              Rows per page:
+            </span>
+            <Select
+              value={String(rowsPerPage)}
+              onValueChange={(value) => {
+                setRowsPerPage(Number(value));
+              }}
+            >
               <SelectTrigger className="w-20">
                 <SelectValue />
               </SelectTrigger>
@@ -1018,7 +1163,7 @@ export default function App({
   const bottomContent = useMemo(() => {
     return (
       <div className="flex items-center justify-between px-2 py-2">
-        <span className="text-sm text-muted-foreground">
+        <span className="text-muted-foreground text-sm">
           {selectedKeys.size === assetsData.length && assetsData.length > 0
             ? "All items selected"
             : `${selectedKeys.size} of ${assetsData.length} selected`}
@@ -1052,39 +1197,58 @@ export default function App({
     <div className="w-full space-y-4">
       {topContent}
       {/* Mobile: Card view */}
-      <div className="block lg:hidden space-y-3">
+      <div className="block space-y-3 lg:hidden">
         {sortedItems.length === 0 ? (
           <div className="rounded-md border p-8 text-center">
-            <p className="text-sm text-muted-foreground">No assets found</p>
+            <p className="text-muted-foreground text-sm">No assets found</p>
           </div>
         ) : (
           sortedItems.map((item) => {
-            const stat = status.find((s) => s.statustypeid === item.statustypeid);
-            const cat = categories.find((c) => c.assetcategorytypeid === item.assetcategorytypeid);
+            const stat = status.find(
+              (s) => s.statustypeid === item.statustypeid,
+            );
+            const cat = categories.find(
+              (c) => c.assetcategorytypeid === item.assetcategorytypeid,
+            );
             const loc = locations.find((l) => l.locationid === item.locationid);
-            const manu = manufacturers.find((m) => m.manufacturerid === item.manufacturerid);
-            const userAssetEntry = userAssetsData.find((ua) => ua.assetid === item.assetid);
-            const assignedUser = userAssetEntry ? user.find((u) => u.userid === userAssetEntry.userid) : null;
-            const badgeVariant = statusColorMap[stat?.statustypename] || "default";
+            const manu = manufacturers.find(
+              (m) => m.manufacturerid === item.manufacturerid,
+            );
+            const userAssetEntry = userAssetsData.find(
+              (ua) => ua.assetid === item.assetid,
+            );
+            const assignedUser = userAssetEntry
+              ? user.find((u) => u.userid === userAssetEntry.userid)
+              : null;
+            const badgeVariant =
+              statusColorMap[stat?.statustypename] || "default";
 
             return (
               <Card key={item.assetid} className="overflow-hidden">
                 <CardContent className="px-4 py-3">
-                  <div className="flex items-start justify-between mb-2">
+                  <div className="mb-2 flex items-start justify-between">
                     <div className="min-w-0 flex-1">
-                      <Link href={`assets/${item.assetid}/`} className="font-semibold text-sm hover:underline">
+                      <Link
+                        href={`assets/${item.assetid}/`}
+                        className="text-sm font-semibold hover:underline"
+                      >
                         {item.assetname}
                       </Link>
-                      <p className="text-xs text-muted-foreground">{item.assettag}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {item.assettag}
+                      </p>
                     </div>
-                    <Badge className="capitalize shrink-0 ml-2" variant={badgeVariant}>
+                    <Badge
+                      className="ml-2 shrink-0 capitalize"
+                      variant={badgeVariant}
+                    >
                       {stat?.statustypename || "Unknown"}
                     </Badge>
                   </div>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Serial</span>
-                      <span className="truncate ml-2">{item.serialnumber}</span>
+                      <span className="ml-2 truncate">{item.serialnumber}</span>
                     </div>
                     {cat && (
                       <div className="flex justify-between">
@@ -1100,24 +1264,40 @@ export default function App({
                     )}
                     {manu && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Manufacturer</span>
+                        <span className="text-muted-foreground">
+                          Manufacturer
+                        </span>
                         <span>{manu.manufacturername}</span>
                       </div>
                     )}
                     {assignedUser && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Assigned To</span>
-                        <span>{assignedUser.firstname} {assignedUser.lastname}</span>
+                        <span className="text-muted-foreground">
+                          Assigned To
+                        </span>
+                        <span>
+                          {assignedUser.firstname} {assignedUser.lastname}
+                        </span>
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 mt-3 pt-2 border-t">
-                    <Button size="sm" variant="ghost" asChild className="h-8 px-2">
+                  <div className="mt-3 flex items-center gap-1 border-t pt-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      asChild
+                      className="h-8 px-2"
+                    >
                       <Link href={`assets/${item.assetid}/`}>
                         <EyeIcon className="h-4 w-4" />
                       </Link>
                     </Button>
-                    <Button size="sm" variant="ghost" asChild className="h-8 px-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      asChild
+                      className="h-8 px-2"
+                    >
                       <Link href={`assets/${item.assetid}/edit`}>
                         <EditIcon className="h-4 w-4" />
                       </Link>
@@ -1133,21 +1313,34 @@ export default function App({
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="ghost" className="h-8 px-2 ml-auto">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="ml-auto h-8 px-2"
+                        >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenModal(item, "delete")} className="text-destructive focus:text-destructive">
+                        <DropdownMenuItem
+                          onClick={() => handleOpenModal(item, "delete")}
+                          className="text-destructive focus:text-destructive"
+                        >
                           <DeleteIcon className="mr-2 h-4 w-4" /> Delete
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenModal(item, "status")}>
+                        <DropdownMenuItem
+                          onClick={() => handleOpenModal(item, "status")}
+                        >
                           <Status className="mr-2 h-4 w-4" /> Change Status
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenModal(item, "qrcode")}>
+                        <DropdownMenuItem
+                          onClick={() => handleOpenModal(item, "qrcode")}
+                        >
                           <QrCode className="mr-2 h-4 w-4" /> QR Code
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenModal(item, "label")}>
+                        <DropdownMenuItem
+                          onClick={() => handleOpenModal(item, "label")}
+                        >
                           <Label className="mr-2 h-4 w-4" /> Label
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -1161,23 +1354,33 @@ export default function App({
       </div>
 
       {/* Desktop: Table view */}
-      <div className="hidden lg:block w-full overflow-x-auto rounded-md border">
+      <div className="hidden w-full overflow-x-auto rounded-md border lg:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
-                  checked={sortedItems.length > 0 && sortedItems.every((i) => selectedKeys.has(i.assetid))}
+                  checked={
+                    sortedItems.length > 0 &&
+                    sortedItems.every((i) => selectedKeys.has(i.assetid))
+                  }
                   ref={(el) => {
                     if (el) {
-                      const some = sortedItems.some((i) => selectedKeys.has(i.assetid));
-                      const all = sortedItems.length > 0 && sortedItems.every((i) => selectedKeys.has(i.assetid));
-                      (el as unknown as HTMLInputElement).indeterminate = some && !all;
+                      const some = sortedItems.some((i) =>
+                        selectedKeys.has(i.assetid),
+                      );
+                      const all =
+                        sortedItems.length > 0 &&
+                        sortedItems.every((i) => selectedKeys.has(i.assetid));
+                      (el as unknown as HTMLInputElement).indeterminate =
+                        some && !all;
                     }
                   }}
                   onCheckedChange={(checked) => {
                     if (checked) {
-                      setSelectedKeys(new Set(sortedItems.map((i) => i.assetid)));
+                      setSelectedKeys(
+                        new Set(sortedItems.map((i) => i.assetid)),
+                      );
                     } else {
                       setSelectedKeys(new Set());
                     }
@@ -1197,7 +1400,10 @@ export default function App({
           <TableBody>
             {sortedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={headerColumns.length + 1} className="text-center">
+                <TableCell
+                  colSpan={headerColumns.length + 1}
+                  className="text-center"
+                >
                   No assets found
                 </TableCell>
               </TableRow>
@@ -1230,14 +1436,11 @@ export default function App({
         </Table>
       </div>
       {bottomContent}
-      <Dialog
-        open={isAssignModalOpen}
-        onOpenChange={setIsAssignModalOpen}
-      >
+      <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
         <DialogContent className="sm:max-w-lg">
           {(() => {
             const assignedUser = userAssetsData.find(
-              (ua) => ua.assetid === selectedAsset?.assetid
+              (ua) => ua.assetid === selectedAsset?.assetid,
             );
             const assignedUserId = assignedUser ? assignedUser.userid : null;
 
@@ -1247,16 +1450,25 @@ export default function App({
                   <DialogTitle>
                     {assignedUser && selectedAsset
                       ? `Update User for ${selectedAsset?.assetname} from ${
-                          user.find((user) => user.userid === assignedUser.userid)
-                            .firstname
+                          user.find(
+                            (user) => user.userid === assignedUser.userid,
+                          ).firstname
                         }`
                       : `Assign User to ${selectedAsset?.assetname}`}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="py-4">
                   <Select
-                    value={selectedUser ? String(selectedUser) : assignedUserId ? String(assignedUserId) : ""}
-                    onValueChange={(value) => handleUserSelection(new Set([value]))}
+                    value={
+                      selectedUser
+                        ? String(selectedUser)
+                        : assignedUserId
+                          ? String(assignedUserId)
+                          : ""
+                    }
+                    onValueChange={(value) =>
+                      handleUserSelection(new Set([value]))
+                    }
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select a user" />
@@ -1271,7 +1483,10 @@ export default function App({
                   </Select>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAssignModalOpen(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsAssignModalOpen(false)}
+                  >
                     Close
                   </Button>
                   {assignedUser ? (
@@ -1281,7 +1496,7 @@ export default function App({
                         onClick={() => {
                           handleUnassign(
                             selectedAsset?.assetid,
-                            assignedUser.userid
+                            assignedUser.userid,
                           );
                           setTimeout(() => {
                             setSelectedUser(null);
@@ -1324,10 +1539,7 @@ export default function App({
           })()}
         </DialogContent>
       </Dialog>
-      <Dialog
-        open={isDeleteModalOpen}
-        onOpenChange={setIsDeleteModalOpen}
-      >
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -1336,44 +1548,72 @@ export default function App({
                 : `Delete ${selectedAsset?.assetname || "this item"}?`}
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            <p className="text-sm text-muted-foreground">
-              This action permanently removes the asset and its user assignment. This cannot be undone.
+          <div className="space-y-4 py-4">
+            <p className="text-muted-foreground text-sm">
+              This action permanently removes the asset and its user assignment.
+              This cannot be undone.
             </p>
-            {deleteMode === "single" && selectedAsset ? (() => {
-              const assigned = userAssetsData.find((ua) => ua.assetid === selectedAsset.assetid);
-              if (!assigned) return null;
-              const u = user.find((x) => x.userid === assigned.userid);
-              return (
-                <p className="text-sm text-destructive">This asset is currently assigned to {u ? `${u.firstname} ${u.lastname}` : "a user"}.</p>
-              );
-            })() : null}
-            {deleteMode === "bulk" ? (() => {
-              const ids = Array.from(selectedKeys);
-              const assignedCount = userAssetsData.filter((ua) => ids.includes(ua.assetid)).length;
-              if (!assignedCount) return null;
-              return (
-                <div className="flex flex-col gap-2">
-                  <p className="text-sm text-destructive">{assignedCount} selected item(s) are currently assigned to users.</p>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={confirmAssigned} onCheckedChange={(checked) => setConfirmAssigned(checked === true)} />
-                    I understand and want to delete them anyway
-                  </label>
-                </div>
-              );
-            })() : null}
+            {deleteMode === "single" && selectedAsset
+              ? (() => {
+                  const assigned = userAssetsData.find(
+                    (ua) => ua.assetid === selectedAsset.assetid,
+                  );
+                  if (!assigned) return null;
+                  const u = user.find((x) => x.userid === assigned.userid);
+                  return (
+                    <p className="text-destructive text-sm">
+                      This asset is currently assigned to{" "}
+                      {u ? `${u.firstname} ${u.lastname}` : "a user"}.
+                    </p>
+                  );
+                })()
+              : null}
+            {deleteMode === "bulk"
+              ? (() => {
+                  const ids = Array.from(selectedKeys);
+                  const assignedCount = userAssetsData.filter((ua) =>
+                    ids.includes(ua.assetid),
+                  ).length;
+                  if (!assignedCount) return null;
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-destructive text-sm">
+                        {assignedCount} selected item(s) are currently assigned
+                        to users.
+                      </p>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={confirmAssigned}
+                          onCheckedChange={(checked) =>
+                            setConfirmAssigned(checked === true)
+                          }
+                        />
+                        I understand and want to delete them anyway
+                      </label>
+                    </div>
+                  );
+                })()
+              : null}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteModalOpen(false)}
+            >
               Cancel
             </Button>
             <Button
               variant="destructive"
-              disabled={deleteMode === "bulk" && (() => {
-                const ids = Array.from(selectedKeys);
-                const assignedCount = userAssetsData.filter((ua) => ids.includes(ua.assetid)).length;
-                return assignedCount > 0 && !confirmAssigned;
-              })()}
+              disabled={
+                deleteMode === "bulk" &&
+                (() => {
+                  const ids = Array.from(selectedKeys);
+                  const assignedCount = userAssetsData.filter((ua) =>
+                    ids.includes(ua.assetid),
+                  ).length;
+                  return assignedCount > 0 && !confirmAssigned;
+                })()
+              }
               onClick={async () => {
                 if (deleteMode === "bulk") {
                   const ids = Array.from(selectedKeys);
@@ -1393,17 +1633,17 @@ export default function App({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog
-        open={isQRCodeModalOpen}
-        onOpenChange={setIsQRCodeModalOpen}
-      >
+      <Dialog open={isQRCodeModalOpen} onOpenChange={setIsQRCodeModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="bg-white text-black">
               QR-Code for {selectedAsset?.assettag}
             </DialogTitle>
           </DialogHeader>
-          <div ref={qrRef} className="flex justify-center items-center bg-white py-4">
+          <div
+            ref={qrRef}
+            className="flex items-center justify-center bg-white py-4"
+          >
             <QRCodeCanvas
               value={`http://192.168.0.81:3000/assets/${selectedAsset?.assetid}`}
               size={256}
@@ -1414,44 +1654,42 @@ export default function App({
             />
           </div>
           <DialogFooter className="bg-white">
-            <Button variant="outline" onClick={() => setIsQRCodeModalOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsQRCodeModalOpen(false)}
+            >
               Close
             </Button>
-            <Button onClick={handleDownload}>
-              Download
-            </Button>
+            <Button onClick={handleDownload}>Download</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={isStatusModalOpen}
-        onOpenChange={setIsStatusModalOpen}
-      >
+      <Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen}>
         <DialogContent className="sm:max-w-lg">
           {(() => {
             const assignedStatus = status.find(
-              (stat) => stat.statustypeid === selectedAsset?.statustypeid
+              (stat) => stat.statustypeid === selectedAsset?.statustypeid,
             );
 
             const assignedUser = userAssetsData.find(
-              (ua) => ua.assetid === selectedAsset?.assetid
+              (ua) => ua.assetid === selectedAsset?.assetid,
             );
 
             const disabledKeys = new Set(
-              assignedStatus ? [assignedStatus.statustypeid] : []
+              assignedStatus ? [assignedStatus.statustypeid] : [],
             );
 
             if (assignedUser) {
               const availableStatus = status.find(
-                (stat) => stat.statustypename.toLowerCase() === "available"
+                (stat) => stat.statustypename.toLowerCase() === "available",
               );
               if (availableStatus) {
                 disabledKeys.add(availableStatus.statustypeid);
               }
             } else {
               const activeStatus = status.find(
-                (stat) => stat.statustypename.toLowerCase() === "active"
+                (stat) => stat.statustypename.toLowerCase() === "active",
               );
               if (activeStatus) {
                 disabledKeys.add(activeStatus.statustypeid);
@@ -1466,9 +1704,15 @@ export default function App({
                       `Update Status for ${selectedAsset?.assetname}`}
                   </DialogTitle>
                 </DialogHeader>
-                <div className="py-4 space-y-4">
+                <div className="space-y-4 py-4">
                   <Select
-                    value={selectedUser ? String(selectedUser) : assignedStatus ? String(assignedStatus.statustypeid) : ""}
+                    value={
+                      selectedUser
+                        ? String(selectedUser)
+                        : assignedStatus
+                          ? String(assignedStatus.statustypeid)
+                          : ""
+                    }
                     onValueChange={(value) => setSelectedUser(value)}
                   >
                     <SelectTrigger className="w-full">
@@ -1486,21 +1730,27 @@ export default function App({
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-sm text-muted-foreground">
-                    <Info className="inline mr-1" />
-                    Note: The current status and &quot;Available&quot; status cannot be
-                    selected again. If the asset is not assigned to any user, it
-                    cannot be set to &quot;Active.&quot;
+                  <p className="text-muted-foreground text-sm">
+                    <Info className="mr-1 inline" />
+                    Note: The current status and &quot;Available&quot; status
+                    cannot be selected again. If the asset is not assigned to
+                    any user, it cannot be set to &quot;Active.&quot;
                   </p>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsStatusModalOpen(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsStatusModalOpen(false)}
+                  >
                     Close
                   </Button>
                   <Button
                     disabled={!selectedUser}
                     onClick={async () => {
-                      await handleStatusUpdate(selectedAsset?.assetid, selectedUser);
+                      await handleStatusUpdate(
+                        selectedAsset?.assetid,
+                        selectedUser,
+                      );
                       setTimeout(() => setSelectedUser(null), 300);
                       setIsStatusModalOpen(false);
                     }}
@@ -1523,6 +1773,88 @@ export default function App({
         locations={locations}
         categories={categories}
       />
+
+      <Dialog
+        open={isBulkStatusModalOpen}
+        onOpenChange={setIsBulkStatusModalOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Change Status for {selectedKeys.size} selected asset(s)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={bulkStatusId} onValueChange={setBulkStatusId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select new status" />
+              </SelectTrigger>
+              <SelectContent>
+                {status.map((s) => (
+                  <SelectItem key={s.statustypeid} value={s.statustypeid}>
+                    {s.statustypename}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkStatusModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!bulkStatusId || bulkUpdating}
+              onClick={handleBulkStatusChange}
+            >
+              {bulkUpdating ? "Updating..." : "Update Status"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isBulkLocationModalOpen}
+        onOpenChange={setIsBulkLocationModalOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Change Location for {selectedKeys.size} selected asset(s)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={bulkLocationId} onValueChange={setBulkLocationId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select new location" />
+              </SelectTrigger>
+              <SelectContent>
+                {locations.map((l) => (
+                  <SelectItem key={l.locationid} value={l.locationid}>
+                    {l.locationname}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkLocationModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!bulkLocationId || bulkUpdating}
+              onClick={handleBulkLocationChange}
+            >
+              {bulkUpdating ? "Updating..." : "Update Location"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Toaster position="bottom-right" expand={false} richColors closeButton />
     </div>

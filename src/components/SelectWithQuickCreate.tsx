@@ -1,13 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +24,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export interface QuickCreateOption {
@@ -64,9 +71,15 @@ export default function SelectWithQuickCreate({
   idField,
   entityLabel,
 }: SelectWithQuickCreateProps) {
+  const [open, setOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+
+  const selectedLabel = useMemo(
+    () => options.find((opt) => opt.id === value)?.label,
+    [options, value],
+  );
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -103,18 +116,62 @@ export default function SelectWithQuickCreate({
   return (
     <>
       <div className="flex gap-1.5">
-        <Select value={value} onValueChange={onValueChange}>
-          <SelectTrigger id={id} className="flex-1">
-            <SelectValue placeholder={placeholder} />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((opt) => (
-              <SelectItem key={opt.id} value={opt.id}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              id={id}
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className="h-9 flex-1 justify-between font-normal"
+            >
+              <span
+                className={cn(
+                  "truncate",
+                  !selectedLabel && "text-muted-foreground",
+                )}
+              >
+                {selectedLabel || placeholder}
+              </span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-[--radix-popover-trigger-width] p-0"
+            align="start"
+          >
+            <Command>
+              <CommandInput
+                placeholder={`Search ${entityLabel.toLowerCase()}...`}
+              />
+              <CommandList>
+                <CommandEmpty>
+                  No {entityLabel.toLowerCase()} found.
+                </CommandEmpty>
+                <CommandGroup>
+                  {options.map((opt) => (
+                    <CommandItem
+                      key={opt.id}
+                      value={opt.label}
+                      onSelect={() => {
+                        onValueChange(opt.id);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          value === opt.id ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      {opt.label}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
         <Button
           type="button"
           variant="outline"

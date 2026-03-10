@@ -20,6 +20,7 @@ import { Toaster, toast } from "sonner";
 import SelectWithQuickCreate, {
   type QuickCreateOption,
 } from "@/components/SelectWithQuickCreate";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 
 export default function LicenceCreateForm({
   categories: initialCategories,
@@ -93,6 +94,9 @@ export default function LicenceCreateForm({
       notes: initialData.notes ?? "",
     };
   });
+
+  const isDirty = mode === "create" ? form.licencekey !== "" : true;
+  useUnsavedChanges(isDirty);
 
   const onChange = (e) => {
     const { name, value } = e.target;

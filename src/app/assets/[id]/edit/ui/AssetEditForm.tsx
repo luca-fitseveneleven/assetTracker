@@ -3,22 +3,73 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
 import CustomFieldsSection from "@/components/CustomFieldsSection";
+import SelectWithQuickCreate, {
+  type QuickCreateOption,
+} from "@/components/SelectWithQuickCreate";
 
-export default function AssetEditForm({ initial, categories, locations, manufacturers, models, statuses, suppliers }) {
+export default function AssetEditForm({
+  initial,
+  categories: initialCategories,
+  locations: initialLocations,
+  manufacturers: initialManufacturers,
+  models: initialModels,
+  statuses: initialStatuses,
+  suppliers: initialSuppliers,
+}) {
+  const [categoryOptions, setCategoryOptions] = useState<QuickCreateOption[]>(
+    () =>
+      initialCategories.map((c: any) => ({
+        id: c.assetcategorytypeid,
+        label: c.assetcategorytypename,
+      })),
+  );
+  const [locationOptions, setLocationOptions] = useState<QuickCreateOption[]>(
+    () =>
+      initialLocations.map((l: any) => ({
+        id: l.locationid,
+        label: l.locationname,
+      })),
+  );
+  const [manufacturerOptions, setManufacturerOptions] = useState<
+    QuickCreateOption[]
+  >(() =>
+    initialManufacturers.map((m: any) => ({
+      id: m.manufacturerid,
+      label: m.manufacturername,
+    })),
+  );
+  const [modelOptions, setModelOptions] = useState<QuickCreateOption[]>(() =>
+    initialModels.map((m: any) => ({ id: m.modelid, label: m.modelname })),
+  );
+  const [statusOptions, setStatusOptions] = useState<QuickCreateOption[]>(() =>
+    initialStatuses.map((s: any) => ({
+      id: s.statustypeid,
+      label: s.statustypename,
+    })),
+  );
+  const [supplierOptions, setSupplierOptions] = useState<QuickCreateOption[]>(
+    () =>
+      initialSuppliers.map((s: any) => ({
+        id: s.supplierid,
+        label: s.suppliername,
+      })),
+  );
+
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [assettagTaken, setAssettagTaken] = useState(false);
   const [serialTaken, setSerialTaken] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | null>>({});
+  const [customFieldValues, setCustomFieldValues] = useState<
+    Record<string, string | null>
+  >({});
 
   const [form, setForm] = useState({
     assetid: initial.assetid,
@@ -29,7 +80,9 @@ export default function AssetEditForm({ initial, categories, locations, manufact
     specs: initial.specs ?? "",
     notes: initial.notes ?? "",
     purchaseprice: initial.purchaseprice ?? "",
-    purchasedate: initial.purchasedate ? new Date(initial.purchasedate).toISOString().slice(0, 10) : "",
+    purchasedate: initial.purchasedate
+      ? new Date(initial.purchasedate).toISOString().slice(0, 10)
+      : "",
     mobile: Boolean(initial.mobile),
     requestable: Boolean(initial.requestable),
     assetcategorytypeid: initial.assetcategorytypeid ?? "",
@@ -38,28 +91,38 @@ export default function AssetEditForm({ initial, categories, locations, manufact
     locationid: initial.locationid ?? "",
     manufacturerid: initial.manufacturerid ?? "",
     warrantyMonths: initial.warrantyMonths ?? "",
-    warrantyExpires: initial.warrantyExpires ? new Date(initial.warrantyExpires).toISOString().slice(0, 10) : "",
+    warrantyExpires: initial.warrantyExpires
+      ? new Date(initial.warrantyExpires).toISOString().slice(0, 10)
+      : "",
   });
 
-  const initialSnapshot = useMemo(() => JSON.stringify({
-    assetname: initial.assetname ?? "",
-    assettag: initial.assettag ?? "",
-    serialnumber: initial.serialnumber ?? "",
-    modelid: initial.modelid ?? "",
-    specs: initial.specs ?? "",
-    notes: initial.notes ?? "",
-    purchaseprice: initial.purchaseprice ?? "",
-    purchasedate: initial.purchasedate ? new Date(initial.purchasedate).toISOString().slice(0, 10) : "",
-    mobile: Boolean(initial.mobile),
-    requestable: Boolean(initial.requestable),
-    assetcategorytypeid: initial.assetcategorytypeid ?? "",
-    statustypeid: initial.statustypeid ?? "",
-    supplierid: initial.supplierid ?? "",
-    locationid: initial.locationid ?? "",
-    manufacturerid: initial.manufacturerid ?? "",
-    warrantyMonths: initial.warrantyMonths ?? "",
-    warrantyExpires: initial.warrantyExpires ? new Date(initial.warrantyExpires).toISOString().slice(0, 10) : "",
-  }), [initial]);
+  const initialSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        assetname: initial.assetname ?? "",
+        assettag: initial.assettag ?? "",
+        serialnumber: initial.serialnumber ?? "",
+        modelid: initial.modelid ?? "",
+        specs: initial.specs ?? "",
+        notes: initial.notes ?? "",
+        purchaseprice: initial.purchaseprice ?? "",
+        purchasedate: initial.purchasedate
+          ? new Date(initial.purchasedate).toISOString().slice(0, 10)
+          : "",
+        mobile: Boolean(initial.mobile),
+        requestable: Boolean(initial.requestable),
+        assetcategorytypeid: initial.assetcategorytypeid ?? "",
+        statustypeid: initial.statustypeid ?? "",
+        supplierid: initial.supplierid ?? "",
+        locationid: initial.locationid ?? "",
+        manufacturerid: initial.manufacturerid ?? "",
+        warrantyMonths: initial.warrantyMonths ?? "",
+        warrantyExpires: initial.warrantyExpires
+          ? new Date(initial.warrantyExpires).toISOString().slice(0, 10)
+          : "",
+      }),
+    [initial],
+  );
 
   useEffect(() => {
     setIsDirty(JSON.stringify({ ...form }) !== initialSnapshot);
@@ -94,7 +157,6 @@ export default function AssetEditForm({ initial, categories, locations, manufact
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          // Convert empty strings to nulls for optional fields
           modelid: form.modelid || null,
           specs: form.specs || null,
           notes: form.notes || null,
@@ -105,7 +167,8 @@ export default function AssetEditForm({ initial, categories, locations, manufact
           supplierid: form.supplierid || null,
           locationid: form.locationid || null,
           manufacturerid: form.manufacturerid || null,
-          warrantyMonths: form.warrantyMonths === "" ? null : Number(form.warrantyMonths),
+          warrantyMonths:
+            form.warrantyMonths === "" ? null : Number(form.warrantyMonths),
           warrantyExpires: form.warrantyExpires || null,
         }),
       });
@@ -114,7 +177,6 @@ export default function AssetEditForm({ initial, categories, locations, manufact
         throw new Error(err?.error || "Failed to update asset");
       }
       const updated = await res.json();
-      // Save custom field values
       if (Object.keys(customFieldValues).length > 0) {
         await fetch("/api/custom-fields/values", {
           method: "POST",
@@ -142,155 +204,262 @@ export default function AssetEditForm({ initial, categories, locations, manufact
       <form onSubmit={onSubmit} className="flex flex-col gap-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Edit: {initial.assetname}</h1>
-            <p className="text-sm text-foreground-500 mt-1">Asset Tag {initial.assettag} • Serial {initial.serialnumber}</p>
+            <h1 className="text-2xl font-semibold">
+              Edit: {initial.assetname}
+            </h1>
+            <p className="text-foreground-500 mt-1 text-sm">
+              Asset Tag {initial.assettag} • Serial {initial.serialnumber}
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
-            <Button variant="default" type="submit" disabled={saving || assettagTaken || serialTaken}>{saving ? "Saving..." : "Save"}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (!isDirty || confirm("Discard unsaved changes?"))
+                  router.back();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              type="submit"
+              disabled={saving || assettagTaken || serialTaken}
+            >
+              {saving ? "Saving..." : "Save"}
+            </Button>
           </div>
         </div>
         <Separator />
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <section className="col-span-1 rounded-lg border border-default-200 p-4">
-            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Summary</h2>
+          <section className="border-default-200 col-span-1 rounded-lg border p-4">
+            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
+              Summary
+            </h2>
             <div className="grid grid-cols-1 gap-3">
               <div>
                 <Label htmlFor="assetname">Asset Name *</Label>
-                <Input id="assetname" name="assetname" value={form.assetname} onChange={onChange} required />
+                <Input
+                  id="assetname"
+                  name="assetname"
+                  value={form.assetname}
+                  onChange={onChange}
+                  required
+                />
               </div>
               <div>
                 <Label htmlFor="assetcategorytypeid">Category</Label>
-                <Select value={form.assetcategorytypeid} onValueChange={onSelectChange("assetcategorytypeid")}>
-                  <SelectTrigger id="assetcategorytypeid">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => (
-                      <SelectItem key={c.assetcategorytypeid} value={c.assetcategorytypeid}>{c.assetcategorytypename}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectWithQuickCreate
+                  id="assetcategorytypeid"
+                  value={form.assetcategorytypeid}
+                  onValueChange={onSelectChange("assetcategorytypeid")}
+                  options={categoryOptions}
+                  onItemCreated={(item) =>
+                    setCategoryOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select category"
+                  apiEndpoint="/api/assetCategory"
+                  nameField="assetcategorytypename"
+                  idField="assetcategorytypeid"
+                  entityLabel="Category"
+                />
               </div>
               <div>
                 <Label htmlFor="statustypeid">Status</Label>
-                <Select value={form.statustypeid} onValueChange={onSelectChange("statustypeid")}>
-                  <SelectTrigger id="statustypeid">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((s) => (
-                      <SelectItem key={s.statustypeid} value={s.statustypeid}>{s.statustypename}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectWithQuickCreate
+                  id="statustypeid"
+                  value={form.statustypeid}
+                  onValueChange={onSelectChange("statustypeid")}
+                  options={statusOptions}
+                  onItemCreated={(item) =>
+                    setStatusOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select status"
+                  apiEndpoint="/api/statusType"
+                  nameField="statustypename"
+                  idField="statustypeid"
+                  entityLabel="Status"
+                />
               </div>
               <div>
                 <Label htmlFor="locationid">Location</Label>
-                <Select value={form.locationid} onValueChange={onSelectChange("locationid")}>
-                  <SelectTrigger id="locationid">
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((l) => (
-                      <SelectItem key={l.locationid} value={l.locationid}>{l.locationname}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectWithQuickCreate
+                  id="locationid"
+                  value={form.locationid}
+                  onValueChange={onSelectChange("locationid")}
+                  options={locationOptions}
+                  onItemCreated={(item) =>
+                    setLocationOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select location"
+                  apiEndpoint="/api/location"
+                  nameField="locationname"
+                  idField="locationid"
+                  entityLabel="Location"
+                />
               </div>
               <div className="flex gap-6">
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="requestable" checked={form.requestable} onCheckedChange={(v) => setForm((f) => ({ ...f, requestable: Boolean(v) }))} />
+                  <Checkbox
+                    id="requestable"
+                    checked={form.requestable}
+                    onCheckedChange={(v) =>
+                      setForm((f) => ({ ...f, requestable: Boolean(v) }))
+                    }
+                  />
                   <Label htmlFor="requestable">Requestable</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="mobile" checked={form.mobile} onCheckedChange={(v) => setForm((f) => ({ ...f, mobile: Boolean(v) }))} />
+                  <Checkbox
+                    id="mobile"
+                    checked={form.mobile}
+                    onCheckedChange={(v) =>
+                      setForm((f) => ({ ...f, mobile: Boolean(v) }))
+                    }
+                  />
                   <Label htmlFor="mobile">Mobile</Label>
                 </div>
               </div>
             </div>
           </section>
 
-          <section className="col-span-1 rounded-lg border border-default-200 p-4">
-            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Specifications</h2>
+          <section className="border-default-200 col-span-1 rounded-lg border p-4">
+            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
+              Specifications
+            </h2>
             <div className="grid grid-cols-1 gap-3">
               <div>
                 <Label htmlFor="manufacturerid">Manufacturer</Label>
-                <Select value={form.manufacturerid} onValueChange={onSelectChange("manufacturerid")}>
-                  <SelectTrigger id="manufacturerid">
-                    <SelectValue placeholder="Select manufacturer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {manufacturers.map((m) => (
-                      <SelectItem key={m.manufacturerid} value={m.manufacturerid}>{m.manufacturername}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectWithQuickCreate
+                  id="manufacturerid"
+                  value={form.manufacturerid}
+                  onValueChange={onSelectChange("manufacturerid")}
+                  options={manufacturerOptions}
+                  onItemCreated={(item) =>
+                    setManufacturerOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select manufacturer"
+                  apiEndpoint="/api/manufacturer"
+                  nameField="manufacturername"
+                  idField="manufacturerid"
+                  entityLabel="Manufacturer"
+                />
               </div>
               <div>
                 <Label htmlFor="modelid">Model</Label>
-                <Select value={form.modelid} onValueChange={onSelectChange("modelid")}>
-                  <SelectTrigger id="modelid">
-                    <SelectValue placeholder="Select model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {models.map((m) => (
-                      <SelectItem key={m.modelid} value={m.modelid}>{m.modelname}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectWithQuickCreate
+                  id="modelid"
+                  value={form.modelid}
+                  onValueChange={onSelectChange("modelid")}
+                  options={modelOptions}
+                  onItemCreated={(item) =>
+                    setModelOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select model"
+                  apiEndpoint="/api/model"
+                  nameField="modelname"
+                  idField="modelid"
+                  entityLabel="Model"
+                />
               </div>
               <div>
                 <Label htmlFor="specs">Specs</Label>
-                <Textarea id="specs" name="specs" value={form.specs ?? ""} onChange={onChange} rows={2} />
+                <Textarea
+                  id="specs"
+                  name="specs"
+                  value={form.specs ?? ""}
+                  onChange={onChange}
+                  rows={2}
+                />
               </div>
               <div>
                 <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" name="notes" value={form.notes ?? ""} onChange={onChange} rows={2} />
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  value={form.notes ?? ""}
+                  onChange={onChange}
+                  rows={2}
+                />
               </div>
             </div>
           </section>
 
-          <section className="col-span-1 rounded-lg border border-default-200 p-4">
-            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Procurement</h2>
+          <section className="border-default-200 col-span-1 rounded-lg border p-4">
+            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
+              Procurement
+            </h2>
             <div className="grid grid-cols-1 gap-3">
               <div>
                 <Label htmlFor="supplierid">Supplier</Label>
-                <Select value={form.supplierid} onValueChange={onSelectChange("supplierid")}>
-                  <SelectTrigger id="supplierid">
-                    <SelectValue placeholder="Select supplier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((s) => (
-                      <SelectItem key={s.supplierid} value={s.supplierid}>{s.suppliername}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectWithQuickCreate
+                  id="supplierid"
+                  value={form.supplierid}
+                  onValueChange={onSelectChange("supplierid")}
+                  options={supplierOptions}
+                  onItemCreated={(item) =>
+                    setSupplierOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select supplier"
+                  apiEndpoint="/api/supplier"
+                  nameField="suppliername"
+                  idField="supplierid"
+                  entityLabel="Supplier"
+                />
               </div>
               <div>
                 <Label htmlFor="purchaseprice">Purchase Price</Label>
-                <Input id="purchaseprice" name="purchaseprice" value={form.purchaseprice ?? ""} onChange={onChange} type="number" step="0.01" />
+                <Input
+                  id="purchaseprice"
+                  name="purchaseprice"
+                  value={form.purchaseprice ?? ""}
+                  onChange={onChange}
+                  type="number"
+                  step="0.01"
+                />
               </div>
               <div>
                 <Label htmlFor="purchasedate">Purchase Date</Label>
-                <Input id="purchasedate" name="purchasedate" value={form.purchasedate ?? ""} onChange={onChange} type="date" />
+                <Input
+                  id="purchasedate"
+                  name="purchasedate"
+                  value={form.purchasedate ?? ""}
+                  onChange={onChange}
+                  type="date"
+                />
               </div>
               <div>
                 <Label htmlFor="warrantyMonths">Warranty (months)</Label>
-                <Input id="warrantyMonths" name="warrantyMonths" value={form.warrantyMonths ?? ""} onChange={onChange} type="number" min="0" />
+                <Input
+                  id="warrantyMonths"
+                  name="warrantyMonths"
+                  value={form.warrantyMonths ?? ""}
+                  onChange={onChange}
+                  type="number"
+                  min="0"
+                />
               </div>
               <div>
                 <Label htmlFor="warrantyExpires">Warranty Expires</Label>
-                <Input id="warrantyExpires" name="warrantyExpires" value={form.warrantyExpires ?? ""} onChange={onChange} type="date" />
+                <Input
+                  id="warrantyExpires"
+                  name="warrantyExpires"
+                  value={form.warrantyExpires ?? ""}
+                  onChange={onChange}
+                  type="date"
+                />
               </div>
             </div>
           </section>
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <section className="col-span-1 rounded-lg border border-default-200 p-4">
-            <h2 className="text-sm font-semibold text-foreground-600 mb-3">Identifiers</h2>
+          <section className="border-default-200 col-span-1 rounded-lg border p-4">
+            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
+              Identifiers
+            </h2>
             <div className="grid grid-cols-1 gap-3">
               <div>
                 <Label htmlFor="assettag">Asset Tag *</Label>
@@ -300,9 +469,15 @@ export default function AssetEditForm({ initial, categories, locations, manufact
                   value={form.assettag}
                   onChange={onChange}
                   onBlur={async () => {
-                    if (!form.assettag || form.assettag === (initial.assettag ?? "")) return;
+                    if (
+                      !form.assettag ||
+                      form.assettag === (initial.assettag ?? "")
+                    )
+                      return;
                     try {
-                      const res = await fetch(`/api/asset/validate?assettag=${encodeURIComponent(form.assettag)}`);
+                      const res = await fetch(
+                        `/api/asset/validate?assettag=${encodeURIComponent(form.assettag)}`,
+                      );
                       const data = await res.json();
                       setAssettagTaken(Boolean(data?.assettag?.exists));
                     } catch {}
@@ -310,7 +485,11 @@ export default function AssetEditForm({ initial, categories, locations, manufact
                   className={assettagTaken ? "border-red-500" : ""}
                   required
                 />
-                {assettagTaken && <p className="text-sm text-red-500 mt-1">Asset tag already exists</p>}
+                {assettagTaken && (
+                  <p className="mt-1 text-sm text-red-500">
+                    Asset tag already exists
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="serialnumber">Serial Number *</Label>
@@ -320,9 +499,15 @@ export default function AssetEditForm({ initial, categories, locations, manufact
                   value={form.serialnumber}
                   onChange={onChange}
                   onBlur={async () => {
-                    if (!form.serialnumber || form.serialnumber === (initial.serialnumber ?? "")) return;
+                    if (
+                      !form.serialnumber ||
+                      form.serialnumber === (initial.serialnumber ?? "")
+                    )
+                      return;
                     try {
-                      const res = await fetch(`/api/asset/validate?serialnumber=${encodeURIComponent(form.serialnumber)}`);
+                      const res = await fetch(
+                        `/api/asset/validate?serialnumber=${encodeURIComponent(form.serialnumber)}`,
+                      );
                       const data = await res.json();
                       setSerialTaken(Boolean(data?.serialnumber?.exists));
                     } catch {}
@@ -330,7 +515,11 @@ export default function AssetEditForm({ initial, categories, locations, manufact
                   className={serialTaken ? "border-red-500" : ""}
                   required
                 />
-                {serialTaken && <p className="text-sm text-red-500 mt-1">Serial number already exists</p>}
+                {serialTaken && (
+                  <p className="mt-1 text-sm text-red-500">
+                    Serial number already exists
+                  </p>
+                )}
               </div>
             </div>
           </section>
@@ -344,12 +533,29 @@ export default function AssetEditForm({ initial, categories, locations, manufact
           />
         </div>
 
-        {error && <p className="text-red-500 text-sm" role="alert">{error}</p>}
+        {error && (
+          <p className="text-sm text-red-500" role="alert">
+            {error}
+          </p>
+        )}
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => {
-            if (!isDirty || confirm("Discard unsaved changes?")) router.back();
-          }}>Cancel</Button>
-          <Button variant="default" type="submit" disabled={saving || assettagTaken || serialTaken}>{saving ? "Saving..." : "Save"}</Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              if (!isDirty || confirm("Discard unsaved changes?"))
+                router.back();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="default"
+            type="submit"
+            disabled={saving || assettagTaken || serialTaken}
+          >
+            {saving ? "Saving..." : "Save"}
+          </Button>
         </div>
       </form>
     </div>

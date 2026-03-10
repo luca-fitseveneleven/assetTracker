@@ -11,6 +11,7 @@ import { Toaster, toast } from "sonner";
 import SelectWithQuickCreate, {
   type QuickCreateOption,
 } from "@/components/SelectWithQuickCreate";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 
 export default function ConsumableCreateForm({
   categories: initialCategories,
@@ -75,6 +76,9 @@ export default function ConsumableCreateForm({
       minQuantity: String(initialData.minQuantity ?? 0),
     };
   });
+
+  const isDirty = mode === "create" ? form.consumablename !== "" : true;
+  useUnsavedChanges(isDirty);
 
   const onChange = (e) => {
     const { name, value } = e.target;

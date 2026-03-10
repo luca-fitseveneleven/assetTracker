@@ -83,6 +83,7 @@ export async function syncAssets(): Promise<void> {
 }
 
 let unsubscribe: (() => void) | null = null;
+let syncInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startBackgroundSync(intervalMs = 60_000): void {
   // Process queue whenever connectivity changes
@@ -94,23 +95,17 @@ export function startBackgroundSync(intervalMs = 60_000): void {
   });
 
   // Periodic sync
-  const interval = setInterval(() => {
+  syncInterval = setInterval(() => {
     void processQueue();
     void syncAssets();
   }, intervalMs);
-
-  // Store cleanup reference for stopBackgroundSync
-  (startBackgroundSync as unknown as Record<string, unknown>).__interval =
-    interval;
 }
 
 export function stopBackgroundSync(): void {
   unsubscribe?.();
   unsubscribe = null;
-  const interval = (
-    startBackgroundSync as unknown as Record<string, unknown>
-  ).__interval as ReturnType<typeof setInterval> | undefined;
-  if (interval) {
-    clearInterval(interval);
+  if (syncInterval) {
+    clearInterval(syncInterval);
+    syncInterval = null;
   }
 }

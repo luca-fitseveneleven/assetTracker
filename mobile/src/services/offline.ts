@@ -46,7 +46,7 @@ export async function addToSyncQueue(
   const queue = await getSyncQueue();
   const newItem: SyncQueueItem = {
     ...item,
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     createdAt: new Date().toISOString(),
     retryCount: 0,
   };

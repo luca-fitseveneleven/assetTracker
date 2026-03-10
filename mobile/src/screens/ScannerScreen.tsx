@@ -43,7 +43,7 @@ export function ScannerScreen() {
             const parsed = JSON.parse(data) as Record<string, string>;
             assetId = parsed.id || parsed.asset_id || parsed.assetId;
           } catch {
-            // Not JSON – treat as asset tag
+            // Not valid JSON – fall through to treat as raw asset tag
           }
         }
 

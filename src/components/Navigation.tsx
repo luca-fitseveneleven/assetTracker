@@ -120,9 +120,42 @@ function Navigation() {
     }
   };
 
-  // Fetch notifications on mount and when session changes
+  // Fetch notifications on mount and poll every 30s for new ones
   useEffect(() => {
     fetchNotifications();
+
+    const POLL_INTERVAL = 30_000;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (!intervalId) {
+        intervalId = setInterval(fetchNotifications, POLL_INTERVAL);
+      }
+    };
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    // Pause polling when the tab is hidden to save requests
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchNotifications();
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [fetchNotifications]);
 
   // Listen for Cmd+K / Ctrl+K
@@ -184,7 +217,11 @@ function Navigation() {
 
           <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
 
-          <DropdownMenu>
+          <DropdownMenu
+            onOpenChange={(open) => {
+              if (open) fetchNotifications();
+            }}
+          >
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
                 <NotificationIcon size={24} />

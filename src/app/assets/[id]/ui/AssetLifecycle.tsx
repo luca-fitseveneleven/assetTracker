@@ -32,31 +32,97 @@ import {
 } from "lucide-react";
 
 const LIFECYCLE_STAGES = [
-  { key: "procured", label: "Procured", icon: ShoppingCart, color: "text-blue-600 bg-blue-100 border-blue-300" },
-  { key: "deployed", label: "Deployed", icon: Rocket, color: "text-indigo-600 bg-indigo-100 border-indigo-300" },
-  { key: "active", label: "Active", icon: Activity, color: "text-green-600 bg-green-100 border-green-300" },
-  { key: "maintenance", label: "Maintenance", icon: Wrench, color: "text-yellow-600 bg-yellow-100 border-yellow-300" },
-  { key: "retired", label: "Retired", icon: Archive, color: "text-orange-600 bg-orange-100 border-orange-300" },
-  { key: "disposed", label: "Disposed", icon: Trash2, color: "text-red-600 bg-red-100 border-red-300" },
+  {
+    key: "procured",
+    label: "Procured",
+    icon: ShoppingCart,
+    color: "text-blue-600 bg-blue-100 border-blue-300",
+  },
+  {
+    key: "deployed",
+    label: "Deployed",
+    icon: Rocket,
+    color: "text-indigo-600 bg-indigo-100 border-indigo-300",
+  },
+  {
+    key: "active",
+    label: "Active",
+    icon: Activity,
+    color: "text-green-600 bg-green-100 border-green-300",
+  },
+  {
+    key: "maintenance",
+    label: "Maintenance",
+    icon: Wrench,
+    color: "text-yellow-600 bg-yellow-100 border-yellow-300",
+  },
+  {
+    key: "retired",
+    label: "Retired",
+    icon: Archive,
+    color: "text-orange-600 bg-orange-100 border-orange-300",
+  },
+  {
+    key: "disposed",
+    label: "Disposed",
+    icon: Trash2,
+    color: "text-red-600 bg-red-100 border-red-300",
+  },
 ];
 
-function mapStatusToStage(statusName: string | null): string {
+function mapStatusToStage(
+  statusName: string | null,
+  isAssigned: boolean,
+): string {
   if (!statusName) return "procured";
   const lower = statusName.toLowerCase();
 
-  if (lower.includes("dispos") || lower.includes("recycl") || lower.includes("scrap")) return "disposed";
-  if (lower.includes("retir") || lower.includes("decommission") || lower.includes("end of life")) return "retired";
-  if (lower.includes("maint") || lower.includes("repair") || lower.includes("service")) return "maintenance";
-  if (lower.includes("active") || lower.includes("in use") || lower.includes("assigned")) return "active";
-  if (lower.includes("deploy") || lower.includes("ready") || lower.includes("provisioned")) return "deployed";
-  if (lower.includes("procur") || lower.includes("ordered") || lower.includes("pending") || lower.includes("new")) return "procured";
+  if (
+    lower.includes("dispos") ||
+    lower.includes("recycl") ||
+    lower.includes("scrap")
+  )
+    return "disposed";
+  if (
+    lower.includes("retir") ||
+    lower.includes("decommission") ||
+    lower.includes("end of life")
+  )
+    return "retired";
+  if (
+    lower.includes("maint") ||
+    lower.includes("repair") ||
+    lower.includes("service")
+  )
+    return "maintenance";
+  if (
+    lower.includes("active") ||
+    lower.includes("in use") ||
+    lower.includes("assigned")
+  )
+    return isAssigned ? "active" : "deployed";
+  if (
+    lower.includes("deploy") ||
+    lower.includes("ready") ||
+    lower.includes("provisioned") ||
+    lower.includes("available")
+  )
+    return "deployed";
+  if (
+    lower.includes("procur") ||
+    lower.includes("ordered") ||
+    lower.includes("pending") ||
+    lower.includes("new")
+  )
+    return "procured";
 
-  return "active"; // default fallback
+  return isAssigned ? "active" : "deployed";
 }
 
 interface AssetLifecycleProps {
   assetId: string;
   currentStatus: string | null;
+  isAssigned: boolean;
   statuses: Array<{ statustypeid: string; statustypename: string }>;
   onStatusChange?: () => void;
 }
@@ -64,6 +130,7 @@ interface AssetLifecycleProps {
 export default function AssetLifecycle({
   assetId,
   currentStatus,
+  isAssigned,
   statuses,
   onStatusChange,
 }: AssetLifecycleProps) {
@@ -72,8 +139,10 @@ export default function AssetLifecycle({
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const currentStage = mapStatusToStage(currentStatus);
-  const currentStageIndex = LIFECYCLE_STAGES.findIndex((s) => s.key === currentStage);
+  const currentStage = mapStatusToStage(currentStatus, isAssigned);
+  const currentStageIndex = LIFECYCLE_STAGES.findIndex(
+    (s) => s.key === currentStage,
+  );
 
   const handleTransition = async () => {
     if (!selectedStatus) {
@@ -113,7 +182,7 @@ export default function AssetLifecycle({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground-600">Lifecycle</h3>
+        <h3 className="text-foreground-600 text-sm font-semibold">Lifecycle</h3>
         <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
           Update Status
         </Button>
@@ -135,11 +204,11 @@ export default function AssetLifecycle({
                 />
               )}
               <div
-                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium shrink-0 transition-all ${
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all ${
                   isCurrent
                     ? stage.color
                     : isPast
-                      ? "bg-green-50 text-green-600 border-green-200"
+                      ? "border-green-200 bg-green-50 text-green-600"
                       : "bg-muted/30 text-muted-foreground border-muted"
                 } ${isFuture ? "opacity-40" : ""}`}
               >
@@ -155,8 +224,9 @@ export default function AssetLifecycle({
         })}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Current status: <span className="font-medium">{currentStatus || "Unknown"}</span>
+      <p className="text-muted-foreground text-xs">
+        Current status:{" "}
+        <span className="font-medium">{currentStatus || "Unknown"}</span>
       </p>
 
       {/* Transition Dialog */}
@@ -205,7 +275,10 @@ export default function AssetLifecycle({
             >
               Cancel
             </Button>
-            <Button onClick={handleTransition} disabled={isSaving || !selectedStatus}>
+            <Button
+              onClick={handleTransition}
+              disabled={isSaving || !selectedStatus}
+            >
               Update Status
             </Button>
           </DialogFooter>

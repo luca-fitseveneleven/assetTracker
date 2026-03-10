@@ -527,6 +527,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
             <AssetLifecycle
               assetId={asset.assetid}
               currentStatus={statusName}
+              isAssigned={!!assignedUser}
               statuses={status}
             />
           </section>

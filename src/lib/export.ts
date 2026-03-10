@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 /**
  * Column definition for export.
@@ -30,9 +30,7 @@ function buildRows(
   data: Record<string, unknown>[],
   columns: ExportColumn[],
 ): (string | number | boolean | null)[][] {
-  return data.map((row) =>
-    columns.map((col) => formatCellValue(row[col.key])),
-  );
+  return data.map((row) => columns.map((col) => formatCellValue(row[col.key])));
 }
 
 // ---------------------------------------------------------------------------
@@ -48,7 +46,9 @@ function generateCSV(
 
   return [headers, ...rows]
     .map((row) =>
-      row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","),
+      row
+        .map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`)
+        .join(","),
     )
     .join("\n");
 }
@@ -57,31 +57,27 @@ function generateCSV(
 // XLSX generation
 // ---------------------------------------------------------------------------
 
-function generateXLSX(
+async function generateXLSX(
   data: Record<string, unknown>[],
   columns: ExportColumn[],
   sheetName = "Export",
-): Uint8Array {
-  const headers = columns.map((c) => c.header);
-  const rows = buildRows(data, columns);
-  const aoaData = [headers, ...rows];
+): Promise<Uint8Array> {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet(sheetName);
 
-  const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.aoa_to_sheet(aoaData);
-
-  // Auto-size columns based on header widths (simple heuristic)
-  worksheet["!cols"] = columns.map((col) => ({
-    wch: Math.max(col.header.length, 15),
+  worksheet.columns = columns.map((col) => ({
+    header: col.header,
+    key: col.key,
+    width: Math.max(col.header.length, 15),
   }));
 
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  const rows = buildRows(data, columns);
+  for (const row of rows) {
+    worksheet.addRow(row);
+  }
 
-  const buffer = XLSX.write(workbook, {
-    type: "array",
-    bookType: "xlsx",
-  }) as ArrayBuffer;
-
-  return new Uint8Array(buffer);
+  const arrayBuffer = await workbook.xlsx.writeBuffer();
+  return new Uint8Array(arrayBuffer);
 }
 
 // ---------------------------------------------------------------------------
@@ -97,17 +93,16 @@ function generateXLSX(
  * @param filename  Base filename without extension (e.g. "assets-export")
  * @param sheetName Optional sheet name for XLSX (defaults to "Export")
  */
-export function buildExportResponse(
+export async function buildExportResponse(
   data: Record<string, unknown>[],
   columns: ExportColumn[],
   format: ExportFormat,
   filename: string,
   sheetName?: string,
-): Response {
+): Promise<Response> {
   if (format === "xlsx") {
-    const uint8 = generateXLSX(data, columns, sheetName);
-    const buffer = Buffer.from(uint8);
-    return new Response(buffer, {
+    const buffer = await generateXLSX(data, columns, sheetName);
+    return new Response(buffer as unknown as BodyInit, {
       status: 200,
       headers: {
         "Content-Type":

@@ -365,7 +365,7 @@ export async function GET(req: NextRequest) {
 
     // XLSX requires all data in memory (library limitation)
     const data = await config.fetch(orgId);
-    return buildExportResponse(
+    return await buildExportResponse(
       data,
       config.columns,
       formatParam,

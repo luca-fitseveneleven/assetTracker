@@ -16,19 +16,60 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
+import SelectWithQuickCreate, {
+  type QuickCreateOption,
+} from "@/components/SelectWithQuickCreate";
 
 const statusSort = (a, b) => a.statustypename.localeCompare(b.statustypename);
 
 export default function AccessoryCreateForm({
-  categories,
-  locations,
-  manufacturers,
-  models,
-  statuses,
-  suppliers,
+  categories: initialCategories,
+  locations: initialLocations,
+  manufacturers: initialManufacturers,
+  models: initialModels,
+  statuses: initialStatuses,
+  suppliers: initialSuppliers,
   initialData = null,
   mode = "create",
 }) {
+  const [categoryOptions, setCategoryOptions] = useState<QuickCreateOption[]>(
+    () =>
+      initialCategories.map((c: any) => ({
+        id: c.accessoriecategorytypeid,
+        label: c.accessoriecategorytypename,
+      })),
+  );
+  const [locationOptions, setLocationOptions] = useState<QuickCreateOption[]>(
+    () =>
+      initialLocations.map((l: any) => ({
+        id: l.locationid,
+        label: l.locationname,
+      })),
+  );
+  const [manufacturerOptions, setManufacturerOptions] = useState<
+    QuickCreateOption[]
+  >(() =>
+    initialManufacturers.map((m: any) => ({
+      id: m.manufacturerid,
+      label: m.manufacturername,
+    })),
+  );
+  const [modelOptions, setModelOptions] = useState<QuickCreateOption[]>(() =>
+    initialModels.map((m: any) => ({ id: m.modelid, label: m.modelname })),
+  );
+  const [statusOptions, setStatusOptions] = useState<QuickCreateOption[]>(() =>
+    initialStatuses.map((s: any) => ({
+      id: s.statustypeid,
+      label: s.statustypename,
+    })),
+  );
+  const [supplierOptions, setSupplierOptions] = useState<QuickCreateOption[]>(
+    () =>
+      initialSuppliers.map((s: any) => ({
+        id: s.supplierid,
+        label: s.suppliername,
+      })),
+  );
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -59,15 +100,21 @@ export default function AccessoryCreateForm({
       supplierid: initialData.supplierid ?? "",
       locationid: initialData.locationid ?? "",
       purchaseprice:
-        initialData.purchaseprice === null || initialData.purchaseprice === undefined
+        initialData.purchaseprice === null ||
+        initialData.purchaseprice === undefined
           ? ""
           : String(initialData.purchaseprice),
-      purchasedate: initialData.purchasedate ? initialData.purchasedate.slice(0, 10) : "",
+      purchasedate: initialData.purchasedate
+        ? initialData.purchasedate.slice(0, 10)
+        : "",
       requestable: Boolean(initialData.requestable ?? true),
     };
   });
 
-  const sortedStatuses = useMemo(() => [...statuses].sort(statusSort), [statuses]);
+  const sortedStatusOptions = useMemo(
+    () => [...statusOptions].sort((a, b) => a.label.localeCompare(b.label)),
+    [statusOptions],
+  );
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -106,9 +153,14 @@ export default function AccessoryCreateForm({
       const created = await res.json();
       toast.success(
         mode === "edit" ? "Accessory updated" : "Accessory created",
-        { description: created.accessorietag }
+        { description: created.accessorietag },
       );
-      router.push(mode === "edit" && initialData?.accessorieid ? `/accessories` : "/accessories");
+      router.push(
+        mode === "edit" && initialData?.accessorieid
+          ? `/accessories`
+          : "/accessories",
+      );
+      router.refresh();
     } catch (err) {
       setError(err.message);
       toast.error("Create failed", { description: err.message });
@@ -121,30 +173,36 @@ export default function AccessoryCreateForm({
     <div className="max-w-4xl">
       <Toaster position="bottom-right" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 sm:gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
+            <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">
               {mode === "edit" ? "Edit Accessory" : "Create Accessory"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-sm">
               Provide identification, ownership, and lifecycle details.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <Button asChild variant="ghost" className="w-full sm:w-auto">
               <Link href="/accessories">Cancel</Link>
             </Button>
-            <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              disabled={submitting}
+            >
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? <p className="text-destructive text-sm">{error}</p> : null}
 
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
           <div className="rounded-lg border p-4">
-            <h2 className="text-sm font-semibold text-muted-foreground mb-3">Basics</h2>
+            <h2 className="text-muted-foreground mb-3 text-sm font-semibold">
+              Basics
+            </h2>
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="accessoriename">
@@ -174,155 +232,153 @@ export default function AccessoryCreateForm({
                 <Label htmlFor="accessoriecategorytypeid">
                   Category <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <SelectWithQuickCreate
+                  id="accessoriecategorytypeid"
                   value={form.accessoriecategorytypeid}
                   onValueChange={(value) =>
-                    setForm((prev) => ({ ...prev, accessoriecategorytypeid: value }))
+                    setForm((prev) => ({
+                      ...prev,
+                      accessoriecategorytypeid: value,
+                    }))
                   }
-                  required
-                >
-                  <SelectTrigger id="accessoriecategorytypeid">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.accessoriecategorytypeid} value={category.accessoriecategorytypeid}>
-                        {category.accessoriecategorytypename}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={categoryOptions}
+                  onItemCreated={(item) =>
+                    setCategoryOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select a category"
+                  apiEndpoint="/api/accessoryCategory"
+                  nameField="accessoriecategorytypename"
+                  idField="accessoriecategorytypeid"
+                  entityLabel="Category"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="statustypeid">
                   Status <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <SelectWithQuickCreate
+                  id="statustypeid"
                   value={form.statustypeid}
                   onValueChange={(value) =>
                     setForm((prev) => ({ ...prev, statustypeid: value }))
                   }
-                  required
-                >
-                  <SelectTrigger id="statustypeid">
-                    <SelectValue placeholder="Select a status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sortedStatuses.map((status) => (
-                      <SelectItem key={status.statustypeid} value={status.statustypeid}>
-                        {status.statustypename}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={sortedStatusOptions}
+                  onItemCreated={(item) =>
+                    setStatusOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select a status"
+                  apiEndpoint="/api/statusType"
+                  nameField="statustypename"
+                  idField="statustypeid"
+                  entityLabel="Status"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="locationid">
                   Location <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <SelectWithQuickCreate
+                  id="locationid"
                   value={form.locationid}
                   onValueChange={(value) =>
                     setForm((prev) => ({ ...prev, locationid: value }))
                   }
-                  required
-                >
-                  <SelectTrigger id="locationid">
-                    <SelectValue placeholder="Select a location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.locationid} value={location.locationid}>
-                        {location.locationname}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={locationOptions}
+                  onItemCreated={(item) =>
+                    setLocationOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select a location"
+                  apiEndpoint="/api/location"
+                  nameField="locationname"
+                  idField="locationid"
+                  entityLabel="Location"
+                />
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="requestable"
                   checked={form.requestable}
                   onCheckedChange={(checked) =>
-                    setForm((prev) => ({ ...prev, requestable: Boolean(checked) }))
+                    setForm((prev) => ({
+                      ...prev,
+                      requestable: Boolean(checked),
+                    }))
                   }
                 />
-                <Label htmlFor="requestable" className="cursor-pointer">Requestable</Label>
+                <Label htmlFor="requestable" className="cursor-pointer">
+                  Requestable
+                </Label>
               </div>
             </div>
           </div>
 
           <div className="rounded-lg border p-4">
-            <h2 className="text-sm font-semibold text-muted-foreground mb-3">Procurement & Specs</h2>
+            <h2 className="text-muted-foreground mb-3 text-sm font-semibold">
+              Procurement & Specs
+            </h2>
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="manufacturerid">
                   Manufacturer <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <SelectWithQuickCreate
+                  id="manufacturerid"
                   value={form.manufacturerid}
                   onValueChange={(value) =>
                     setForm((prev) => ({ ...prev, manufacturerid: value }))
                   }
-                  required
-                >
-                  <SelectTrigger id="manufacturerid">
-                    <SelectValue placeholder="Select a manufacturer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {manufacturers.map((manufacturer) => (
-                      <SelectItem key={manufacturer.manufacturerid} value={manufacturer.manufacturerid}>
-                        {manufacturer.manufacturername}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={manufacturerOptions}
+                  onItemCreated={(item) =>
+                    setManufacturerOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select a manufacturer"
+                  apiEndpoint="/api/manufacturer"
+                  nameField="manufacturername"
+                  idField="manufacturerid"
+                  entityLabel="Manufacturer"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="modelid">
                   Model <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <SelectWithQuickCreate
+                  id="modelid"
                   value={form.modelid}
                   onValueChange={(value) =>
                     setForm((prev) => ({ ...prev, modelid: value }))
                   }
-                  required
-                >
-                  <SelectTrigger id="modelid">
-                    <SelectValue placeholder="Select a model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {models.map((model) => (
-                      <SelectItem key={model.modelid} value={model.modelid}>
-                        {model.modelname}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={modelOptions}
+                  onItemCreated={(item) =>
+                    setModelOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select a model"
+                  apiEndpoint="/api/model"
+                  nameField="modelname"
+                  idField="modelid"
+                  entityLabel="Model"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="supplierid">
                   Supplier <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <SelectWithQuickCreate
+                  id="supplierid"
                   value={form.supplierid}
                   onValueChange={(value) =>
                     setForm((prev) => ({ ...prev, supplierid: value }))
                   }
-                  required
-                >
-                  <SelectTrigger id="supplierid">
-                    <SelectValue placeholder="Select a supplier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.supplierid} value={supplier.supplierid}>
-                        {supplier.suppliername}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={supplierOptions}
+                  onItemCreated={(item) =>
+                    setSupplierOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select a supplier"
+                  apiEndpoint="/api/supplier"
+                  nameField="suppliername"
+                  idField="supplierid"
+                  entityLabel="Supplier"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="purchaseprice">Purchase Price</Label>
@@ -352,11 +408,15 @@ export default function AccessoryCreateForm({
 
         <Separator />
 
-        <div className="flex flex-col sm:flex-row justify-end gap-2">
+        <div className="flex flex-col justify-end gap-2 sm:flex-row">
           <Button asChild variant="ghost" className="w-full sm:w-auto">
             <Link href="/accessories">Cancel</Link>
           </Button>
-          <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={submitting}
+          >
             {mode === "edit" ? "Save Changes" : "Create Accessory"}
           </Button>
         </div>

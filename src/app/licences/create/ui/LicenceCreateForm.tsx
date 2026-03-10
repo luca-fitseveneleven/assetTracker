@@ -17,15 +17,40 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
+import SelectWithQuickCreate, {
+  type QuickCreateOption,
+} from "@/components/SelectWithQuickCreate";
 
 export default function LicenceCreateForm({
-  categories,
-  manufacturers,
-  suppliers,
+  categories: initialCategories,
+  manufacturers: initialManufacturers,
+  suppliers: initialSuppliers,
   users,
   initialData = null,
   mode = "create",
 }) {
+  const [categoryOptions, setCategoryOptions] = useState<QuickCreateOption[]>(
+    () =>
+      initialCategories.map((c: any) => ({
+        id: c.licencecategorytypeid,
+        label: c.licencecategorytypename,
+      })),
+  );
+  const [manufacturerOptions, setManufacturerOptions] = useState<
+    QuickCreateOption[]
+  >(() =>
+    initialManufacturers.map((m: any) => ({
+      id: m.manufacturerid,
+      label: m.manufacturername,
+    })),
+  );
+  const [supplierOptions, setSupplierOptions] = useState<QuickCreateOption[]>(
+    () =>
+      initialSuppliers.map((s: any) => ({
+        id: s.supplierid,
+        label: s.suppliername,
+      })),
+  );
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -54,11 +79,16 @@ export default function LicenceCreateForm({
       manufacturerid: initialData.manufacturerid ?? "",
       supplierid: initialData.supplierid ?? "",
       purchaseprice:
-        initialData.purchaseprice === null || initialData.purchaseprice === undefined
+        initialData.purchaseprice === null ||
+        initialData.purchaseprice === undefined
           ? ""
           : String(initialData.purchaseprice),
-      purchasedate: initialData.purchasedate ? initialData.purchasedate.slice(0, 10) : "",
-      expirationdate: initialData.expirationdate ? initialData.expirationdate.slice(0, 10) : "",
+      purchasedate: initialData.purchasedate
+        ? initialData.purchasedate.slice(0, 10)
+        : "",
+      expirationdate: initialData.expirationdate
+        ? initialData.expirationdate.slice(0, 10)
+        : "",
       requestable: Boolean(initialData.requestable ?? true),
       notes: initialData.notes ?? "",
     };
@@ -107,6 +137,7 @@ export default function LicenceCreateForm({
         description: created.licencekey || created.licenceid,
       });
       router.push("/licences");
+      router.refresh();
     } catch (err) {
       setError(err.message);
       toast.error("Create failed", { description: err.message });
@@ -119,28 +150,36 @@ export default function LicenceCreateForm({
     <div className="max-w-4xl">
       <Toaster position="bottom-right" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 sm:gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
+            <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">
               {mode === "edit" ? "Edit Licence" : "Create Licence"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Capture entitlement metadata to keep compliance in check.</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Capture entitlement metadata to keep compliance in check.
+            </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <Button asChild variant="ghost" className="w-full sm:w-auto">
               <Link href="/licences">Cancel</Link>
             </Button>
-            <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              disabled={submitting}
+            >
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? <p className="text-destructive text-sm">{error}</p> : null}
 
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
           <div className="rounded-lg border p-4">
-            <h2 className="text-sm font-semibold text-muted-foreground mb-3">Assignment</h2>
+            <h2 className="text-muted-foreground mb-3 text-sm font-semibold">
+              Assignment
+            </h2>
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="licencekey">Licence Key</Label>
@@ -187,85 +226,89 @@ export default function LicenceCreateForm({
                   id="requestable"
                   checked={form.requestable}
                   onCheckedChange={(checked) =>
-                    setForm((prev) => ({ ...prev, requestable: Boolean(checked) }))
+                    setForm((prev) => ({
+                      ...prev,
+                      requestable: Boolean(checked),
+                    }))
                   }
                 />
-                <Label htmlFor="requestable" className="cursor-pointer">Requestable</Label>
+                <Label htmlFor="requestable" className="cursor-pointer">
+                  Requestable
+                </Label>
               </div>
             </div>
           </div>
 
           <div className="rounded-lg border p-4">
-            <h2 className="text-sm font-semibold text-muted-foreground mb-3">Catalogue</h2>
+            <h2 className="text-muted-foreground mb-3 text-sm font-semibold">
+              Catalogue
+            </h2>
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="licencecategorytypeid">
                   Category <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <SelectWithQuickCreate
+                  id="licencecategorytypeid"
                   value={form.licencecategorytypeid}
                   onValueChange={(value) =>
-                    setForm((prev) => ({ ...prev, licencecategorytypeid: value }))
+                    setForm((prev) => ({
+                      ...prev,
+                      licencecategorytypeid: value,
+                    }))
                   }
-                  required
-                >
-                  <SelectTrigger id="licencecategorytypeid">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.licencecategorytypeid} value={category.licencecategorytypeid}>
-                        {category.licencecategorytypename}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={categoryOptions}
+                  onItemCreated={(item) =>
+                    setCategoryOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select a category"
+                  apiEndpoint="/api/licenceCategory"
+                  nameField="licencecategorytypename"
+                  idField="licencecategorytypeid"
+                  entityLabel="Category"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="manufacturerid">
                   Manufacturer <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <SelectWithQuickCreate
+                  id="manufacturerid"
                   value={form.manufacturerid}
                   onValueChange={(value) =>
                     setForm((prev) => ({ ...prev, manufacturerid: value }))
                   }
-                  required
-                >
-                  <SelectTrigger id="manufacturerid">
-                    <SelectValue placeholder="Select a manufacturer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {manufacturers.map((manufacturer) => (
-                      <SelectItem key={manufacturer.manufacturerid} value={manufacturer.manufacturerid}>
-                        {manufacturer.manufacturername}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={manufacturerOptions}
+                  onItemCreated={(item) =>
+                    setManufacturerOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select a manufacturer"
+                  apiEndpoint="/api/manufacturer"
+                  nameField="manufacturername"
+                  idField="manufacturerid"
+                  entityLabel="Manufacturer"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="supplierid">
                   Supplier <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <SelectWithQuickCreate
+                  id="supplierid"
                   value={form.supplierid}
                   onValueChange={(value) =>
                     setForm((prev) => ({ ...prev, supplierid: value }))
                   }
-                  required
-                >
-                  <SelectTrigger id="supplierid">
-                    <SelectValue placeholder="Select a supplier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.supplierid} value={supplier.supplierid}>
-                        {supplier.suppliername}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={supplierOptions}
+                  onItemCreated={(item) =>
+                    setSupplierOptions((prev) => [...prev, item])
+                  }
+                  placeholder="Select a supplier"
+                  apiEndpoint="/api/supplier"
+                  nameField="suppliername"
+                  idField="supplierid"
+                  entityLabel="Supplier"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="purchaseprice">Purchase Price</Label>
@@ -304,7 +347,9 @@ export default function LicenceCreateForm({
         </section>
 
         <section className="rounded-lg border p-4">
-          <h2 className="text-sm font-semibold text-muted-foreground mb-3">Notes</h2>
+          <h2 className="text-muted-foreground mb-3 text-sm font-semibold">
+            Notes
+          </h2>
           <div className="space-y-2">
             <Textarea
               id="notes"
@@ -319,11 +364,15 @@ export default function LicenceCreateForm({
 
         <Separator />
 
-        <div className="flex flex-col sm:flex-row justify-end gap-2">
+        <div className="flex flex-col justify-end gap-2 sm:flex-row">
           <Button asChild variant="ghost" className="w-full sm:w-auto">
             <Link href="/licences">Cancel</Link>
           </Button>
-          <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={submitting}
+          >
             {mode === "edit" ? "Save Changes" : "Create Licence"}
           </Button>
         </div>

@@ -18,7 +18,10 @@ import { Toaster, toast } from "sonner";
 
 const SALUTATION_OPTIONS = ["Mr", "Ms", "Mx", "Dr", "Prof"];
 
-export default function SupplierCreateForm({ initialData = null, mode = "create" }) {
+export default function SupplierCreateForm({
+  initialData = null,
+  mode = "create",
+}) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -72,6 +75,7 @@ export default function SupplierCreateForm({ initialData = null, mode = "create"
         description: created.suppliername,
       });
       router.push("/suppliers");
+      router.refresh();
     } catch (err) {
       setError(err.message);
       toast.error("Create failed", { description: err.message });
@@ -84,27 +88,33 @@ export default function SupplierCreateForm({ initialData = null, mode = "create"
     <div className="max-w-3xl">
       <Toaster position="bottom-right" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 sm:gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
+            <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">
               {mode === "edit" ? "Edit Supplier" : "Create Supplier"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Keep procurement contacts close for reorders.</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Keep procurement contacts close for reorders.
+            </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <Button asChild variant="ghost" className="w-full sm:w-auto">
               <Link href="/suppliers">Cancel</Link>
             </Button>
-            <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              disabled={submitting}
+            >
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? <p className="text-destructive text-sm">{error}</p> : null}
 
         <section className="rounded-lg border p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="suppliername">
                 Supplier Name <span className="text-destructive">*</span>
@@ -179,11 +189,15 @@ export default function SupplierCreateForm({ initialData = null, mode = "create"
 
         <Separator />
 
-        <div className="flex flex-col sm:flex-row justify-end gap-2">
+        <div className="flex flex-col justify-end gap-2 sm:flex-row">
           <Button asChild variant="ghost" className="w-full sm:w-auto">
             <Link href="/suppliers">Cancel</Link>
           </Button>
-          <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={submitting}
+          >
             {mode === "edit" ? "Save Changes" : "Create Supplier"}
           </Button>
         </div>

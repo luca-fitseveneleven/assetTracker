@@ -156,8 +156,32 @@ function autoMatchColumns(
   return mapping;
 }
 
-/** Parse a single CSV line respecting quoted fields */
-function parseCSVLine(line: string): string[] {
+/** Detect delimiter from the first line of a CSV (comma, semicolon, or tab) */
+function detectDelimiter(line: string): string {
+  // Count occurrences outside of quotes
+  const counts: Record<string, number> = { ",": 0, ";": 0, "\t": 0 };
+  let inQuotes = false;
+  for (const char of line) {
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (!inQuotes && char in counts) {
+      counts[char]++;
+    }
+  }
+  // Pick the most frequent delimiter; default to comma
+  let best = ",";
+  let bestCount = 0;
+  for (const [delim, count] of Object.entries(counts)) {
+    if (count > bestCount) {
+      best = delim;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+/** Parse a single CSV/DSV line respecting quoted fields */
+function parseCSVLine(line: string, delimiter = ","): string[] {
   const result: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -165,7 +189,7 @@ function parseCSVLine(line: string): string[] {
     const char = line[i];
     if (char === '"') {
       inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
+    } else if (char === delimiter && !inQuotes) {
       result.push(current.trim());
       current = "";
     } else {
@@ -299,13 +323,14 @@ export default function ImportPageClient() {
         const lines = text.split("\n").filter((l) => l.trim());
         if (lines.length < 1) return;
 
-        const headers = parseCSVLine(lines[0]);
+        const delim = detectDelimiter(lines[0]);
+        const headers = parseCSVLine(lines[0], delim);
         setCsvHeaders(headers);
 
         // First 3 data rows as preview
         const preview: string[][] = [];
         for (let i = 1; i < Math.min(lines.length, 4); i++) {
-          preview.push(parseCSVLine(lines[i]));
+          preview.push(parseCSVLine(lines[i], delim));
         }
         setCsvPreview(preview);
 

@@ -5,24 +5,42 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
+import SelectWithQuickCreate, {
+  type QuickCreateOption,
+} from "@/components/SelectWithQuickCreate";
 
 export default function ConsumableCreateForm({
-  categories,
-  manufacturers,
-  suppliers,
+  categories: initialCategories,
+  manufacturers: initialManufacturers,
+  suppliers: initialSuppliers,
   initialData = null,
   mode = "create",
 }) {
+  const [categoryOptions, setCategoryOptions] = useState<QuickCreateOption[]>(
+    () =>
+      initialCategories.map((c: any) => ({
+        id: c.consumablecategorytypeid,
+        label: c.consumablecategorytypename,
+      })),
+  );
+  const [manufacturerOptions, setManufacturerOptions] = useState<
+    QuickCreateOption[]
+  >(() =>
+    initialManufacturers.map((m: any) => ({
+      id: m.manufacturerid,
+      label: m.manufacturername,
+    })),
+  );
+  const [supplierOptions, setSupplierOptions] = useState<QuickCreateOption[]>(
+    () =>
+      initialSuppliers.map((s: any) => ({
+        id: s.supplierid,
+        label: s.suppliername,
+      })),
+  );
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -46,10 +64,13 @@ export default function ConsumableCreateForm({
       manufacturerid: initialData.manufacturerid ?? "",
       supplierid: initialData.supplierid ?? "",
       purchaseprice:
-        initialData.purchaseprice === null || initialData.purchaseprice === undefined
+        initialData.purchaseprice === null ||
+        initialData.purchaseprice === undefined
           ? ""
           : String(initialData.purchaseprice),
-      purchasedate: initialData.purchasedate ? initialData.purchasedate.slice(0, 10) : "",
+      purchasedate: initialData.purchasedate
+        ? initialData.purchasedate.slice(0, 10)
+        : "",
       quantity: String(initialData.quantity ?? 0),
       minQuantity: String(initialData.minQuantity ?? 0),
     };
@@ -91,10 +112,14 @@ export default function ConsumableCreateForm({
       }
 
       const created = await res.json();
-      toast.success(mode === "edit" ? "Consumable updated" : "Consumable created", {
-        description: created.consumablename,
-      });
+      toast.success(
+        mode === "edit" ? "Consumable updated" : "Consumable created",
+        {
+          description: created.consumablename,
+        },
+      );
       router.push("/consumables");
+      router.refresh();
     } catch (err) {
       setError(err.message);
       toast.error("Create failed", { description: err.message });
@@ -107,27 +132,33 @@ export default function ConsumableCreateForm({
     <div className="max-w-3xl">
       <Toaster position="bottom-right" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 sm:gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
+            <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">
               {mode === "edit" ? "Edit Consumable" : "Create Consumable"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Track recurring purchases with clear sourcing details.</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Track recurring purchases with clear sourcing details.
+            </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <Button asChild variant="ghost" className="w-full sm:w-auto">
               <Link href="/consumables">Cancel</Link>
             </Button>
-            <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              disabled={submitting}
+            >
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? <p className="text-destructive text-sm">{error}</p> : null}
 
         <section className="rounded-lg border p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="consumablename">
                 Consumable Name <span className="text-destructive">*</span>
@@ -144,70 +175,67 @@ export default function ConsumableCreateForm({
               <Label htmlFor="consumablecategorytypeid">
                 Category <span className="text-destructive">*</span>
               </Label>
-              <Select
+              <SelectWithQuickCreate
+                id="consumablecategorytypeid"
                 value={form.consumablecategorytypeid}
                 onValueChange={(value) =>
-                  setForm((prev) => ({ ...prev, consumablecategorytypeid: value }))
+                  setForm((prev) => ({
+                    ...prev,
+                    consumablecategorytypeid: value,
+                  }))
                 }
-                required
-              >
-                <SelectTrigger id="consumablecategorytypeid">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.consumablecategorytypeid} value={category.consumablecategorytypeid}>
-                      {category.consumablecategorytypename}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={categoryOptions}
+                onItemCreated={(item) =>
+                  setCategoryOptions((prev) => [...prev, item])
+                }
+                placeholder="Select a category"
+                apiEndpoint="/api/consumableCategory"
+                nameField="consumablecategorytypename"
+                idField="consumablecategorytypeid"
+                entityLabel="Category"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="manufacturerid">
                 Manufacturer <span className="text-destructive">*</span>
               </Label>
-              <Select
+              <SelectWithQuickCreate
+                id="manufacturerid"
                 value={form.manufacturerid}
                 onValueChange={(value) =>
                   setForm((prev) => ({ ...prev, manufacturerid: value }))
                 }
-                required
-              >
-                <SelectTrigger id="manufacturerid">
-                  <SelectValue placeholder="Select a manufacturer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {manufacturers.map((manufacturer) => (
-                    <SelectItem key={manufacturer.manufacturerid} value={manufacturer.manufacturerid}>
-                      {manufacturer.manufacturername}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={manufacturerOptions}
+                onItemCreated={(item) =>
+                  setManufacturerOptions((prev) => [...prev, item])
+                }
+                placeholder="Select a manufacturer"
+                apiEndpoint="/api/manufacturer"
+                nameField="manufacturername"
+                idField="manufacturerid"
+                entityLabel="Manufacturer"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="supplierid">
                 Supplier <span className="text-destructive">*</span>
               </Label>
-              <Select
+              <SelectWithQuickCreate
+                id="supplierid"
                 value={form.supplierid}
                 onValueChange={(value) =>
                   setForm((prev) => ({ ...prev, supplierid: value }))
                 }
-                required
-              >
-                <SelectTrigger id="supplierid">
-                  <SelectValue placeholder="Select a supplier" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((supplier) => (
-                    <SelectItem key={supplier.supplierid} value={supplier.supplierid}>
-                      {supplier.suppliername}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={supplierOptions}
+                onItemCreated={(item) =>
+                  setSupplierOptions((prev) => [...prev, item])
+                }
+                placeholder="Select a supplier"
+                apiEndpoint="/api/supplier"
+                nameField="suppliername"
+                idField="supplierid"
+                entityLabel="Supplier"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="purchaseprice">Purchase Price</Label>
@@ -243,7 +271,9 @@ export default function ConsumableCreateForm({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="minQuantity">Min. Quantity (Alert Threshold)</Label>
+              <Label htmlFor="minQuantity">
+                Min. Quantity (Alert Threshold)
+              </Label>
               <Input
                 id="minQuantity"
                 name="minQuantity"
@@ -252,20 +282,28 @@ export default function ConsumableCreateForm({
                 value={form.minQuantity}
                 onChange={onChange}
               />
-              {Number(form.quantity) > 0 && Number(form.minQuantity) > 0 && Number(form.quantity) <= Number(form.minQuantity) && (
-                <p className="text-sm text-amber-600">Stock is at or below minimum threshold.</p>
-              )}
+              {Number(form.quantity) > 0 &&
+                Number(form.minQuantity) > 0 &&
+                Number(form.quantity) <= Number(form.minQuantity) && (
+                  <p className="text-sm text-amber-600">
+                    Stock is at or below minimum threshold.
+                  </p>
+                )}
             </div>
           </div>
         </section>
 
         <Separator />
 
-        <div className="flex flex-col sm:flex-row justify-end gap-2">
+        <div className="flex flex-col justify-end gap-2 sm:flex-row">
           <Button asChild variant="ghost" className="w-full sm:w-auto">
             <Link href="/consumables">Cancel</Link>
           </Button>
-          <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={submitting}
+          >
             {mode === "edit" ? "Save Changes" : "Create Consumable"}
           </Button>
         </div>

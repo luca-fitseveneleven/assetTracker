@@ -135,8 +135,14 @@ export async function PUT(req) {
       ? updateUserSchema
       : updateUserSchema.omit({ isadmin: true, canrequest: true });
 
+    // Convert empty strings to undefined so optional fields pass validation
+    const cleanedData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      cleanedData[key] = value === "" ? undefined : value;
+    }
+
     const validationResult = schema.strict().safeParse({
-      ...data,
+      ...cleanedData,
       ...(typeof password === "string" && password.length > 0
         ? { password }
         : {}),

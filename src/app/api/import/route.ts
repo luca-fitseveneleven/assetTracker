@@ -134,7 +134,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const headers = parseCSVLine(lines[0]);
+    const delimiter = detectDelimiter(lines[0]);
+    const headers = parseCSVLine(lines[0], delimiter);
     const expectedFields = ENTITY_FIELDS[validatedInput.entityType];
 
     // Validate that required fields are either mapped or present in headers
@@ -187,7 +188,7 @@ export async function POST(req: NextRequest) {
 
     for (let i = 1; i < lines.length; i++) {
       try {
-        const values = parseCSVLine(lines[i]);
+        const values = parseCSVLine(lines[i], delimiter);
         const rowData = columnMapping
           ? createRowObjectFromMapping(columnMapping, values)
           : createRowObject(headers, values);
@@ -301,7 +302,30 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 // Helper functions
-function parseCSVLine(line: string): string[] {
+
+/** Detect delimiter from the first line (comma, semicolon, or tab) */
+function detectDelimiter(line: string): string {
+  const counts: Record<string, number> = { ",": 0, ";": 0, "\t": 0 };
+  let inQuotes = false;
+  for (const char of line) {
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (!inQuotes && char in counts) {
+      counts[char]++;
+    }
+  }
+  let best = ",";
+  let bestCount = 0;
+  for (const [delim, count] of Object.entries(counts)) {
+    if (count > bestCount) {
+      best = delim;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function parseCSVLine(line: string, delimiter = ","): string[] {
   const result: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -311,7 +335,7 @@ function parseCSVLine(line: string): string[] {
 
     if (char === '"') {
       inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
+    } else if (char === delimiter && !inQuotes) {
       result.push(current.trim());
       current = "";
     } else {

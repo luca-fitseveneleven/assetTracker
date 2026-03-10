@@ -44,6 +44,7 @@ export default async function Page() {
     { value: "50", label: "50" },
     { value: "75", label: "75" },
     { value: "100", label: "100" },
+    { value: "all", label: "All" },
   ];
 
   const databaseAssetsRaw = await getAssets();

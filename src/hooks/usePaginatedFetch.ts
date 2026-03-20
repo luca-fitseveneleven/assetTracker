@@ -52,17 +52,28 @@ export function usePaginatedFetch<T>(
       });
 
       if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.error(
+          `[usePaginatedFetch] ${apiUrl} returned ${res.status}:`,
+          body,
+        );
         throw new Error(`API error: ${res.status}`);
       }
 
       const json = await res.json();
       if (!controller.signal.aborted) {
+        // Handle both paginated envelope and plain array responses
+        const data = Array.isArray(json) ? json : json.data;
+        const total = Array.isArray(json) ? json.length : json.total;
+        const pg = Array.isArray(json) ? 1 : json.page;
+        const ps = Array.isArray(json) ? json.length : json.pageSize;
+        const tp = Array.isArray(json) ? 1 : json.totalPages;
         setResult({
-          data: json.data,
-          total: json.total,
-          page: json.page,
-          pageSize: json.pageSize,
-          totalPages: json.totalPages,
+          data: data ?? [],
+          total: total ?? 0,
+          page: pg,
+          pageSize: ps,
+          totalPages: tp,
         });
       }
     } catch (err) {

@@ -216,8 +216,14 @@ export default function App({
   const {
     result: paginatedResult,
     isLoading: isRefreshing,
+    error: fetchError,
     refresh: refreshData,
   } = usePaginatedFetch<any>("/api/asset", apiParams);
+
+  // Log fetch errors for debugging
+  useEffect(() => {
+    if (fetchError) console.error("[DashboardTable] fetch error:", fetchError);
+  }, [fetchError]);
 
   // Sanitize Decimal fields from API response
   const assetsData = useMemo(

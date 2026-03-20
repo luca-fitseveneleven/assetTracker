@@ -22,22 +22,23 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     redirect("/dashboard");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { userid: params.id },
-    select: {
-      userid: true,
-      firstname: true,
-      lastname: true,
-      email: true,
-      mfaEnabled: true,
-    },
-  });
+  const [user, prefs] = await Promise.all([
+    prisma.user.findUnique({
+      where: { userid: params.id },
+      select: {
+        userid: true,
+        firstname: true,
+        lastname: true,
+        email: true,
+        mfaEnabled: true,
+      },
+    }),
+    prisma.user_preferences.findUnique({
+      where: { userId: params.id },
+    }),
+  ]);
 
   if (!user) redirect("/user");
-
-  const prefs = await prisma.user_preferences.findUnique({
-    where: { userId: params.id },
-  });
 
   const preferences = prefs
     ? {

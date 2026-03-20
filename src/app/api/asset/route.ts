@@ -6,6 +6,7 @@ import {
   requirePermission,
   requireNotDemoMode,
 } from "@/lib/api-auth";
+import { invalidateCache } from "@/lib/cache";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -198,6 +199,8 @@ export async function POST(req) {
       } as Prisma.assetUncheckedCreateInput,
     });
 
+    invalidateCache("assets_all").catch(() => {});
+    invalidateCache("asset_count").catch(() => {});
     triggerWebhook("asset.created", {
       assetId: created.assetid,
       assetName: created.assetname,
@@ -256,6 +259,7 @@ export async function PUT(req) {
       },
     });
 
+    invalidateCache("assets_all").catch(() => {});
     triggerWebhook("asset.updated", {
       assetId: updated.assetid,
       assetName: updated.assetname,

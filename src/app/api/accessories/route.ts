@@ -3,6 +3,7 @@ import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import { invalidateCache } from "@/lib/cache";
 import { createAccessorySchema } from "@/lib/validation";
 import {
   getOrganizationContext,
@@ -182,6 +183,8 @@ export async function POST(req) {
       } as Prisma.accessoriesUncheckedCreateInput,
     });
 
+    invalidateCache("accessories_all").catch(() => {});
+    invalidateCache("accessory_count").catch(() => {});
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
     logger.error("POST /api/accessories error", { error: e });
@@ -244,6 +247,7 @@ export async function PUT(req) {
       },
     });
 
+    invalidateCache("accessories_all").catch(() => {});
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
     logger.error("PUT /api/accessories error", { error: e });

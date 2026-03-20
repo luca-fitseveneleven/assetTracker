@@ -23,6 +23,7 @@ const pool = new pg.Pool({
   // Prevent runaway queries
   statement_timeout: 30_000,
 });
+
 const adapter = new PrismaPg(pool);
 
 const globalForPrisma = globalThis as unknown as {

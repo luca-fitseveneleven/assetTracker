@@ -20,12 +20,42 @@
 import prisma from "@/lib/prisma";
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Schema-qualified table name — ensures raw queries work regardless of
+// the connection's search_path setting.
 // ---------------------------------------------------------------------------
+const S = process.env.DB_SCHEMA || "assettool";
+const CACHE_TABLE = `"${S}"."cache"`;
 
 /** Row shape returned by SELECT on the cache table. */
 interface CacheRow {
   value: unknown;
+}
+
+// ---------------------------------------------------------------------------
+// Self-healing: ensure cache table exists on first use
+// ---------------------------------------------------------------------------
+let tableChecked = false;
+
+async function ensureCacheTable(): Promise<void> {
+  if (tableChecked) return;
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE SCHEMA IF NOT EXISTS "${S}"
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE UNLOGGED TABLE IF NOT EXISTS ${CACHE_TABLE} (
+        "key" VARCHAR(255) PRIMARY KEY,
+        "value" JSONB NOT NULL,
+        "expires_at" TIMESTAMPTZ NOT NULL
+      )
+    `);
+    await prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS idx_cache_expires ON ${CACHE_TABLE} ("expires_at")`,
+    );
+    tableChecked = true;
+  } catch (e) {
+    console.error("[cache] ensureCacheTable failed:", e);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -39,8 +69,9 @@ export const cache = {
    */
   async get<T>(key: string): Promise<T | null> {
     try {
+      await ensureCacheTable();
       const rows = await prisma.$queryRawUnsafe<CacheRow[]>(
-        `SELECT "value" FROM "cache" WHERE "key" = $1 AND "expires_at" > NOW()`,
+        `SELECT "value" FROM ${CACHE_TABLE} WHERE "key" = $1 AND "expires_at" > NOW()`,
         key,
       );
       if (rows.length === 0) return null;
@@ -57,8 +88,9 @@ export const cache = {
    */
   async set<T>(key: string, value: T, ttlSeconds: number = 300): Promise<void> {
     try {
+      await ensureCacheTable();
       await prisma.$executeRawUnsafe(
-        `INSERT INTO "cache" ("key", "value", "expires_at")
+        `INSERT INTO ${CACHE_TABLE} ("key", "value", "expires_at")
          VALUES ($1, $2::jsonb, NOW() + make_interval(secs => $3))
          ON CONFLICT ("key")
          DO UPDATE SET "value" = $2::jsonb,
@@ -78,7 +110,7 @@ export const cache = {
   async del(key: string): Promise<void> {
     try {
       await prisma.$executeRawUnsafe(
-        `DELETE FROM "cache" WHERE "key" = $1`,
+        `DELETE FROM ${CACHE_TABLE} WHERE "key" = $1`,
         key,
       );
     } catch (error) {
@@ -92,7 +124,7 @@ export const cache = {
   async invalidatePattern(prefix: string): Promise<void> {
     try {
       await prisma.$executeRawUnsafe(
-        `DELETE FROM "cache" WHERE "key" LIKE $1`,
+        `DELETE FROM ${CACHE_TABLE} WHERE "key" LIKE $1`,
         prefix + "%",
       );
     } catch (error) {
@@ -105,7 +137,7 @@ export const cache = {
    */
   async clear(): Promise<void> {
     try {
-      await prisma.$executeRawUnsafe(`DELETE FROM "cache"`);
+      await prisma.$executeRawUnsafe(`DELETE FROM ${CACHE_TABLE}`);
     } catch (error) {
       console.error("[cache] clear failed:", error);
     }

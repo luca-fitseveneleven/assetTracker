@@ -1808,7 +1808,7 @@ export default function App({
             className="flex items-center justify-center bg-white py-4"
           >
             <QRCodeCanvas
-              value={`http://192.168.0.81:3000/assets/${selectedAsset?.assetid}`}
+              value={`${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/assets/${selectedAsset?.assetid}`}
               size={256}
               bgColor={"#ffffff"}
               fgColor={"#000000"}

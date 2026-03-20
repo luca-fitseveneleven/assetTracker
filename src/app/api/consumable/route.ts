@@ -55,7 +55,7 @@ export async function GET(req) {
       const matchingIds = await prisma
         .$queryRawUnsafe<
           Array<{ consumableid: string }>
-        >(`SELECT "consumableid" FROM "consumable" WHERE "search_vector" @@ to_tsquery('english', $1)`, tsQuery)
+        >(`SELECT "consumableid" FROM "consumable" WHERE "search_vector" @@ websearch_to_tsquery('english', $1)`, tsQuery)
         .catch(() => null);
 
       if (matchingIds && matchingIds.length > 0) {

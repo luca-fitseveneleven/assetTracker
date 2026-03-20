@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState, useCallback } from "react";
 import { useUrlState } from "@/hooks/useUrlState";
-import { usePaginatedFetch } from "@/hooks/usePaginatedFetch";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +54,7 @@ function formatDate(value) {
 }
 
 export default function ConsumablesTable({
+  items,
   categories,
   manufacturers,
   suppliers,
@@ -104,33 +104,9 @@ export default function ConsumablesTable({
     [setUrlState],
   );
 
-  const apiParams = useMemo(
-    () => ({
-      page: String(page),
-      pageSize: String(rowsPerPage),
-      search: searchValue || "",
-    }),
-    [page, rowsPerPage, searchValue],
-  );
-
-  const {
-    result: paginatedResult,
-    isLoading,
-    refresh,
-  } = usePaginatedFetch<any>("/api/consumable", apiParams);
-
-  const consumablesData = useMemo(
-    () =>
-      (paginatedResult?.data ?? []).map((item) => ({
-        ...item,
-        purchaseprice:
-          item.purchaseprice != null ? Number(item.purchaseprice) : null,
-      })),
-    [paginatedResult],
-  );
-
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedConsumable, setSelectedConsumable] = useState(null);
+  const [consumablesData, setConsumablesData] = useState(items);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
@@ -156,7 +132,19 @@ export default function ConsumablesTable({
   );
 
   const filteredItems = useMemo(() => {
+    const normalizedQuery = searchValue.trim().toLowerCase();
     return consumablesData.filter((item) => {
+      const matchesSearch =
+        !normalizedQuery ||
+        [
+          item.consumablename,
+          categoryById.get(item.consumablecategorytypeid),
+          manufacturerById.get(item.manufacturerid),
+          supplierById.get(item.supplierid),
+        ]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedQuery));
+
       const matchesCategory =
         categoryFilter === "all" ||
         String(item.consumablecategorytypeid ?? "") === categoryFilter;
@@ -167,12 +155,29 @@ export default function ConsumablesTable({
         supplierFilter === "all" ||
         String(item.supplierid ?? "") === supplierFilter;
 
-      return matchesCategory && matchesManufacturer && matchesSupplier;
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesManufacturer &&
+        matchesSupplier
+      );
     });
-  }, [consumablesData, categoryFilter, manufacturerFilter, supplierFilter]);
+  }, [
+    consumablesData,
+    searchValue,
+    categoryFilter,
+    manufacturerFilter,
+    supplierFilter,
+    categoryById,
+    manufacturerById,
+    supplierById,
+  ]);
 
-  const pages = paginatedResult?.totalPages ?? 1;
-  const paginatedItems = filteredItems;
+  const pages = Math.max(1, Math.ceil(filteredItems.length / rowsPerPage));
+  const paginatedItems = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    return filteredItems.slice(start, start + rowsPerPage);
+  }, [filteredItems, page, rowsPerPage]);
 
   const columns = [
     { key: "consumablename", label: "Name" },
@@ -205,7 +210,9 @@ export default function ConsumablesTable({
         description: `${consumableId} deleted successfully`,
       });
 
-      refresh();
+      setConsumablesData((prevItems) =>
+        prevItems.filter((item) => item.consumableid !== consumableId),
+      );
       setIsDeleteModalOpen(false);
     } catch (error) {
       console.error("Error deleting consumable:", error);
@@ -226,7 +233,9 @@ export default function ConsumablesTable({
           body: JSON.stringify({ consumableid: id }),
         });
       }
-      refresh();
+      setConsumablesData((prev) =>
+        prev.filter((item) => !selectedKeys.has(item.consumableid)),
+      );
       toast.success(`Deleted ${ids.length} consumable(s)`);
       setSelectedKeys(new Set());
       setShowBulkDelete(false);

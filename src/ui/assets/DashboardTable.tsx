@@ -9,7 +9,6 @@ import React, {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useUrlState } from "@/hooks/useUrlState";
 import { usePersistentState } from "@/hooks/usePersistentState";
-import { usePaginatedFetch } from "@/hooks/usePaginatedFetch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -98,44 +97,18 @@ const INITIAL_VISIBLE_COLUMNS = [
   "locationid",
 ];
 
-const COLUMNS = [
-  { name: "ID", uid: "assetid" },
-  { name: "NAME", uid: "assetname", sortable: true },
-  { name: "TAG", uid: "assettag", sortable: true },
-  { name: "SERIAL", uid: "serialnumber" },
-  { name: "BELONGS TO", uid: "belongsto", sortable: true },
-  { name: "MANUFACTUERER", uid: "manufacturerid", sortable: true },
-  { name: "MODEL", uid: "modelid", sortable: true },
-  { name: "SPECS", uid: "specs" },
-  { name: "NOTES", uid: "notes" },
-  { name: "STATUS", uid: "statustypeid", sortable: true },
-  { name: "CATEGORY", uid: "assetcategorytypeid", sortable: true },
-  { name: "REQESTABLE", uid: "requestable", sortable: true },
-  { name: "MOBILE", uid: "mobile", sortable: true },
-  { name: "LOCATION", uid: "locationid", sortable: true },
-  { name: "PRICE", uid: "purchaseprice" },
-  { name: "ACTIONS", uid: "actions" },
-];
-
-const SELECT_OPTIONS = [
-  { value: "20", label: "20" },
-  { value: "25", label: "25" },
-  { value: "50", label: "50" },
-  { value: "75", label: "75" },
-  { value: "100", label: "100" },
-  { value: "all", label: "All" },
-];
-
 export default function App({
+  data,
   locations,
   status,
   user,
   manufacturers,
   models,
   categories,
+  columns,
+  selectOptions,
+  userAssets,
 }) {
-  const columns = COLUMNS;
-  const selectOptions = SELECT_OPTIONS;
   // -- URL-synced state for shareable filter / pagination / sort URLs --
   const allStatusUids = statusOptions.map((s) => s.uid).join(",");
   const [urlState, setUrlState] = useUrlState({
@@ -201,60 +174,9 @@ export default function App({
     (s: Set<string>) => setPersistedColumns(Array.from(s)),
     [setPersistedColumns],
   );
-  // Server-side paginated data fetching
-  const apiParams = useMemo(
-    () => ({
-      page: showAll ? "1" : urlState.page,
-      pageSize: showAll ? "10000" : urlState.pageSize,
-      search: urlState.search || "",
-      sortBy: urlState.sortCol || "",
-      sortOrder: urlState.sortDir === "descending" ? "desc" : "asc",
-    }),
-    [urlState, showAll],
-  );
-
-  const {
-    result: paginatedResult,
-    isLoading: isRefreshing,
-    error: fetchError,
-    refresh: refreshData,
-  } = usePaginatedFetch<any>("/api/asset", apiParams);
-
-  // Log fetch errors for debugging
-  useEffect(() => {
-    if (fetchError) console.error("[DashboardTable] fetch error:", fetchError);
-  }, [fetchError]);
-
-  // Sanitize Decimal fields from API response
-  const assetsData = useMemo(
-    () =>
-      (paginatedResult?.data ?? []).map((a) => ({
-        ...a,
-        purchaseprice: a.purchaseprice != null ? Number(a.purchaseprice) : null,
-      })),
-    [paginatedResult],
-  );
-
-  // UserAssets fetched separately (small dataset, needed for "belongs to" column)
-  const [userAssetsData, setUserAssetsData] = useState([]);
-
-  // Fetch userAssets on mount and after mutations
-  const fetchUserAssets = useCallback(async () => {
-    try {
-      const res = await fetch("/api/userAssets");
-      if (res.ok) {
-        const json = await res.json();
-        setUserAssetsData(json || []);
-      }
-    } catch (e) {
-      console.error("Failed to fetch userAssets", e);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUserAssets();
-  }, [fetchUserAssets]);
-
+  const [assetsData, setAssetsData] = useState(data);
+  const [userAssetsData, setUserAssetsData] = useState(userAssets);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [now, setNow] = useState(null);
   const [mounted, setMounted] = useState(false);
@@ -292,13 +214,19 @@ export default function App({
         }
         const updated = await res.json();
         toast.success("Status updated", { description: updated.assettag });
-        refreshData();
+        setAssetsData((prev) =>
+          prev.map((a) =>
+            a.assetid === assetId
+              ? { ...a, statustypeid: updated.statustypeid }
+              : a,
+          ),
+        );
       } catch (e) {
         console.error(e);
         toast.error("Status update failed", { description: e.message });
       }
     },
-    [refreshData],
+    [setAssetsData],
   );
 
   const hasSearchFilter = Boolean(filterValue);
@@ -325,14 +253,18 @@ export default function App({
           description: `${assetId} deleted successfully`,
         });
 
-        refreshData();
-        fetchUserAssets();
+        setAssetsData((prevItems) =>
+          prevItems.filter((item) => item.assetid !== assetId),
+        );
+        setUserAssetsData((prev) =>
+          prev.filter((ua) => ua.assetid !== assetId),
+        );
       } catch (error) {
         toast.error("Error deleting asset", { description: error });
         console.error(error);
       }
     },
-    [refreshData, fetchUserAssets],
+    [setAssetsData, setUserAssetsData],
   );
 
   const handleAssign = useCallback(
@@ -352,14 +284,52 @@ export default function App({
           throw new Error(errorData.error || "Error assigning asset");
         }
 
+        const result = await response.json();
         toast.success("Entry assigned successfully");
-        refreshData();
-        fetchUserAssets();
+        // Update local userAssets mapping so UI reflects change immediately
+        setUserAssetsData((prev) => {
+          const existing = prev.find((ua) => ua.assetid === assetId);
+          if (existing) {
+            return prev.map((ua) =>
+              ua.assetid === assetId
+                ? {
+                    ...ua,
+                    userid: userId,
+                    change_date: new Date().toISOString(),
+                  }
+                : ua,
+            );
+          }
+          return [
+            ...prev,
+            {
+              userassetsid:
+                result?.userAsset?.userassetsid || `${assetId}-${userId}`,
+              assetid: assetId,
+              userid: userId,
+              creation_date: new Date().toISOString(),
+              change_date: new Date().toISOString(),
+            },
+          ];
+        });
+        // Also reflect status = Active locally if we can resolve it
+        const active = status.find(
+          (s) => s.statustypename?.toLowerCase() === "active",
+        );
+        if (active) {
+          setAssetsData((prev) =>
+            prev.map((a) =>
+              a.assetid === assetId
+                ? { ...a, statustypeid: active.statustypeid }
+                : a,
+            ),
+          );
+        }
       } catch (error) {
         console.error("Error:", error);
       }
     },
-    [refreshData, fetchUserAssets],
+    [setAssetsData, setUserAssetsData, status],
   );
 
   const handleUnassign = useCallback(
@@ -378,13 +348,29 @@ export default function App({
           throw new Error(errorData.error || "Error unassigning asset");
         }
 
-        refreshData();
-        fetchUserAssets();
+        const result = await response.json();
+        // Remove mapping locally
+        setUserAssetsData((prev) =>
+          prev.filter((ua) => ua.assetid !== assetId),
+        );
+        // Reflect status = Available locally if we can resolve it
+        const available = status.find(
+          (s) => s.statustypename?.toLowerCase() === "available",
+        );
+        if (available) {
+          setAssetsData((prev) =>
+            prev.map((a) =>
+              a.assetid === assetId
+                ? { ...a, statustypeid: available.statustypeid }
+                : a,
+            ),
+          );
+        }
       } catch (error) {
         console.error("Error:", error);
       }
     },
-    [refreshData, fetchUserAssets],
+    [setAssetsData, setUserAssetsData, status],
   );
 
   const handleBulkStatusChange = useCallback(async () => {
@@ -401,7 +387,13 @@ export default function App({
           }),
         ),
       );
-      refreshData();
+      setAssetsData((prev) =>
+        prev.map((a) =>
+          selectedKeys.has(a.assetid)
+            ? { ...a, statustypeid: bulkStatusId }
+            : a,
+        ),
+      );
       toast.success(`Status updated for ${ids.length} asset(s)`);
       setIsBulkStatusModalOpen(false);
       setBulkStatusId("");
@@ -411,7 +403,7 @@ export default function App({
     } finally {
       setBulkUpdating(false);
     }
-  }, [bulkStatusId, selectedKeys, refreshData]);
+  }, [bulkStatusId, selectedKeys, setAssetsData]);
 
   const handleBulkLocationChange = useCallback(async () => {
     if (!bulkLocationId || selectedKeys.size === 0) return;
@@ -430,7 +422,13 @@ export default function App({
           }),
         ),
       );
-      refreshData();
+      setAssetsData((prev) =>
+        prev.map((a) =>
+          selectedKeys.has(a.assetid)
+            ? { ...a, locationid: bulkLocationId }
+            : a,
+        ),
+      );
       toast.success(`Location updated for ${ids.length} asset(s)`);
       setIsBulkLocationModalOpen(false);
       setBulkLocationId("");
@@ -440,7 +438,7 @@ export default function App({
     } finally {
       setBulkUpdating(false);
     }
-  }, [bulkLocationId, selectedKeys, refreshData]);
+  }, [bulkLocationId, selectedKeys, setAssetsData]);
 
   const handleUserSelection = (value) => {
     // Check if value is empty or null and set selectedUser accordingly
@@ -517,11 +515,19 @@ export default function App({
     );
   }, [visibleColumns, columns]);
 
-  // Search is now server-side; only client-side status filtering remains
   const filteredItems = useMemo(() => {
-    let items = [...assetsData];
+    let filteredAssets = [...assetsData];
+
+    if (hasSearchFilter) {
+      filteredAssets = filteredAssets.filter(
+        (data) =>
+          data.assetname.toLowerCase().includes(filterValue.toLowerCase()) ||
+          data.assettag.toLowerCase().includes(filterValue.toLowerCase()) ||
+          data.serialnumber.toLowerCase().includes(filterValue.toLowerCase()),
+      );
+    }
     if (statusFilter.size !== statusOptions.length) {
-      items = items.filter((asset) => {
+      filteredAssets = filteredAssets.filter((asset) => {
         const assetStatus = status.find(
           (stat) => stat.statustypeid === asset.statustypeid,
         );
@@ -531,14 +537,16 @@ export default function App({
         );
       });
     }
-    return items;
-  }, [assetsData, status, statusFilter]);
 
-  // Pagination is server-side — use server-provided total
-  const pages = paginatedResult?.totalPages ?? 1;
+    return filteredAssets;
+  }, [assetsData, status, filterValue, statusFilter, hasSearchFilter]);
 
-  // No client-side slicing needed — data is already one page
-  const items = filteredItems;
+  const pages = Math.ceil(filteredItems.length / rowsPerPage);
+
+  const items = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    return filteredItems.slice(start, start + rowsPerPage);
+  }, [page, filteredItems, rowsPerPage]);
 
   const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => {
@@ -890,23 +898,38 @@ export default function App({
     setFilterValue("");
   }, [setFilterValue]);
 
-  const handleRefresh = useCallback(
-    async (auto = false) => {
-      refreshData();
-      await fetchUserAssets();
+  const refreshData = useCallback(async (auto = false) => {
+    try {
+      setIsRefreshing(true);
+      const [assetsRes, userAssetsRes] = await Promise.all([
+        fetch("/api/asset"),
+        fetch("/api/userAssets"),
+      ]);
+      if (!assetsRes.ok) throw new Error("Failed to refresh assets");
+      if (!userAssetsRes.ok) throw new Error("Failed to refresh assignments");
+      const [assetsJson, userAssetsJson] = await Promise.all([
+        assetsRes.json(),
+        userAssetsRes.json(),
+      ]);
+      setAssetsData(assetsJson || []);
+      setUserAssetsData(userAssetsJson || []);
       setLastUpdated(new Date());
       if (auto) {
         toast("Table refreshed");
       }
-    },
-    [refreshData, fetchUserAssets],
-  );
+    } catch (e) {
+      console.error(e);
+      toast.error("Refresh failed", { description: e.message });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
 
   // Auto refresh when returning to tab or when page becomes visible
   useEffect(() => {
-    const onFocus = () => handleRefresh(true);
+    const onFocus = () => refreshData(true);
     const onVisibility = () => {
-      if (document.visibilityState === "visible") handleRefresh(true);
+      if (document.visibilityState === "visible") refreshData(true);
     };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
@@ -914,7 +937,7 @@ export default function App({
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [handleRefresh]);
+  }, [refreshData]);
 
   // Initialize lastUpdated and mount flag on client
   useEffect(() => {
@@ -941,11 +964,11 @@ export default function App({
         tag === "select";
       if (isEditable) return;
       e.preventDefault();
-      handleRefresh();
+      refreshData();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleRefresh]);
+  }, [refreshData]);
 
   const formatRelativeTime = useCallback((from, to) => {
     if (!from) return "-";

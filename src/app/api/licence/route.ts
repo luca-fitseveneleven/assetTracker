@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import { invalidateCache } from "@/lib/cache";
 import {
   createLicenseSchema,
   updateLicenseSchema,
@@ -207,6 +208,7 @@ export async function POST(req) {
       }).catch(() => {});
     }
 
+    invalidateCache("licences_all").catch(() => {});
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
     logger.error("POST /api/licence error", { error: e });
@@ -320,6 +322,7 @@ export async function PUT(req) {
       }).catch(() => {});
     }
 
+    invalidateCache("licences_all").catch(() => {});
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
     logger.error("PUT /api/licence error", { error: e });

@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useCallback } from "react";
 import { useUrlState } from "@/hooks/useUrlState";
+import { usePaginatedFetch } from "@/hooks/usePaginatedFetch";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,6 @@ const requestableOptions = [
 ];
 
 export default function AccessoriesTable({
-  items,
   manufacturers,
   models,
   statuses,
@@ -106,9 +106,33 @@ export default function AccessoriesTable({
     [setUrlState],
   );
 
+  const apiParams = useMemo(
+    () => ({
+      page: String(page),
+      pageSize: String(rowsPerPage),
+      search: searchValue || "",
+    }),
+    [page, rowsPerPage, searchValue],
+  );
+
+  const {
+    result: paginatedResult,
+    isLoading,
+    refresh,
+  } = usePaginatedFetch<any>("/api/accessories", apiParams);
+
+  const accessoriesData = useMemo(
+    () =>
+      (paginatedResult?.data ?? []).map((item) => ({
+        ...item,
+        purchaseprice:
+          item.purchaseprice != null ? Number(item.purchaseprice) : null,
+      })),
+    [paginatedResult],
+  );
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedAccessory, setSelectedAccessory] = useState(null);
-  const [accessoriesData, setAccessoriesData] = useState(items);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
@@ -146,19 +170,7 @@ export default function AccessoriesTable({
   );
 
   const filteredItems = useMemo(() => {
-    const normalizedQuery = searchValue.trim().toLowerCase();
     return accessoriesData.filter((item) => {
-      const matchesSearch =
-        !normalizedQuery ||
-        [
-          item.accessoriename,
-          item.accessorietag,
-          manufacturerById.get(item.manufacturerid),
-          modelById.get(item.modelid),
-        ]
-          .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(normalizedQuery));
-
       const matchesStatus =
         statusFilter === "all" ||
         String(item.statustypeid ?? "") === statusFilter;
@@ -177,7 +189,6 @@ export default function AccessoriesTable({
         (requestableFilter === "no" && !item.requestable);
 
       return (
-        matchesSearch &&
         matchesStatus &&
         matchesCategory &&
         matchesLocation &&
@@ -186,20 +197,14 @@ export default function AccessoriesTable({
     });
   }, [
     accessoriesData,
-    searchValue,
     statusFilter,
     categoryFilter,
     locationFilter,
     requestableFilter,
-    manufacturerById,
-    modelById,
   ]);
 
-  const pages = Math.max(1, Math.ceil(filteredItems.length / rowsPerPage));
-  const paginatedItems = useMemo(() => {
-    const start = (page - 1) * rowsPerPage;
-    return filteredItems.slice(start, start + rowsPerPage);
-  }, [filteredItems, page, rowsPerPage]);
+  const pages = paginatedResult?.totalPages ?? 1;
+  const paginatedItems = filteredItems;
 
   const handleDelete = async (accessoryId) => {
     try {
@@ -221,9 +226,7 @@ export default function AccessoriesTable({
         description: `${accessoryId} deleted successfully`,
       });
 
-      setAccessoriesData((prevItems) =>
-        prevItems.filter((item) => item.accessorieid !== accessoryId),
-      );
+      refresh();
       setIsDeleteModalOpen(false);
     } catch (error) {
       console.error("Error deleting accessory:", error);
@@ -242,9 +245,7 @@ export default function AccessoriesTable({
           body: JSON.stringify({ accessoryId: id }),
         });
       }
-      setAccessoriesData((prev) =>
-        prev.filter((item) => !selectedKeys.has(item.accessorieid)),
-      );
+      refresh();
       toast.success(`Deleted ${ids.length} accessory(ies)`);
       setSelectedKeys(new Set());
       setShowBulkDelete(false);

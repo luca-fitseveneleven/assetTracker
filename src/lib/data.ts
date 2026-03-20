@@ -58,8 +58,7 @@ export async function getUsers() {
 }
 
 export async function getAssets() {
-  const assets = await prisma.asset.findMany({});
-  return assets;
+  return cached("assets_all", () => prisma.asset.findMany({}), 2 * 60 * 1000);
 }
 
 export async function getAssetById(id: string) {
@@ -126,8 +125,11 @@ export async function getManufacturerById(id: string) {
 }
 
 export async function getAccessories() {
-  const accessories = await prisma.accessories.findMany({});
-  return accessories;
+  return cached(
+    "accessories_all",
+    () => prisma.accessories.findMany({}),
+    2 * 60 * 1000,
+  );
 }
 
 export async function getAccessoryById(id: string) {
@@ -167,8 +169,11 @@ export async function getSupplierById(id: string) {
 }
 
 export async function getConsumables() {
-  const consumables = await prisma.consumable.findMany({});
-  return consumables;
+  return cached(
+    "consumables_all",
+    () => prisma.consumable.findMany({}),
+    2 * 60 * 1000,
+  );
 }
 
 export async function getConsumableById(id: string) {
@@ -198,8 +203,11 @@ export async function getAccessoryCategories() {
 }
 
 export async function getLicences() {
-  const licences = await prisma.licence.findMany({});
-  return licences;
+  return cached(
+    "licences_all",
+    () => prisma.licence.findMany({}),
+    2 * 60 * 1000,
+  );
 }
 
 export async function getLicenceById(id: string) {
@@ -232,29 +240,37 @@ export async function getCategories() {
 }
 
 export async function getUserAssets() {
-  const userAssets = await prisma.userAssets.findMany({
-    select: {
-      userassetsid: true,
-      userid: true,
-      assetid: true,
-      creation_date: true,
-      change_date: true,
-    },
-  });
-  return userAssets;
+  return cached(
+    "user_assets_all",
+    () =>
+      prisma.userAssets.findMany({
+        select: {
+          userassetsid: true,
+          userid: true,
+          assetid: true,
+          creation_date: true,
+          change_date: true,
+        },
+      }),
+    2 * 60 * 1000,
+  );
 }
 
 export async function getUserAccessoires() {
-  const res = await prisma.userAccessoires.findMany({
-    select: {
-      useraccessoiresid: true,
-      userid: true,
-      accessorieid: true,
-      creation_date: true,
-      change_date: true,
-    },
-  });
-  return res;
+  return cached(
+    "user_accessoires_all",
+    () =>
+      prisma.userAccessoires.findMany({
+        select: {
+          useraccessoiresid: true,
+          userid: true,
+          accessorieid: true,
+          creation_date: true,
+          change_date: true,
+        },
+      }),
+    2 * 60 * 1000,
+  );
 }
 
 export async function updateUserAsset(user: string, asset: string) {

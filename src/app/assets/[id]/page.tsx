@@ -55,6 +55,7 @@ function booleanPill(val) {
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
+  // First: fetch the asset (needed by subsequent queries)
   const assetRaw = await getAssetById(params.id);
   const asset = {
     ...assetRaw,
@@ -63,43 +64,67 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         ? Number(assetRaw.purchaseprice)
         : null,
   };
-  const location = asset?.locationid
-    ? await getLocationById(asset.locationid)
-    : null;
-  const users = await getUsers();
-  const status = await getStatus();
-  const manufacturers = await getManufacturers();
-  const models = await getModel();
-  const categories = await getCategories();
-  const suppliers = await getSuppliers();
-  const userAssets = await getUserAssets();
 
-  // Fetch history for this asset
-  const historyEntries = await prisma.audit_logs.findMany({
-    where: {
-      entity: "asset",
-      entityId: params.id,
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    include: {
-      user: {
-        select: {
-          userid: true,
-          username: true,
-          firstname: true,
-          lastname: true,
+  // Then: fetch all independent data in parallel
+  const [
+    location,
+    users,
+    status,
+    manufacturers,
+    models,
+    categories,
+    suppliers,
+    userAssets,
+    historyEntries,
+    depreciationSettings,
+    maintenanceSchedules,
+    customFieldDefs,
+    customFieldValues,
+  ] = await Promise.all([
+    asset?.locationid ? getLocationById(asset.locationid) : null,
+    getUsers(),
+    getStatus(),
+    getManufacturers(),
+    getModel(),
+    getCategories(),
+    getSuppliers(),
+    getUserAssets(),
+    prisma.audit_logs.findMany({
+      where: { entity: "asset", entityId: params.id },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        user: {
+          select: {
+            userid: true,
+            username: true,
+            firstname: true,
+            lastname: true,
+          },
         },
       },
-    },
-  });
-
-  // Fetch depreciation settings for this asset's category
-  const depreciationSettings = asset.assetcategorytypeid
-    ? await prisma.depreciation_settings.findUnique({
-        where: { categoryId: asset.assetcategorytypeid },
-      })
-    : null;
+    }),
+    asset.assetcategorytypeid
+      ? prisma.depreciation_settings.findUnique({
+          where: { categoryId: asset.assetcategorytypeid },
+        })
+      : null,
+    prisma.maintenance_schedules.findMany({
+      where: { assetId: params.id },
+      include: {
+        user: { select: { userid: true, firstname: true, lastname: true } },
+      },
+      orderBy: { nextDueDate: "asc" },
+      take: 5,
+    }),
+    prisma.custom_field_definitions.findMany({
+      where: { entityType: "asset", isActive: true },
+      orderBy: { displayOrder: "asc" },
+    }),
+    prisma.custom_field_values.findMany({
+      where: { entityId: params.id },
+    }),
+  ]);
 
   // Compute depreciation if we have settings and a purchase price
   let depreciationData: {
@@ -144,30 +169,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       };
     }
   }
-
-  // Fetch maintenance schedules for this asset
-  const maintenanceSchedules = await prisma.maintenance_schedules.findMany({
-    where: { assetId: params.id },
-    include: {
-      user: {
-        select: { userid: true, firstname: true, lastname: true },
-      },
-    },
-    orderBy: { nextDueDate: "asc" },
-    take: 5,
-  });
-
-  // Fetch custom fields for this asset
-  const customFieldDefs = await prisma.custom_field_definitions.findMany({
-    where: { entityType: "asset", isActive: true },
-    orderBy: { displayOrder: "asc" },
-  });
-  const customFieldValues =
-    customFieldDefs.length > 0
-      ? await prisma.custom_field_values.findMany({
-          where: { entityId: params.id },
-        })
-      : [];
   const cfValueMap = new Map(
     customFieldValues.map((v) => [v.fieldId, v.value]),
   );

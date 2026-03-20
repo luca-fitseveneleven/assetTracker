@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState, useCallback } from "react";
 import { useUrlState } from "@/hooks/useUrlState";
-import { usePaginatedFetch } from "@/hooks/usePaginatedFetch";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +52,7 @@ function formatDate(value) {
 }
 
 export default function LicencesTable({
+  items,
   categories,
   manufacturers,
   suppliers,
@@ -108,33 +108,9 @@ export default function LicencesTable({
     [setUrlState],
   );
 
-  const apiParams = useMemo(
-    () => ({
-      page: String(page),
-      pageSize: String(rowsPerPage),
-      search: searchValue || "",
-    }),
-    [page, rowsPerPage, searchValue],
-  );
-
-  const {
-    result: paginatedResult,
-    isLoading,
-    refresh,
-  } = usePaginatedFetch<any>("/api/licence", apiParams);
-
-  const licencesData = useMemo(
-    () =>
-      (paginatedResult?.data ?? []).map((item) => ({
-        ...item,
-        purchaseprice:
-          item.purchaseprice != null ? Number(item.purchaseprice) : null,
-      })),
-    [paginatedResult],
-  );
-
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedLicence, setSelectedLicence] = useState(null);
+  const [licencesData, setLicencesData] = useState(items);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
@@ -160,9 +136,22 @@ export default function LicencesTable({
   );
 
   const filteredItems = useMemo(() => {
+    const normalizedQuery = searchValue.trim().toLowerCase();
     const now = new Date();
 
     return licencesData.filter((item) => {
+      const matchesSearch =
+        !normalizedQuery ||
+        [
+          item.licencekey,
+          item.licensedtoemail,
+          categoryById.get(item.licencecategorytypeid),
+          manufacturerById.get(item.manufacturerid),
+          supplierById.get(item.supplierid),
+        ]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedQuery));
+
       const matchesCategory =
         categoryFilter === "all" ||
         String(item.licencecategorytypeid ?? "") === categoryFilter;
@@ -184,6 +173,7 @@ export default function LicencesTable({
       })();
 
       return (
+        matchesSearch &&
         matchesCategory &&
         matchesManufacturer &&
         matchesSupplier &&
@@ -192,14 +182,21 @@ export default function LicencesTable({
     });
   }, [
     licencesData,
+    searchValue,
     categoryFilter,
     manufacturerFilter,
     supplierFilter,
     expirationFilter,
+    categoryById,
+    manufacturerById,
+    supplierById,
   ]);
 
-  const pages = paginatedResult?.totalPages ?? 1;
-  const paginatedItems = filteredItems;
+  const pages = Math.max(1, Math.ceil(filteredItems.length / rowsPerPage));
+  const paginatedItems = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    return filteredItems.slice(start, start + rowsPerPage);
+  }, [filteredItems, page, rowsPerPage]);
 
   const columns = [
     { key: "licencekey", label: "Key" },
@@ -230,7 +227,9 @@ export default function LicencesTable({
         description: `${licenceId} deleted successfully`,
       });
 
-      refresh();
+      setLicencesData((prevItems) =>
+        prevItems.filter((item) => item.licenceid !== licenceId),
+      );
       setIsDeleteModalOpen(false);
     } catch (error) {
       console.error("Error deleting licence:", error);
@@ -251,7 +250,9 @@ export default function LicencesTable({
           body: JSON.stringify({ licenceid: id }),
         });
       }
-      refresh();
+      setLicencesData((prev) =>
+        prev.filter((item) => !selectedKeys.has(item.licenceid)),
+      );
       toast.success(`Deleted ${ids.length} licence(s)`);
       setSelectedKeys(new Set());
       setShowBulkDelete(false);

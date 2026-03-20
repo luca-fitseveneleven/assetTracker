@@ -9,8 +9,6 @@ const isCloudDatabase =
   process.env.DATABASE_URL?.includes("supabase") ||
   process.env.DATABASE_URL?.includes("pooler.supabase");
 
-const dbSchema = process.env.DB_SCHEMA || "assettool";
-
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: isCloudDatabase ? { rejectUnauthorized: false } : false,
@@ -24,12 +22,6 @@ const pool = new pg.Pool({
   connectionTimeoutMillis: 5_000,
   // Prevent runaway queries
   statement_timeout: 30_000,
-});
-
-// Set search_path on every new connection so raw SQL queries
-// (cache, rate_limits, full-text search) find the correct schema.
-pool.on("connect", (client) => {
-  client.query(`SET search_path TO "${dbSchema}"`);
 });
 
 const adapter = new PrismaPg(pool);

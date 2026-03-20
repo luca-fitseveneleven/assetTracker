@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
+const S = process.env.DB_SCHEMA || "assettool";
+
 /**
  * Cron endpoint for purging expired cache and rate-limit rows.
  * Secured by CRON_SECRET header (for external cron services like Vercel Cron).
@@ -19,11 +21,11 @@ export async function GET(req: Request) {
 
   try {
     const deletedCache = await prisma.$executeRawUnsafe(
-      `DELETE FROM "cache" WHERE "expires_at" <= NOW()`,
+      `DELETE FROM "${S}"."cache" WHERE "expires_at" <= NOW()`,
     );
 
     const deletedRateLimits = await prisma.$executeRawUnsafe(
-      `DELETE FROM "rate_limits" WHERE "reset_at" <= NOW()`,
+      `DELETE FROM "${S}"."rate_limits" WHERE "reset_at" <= NOW()`,
     );
 
     logger.info("Cron cleanup completed", { deletedCache, deletedRateLimits });

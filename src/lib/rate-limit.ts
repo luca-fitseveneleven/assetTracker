@@ -9,24 +9,26 @@
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
+const S = process.env.DB_SCHEMA || "assettool";
+const RL_TABLE = `"${S}"."rate_limits"`;
+
 // Self-healing: ensure rate_limits table exists
 let rlTableChecked = false;
 async function ensureRateLimitsTable(): Promise<void> {
   if (rlTableChecked) return;
   try {
     await prisma.$executeRawUnsafe(`
-      CREATE UNLOGGED TABLE IF NOT EXISTS "rate_limits" (
+      CREATE UNLOGGED TABLE IF NOT EXISTS ${RL_TABLE} (
         "key" VARCHAR(255) PRIMARY KEY,
         "count" INTEGER NOT NULL DEFAULT 1,
         "reset_at" TIMESTAMPTZ NOT NULL
       )
     `);
     await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS idx_rate_limits_reset ON "rate_limits" ("reset_at")`,
+      `CREATE INDEX IF NOT EXISTS idx_rate_limits_reset ON ${RL_TABLE} ("reset_at")`,
     );
     rlTableChecked = true;
   } catch (e) {
-    // Fail open — if we can't create the table, rate limiting is skipped
     logger.error("[rate-limit] ensureRateLimitsTable failed", { error: e });
   }
 }
@@ -66,17 +68,17 @@ export async function checkRateLimit(
     const rows = await prisma.$queryRawUnsafe<
       Array<{ count: number; reset_at: Date }>
     >(
-      `INSERT INTO "rate_limits" ("key", "count", "reset_at")
+      `INSERT INTO ${RL_TABLE} ("key", "count", "reset_at")
        VALUES ($1, 1, NOW() + make_interval(secs => $2))
        ON CONFLICT ("key") DO UPDATE
          SET "count"    = CASE
-                            WHEN "rate_limits"."reset_at" <= NOW() THEN 1
-                            ELSE "rate_limits"."count" + 1
+                            WHEN ${RL_TABLE}."reset_at" <= NOW() THEN 1
+                            ELSE ${RL_TABLE}."count" + 1
                           END,
              "reset_at" = CASE
-                            WHEN "rate_limits"."reset_at" <= NOW()
+                            WHEN ${RL_TABLE}."reset_at" <= NOW()
                               THEN NOW() + make_interval(secs => $2)
-                            ELSE "rate_limits"."reset_at"
+                            ELSE ${RL_TABLE}."reset_at"
                           END
        RETURNING "count", "reset_at"`,
       identifier,
@@ -228,7 +230,7 @@ export function createRateLimitResponse(
 export async function resetRateLimit(identifier: string): Promise<void> {
   try {
     await prisma.$executeRawUnsafe(
-      `DELETE FROM "rate_limits" WHERE "key" = $1`,
+      `DELETE FROM ${RL_TABLE} WHERE "key" = $1`,
       identifier,
     );
   } catch (error) {
@@ -247,7 +249,7 @@ export async function getRateLimitStatus(
     const rows = await prisma.$queryRawUnsafe<
       Array<{ count: number; reset_at: Date }>
     >(
-      `SELECT "count", "reset_at" FROM "rate_limits"
+      `SELECT "count", "reset_at" FROM ${RL_TABLE}
        WHERE "key" = $1 AND "reset_at" > NOW()`,
       identifier,
     );

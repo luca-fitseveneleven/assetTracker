@@ -32,30 +32,38 @@ interface CacheRow {
 }
 
 // ---------------------------------------------------------------------------
-// Self-healing: ensure cache table exists on first use
+// Self-healing: ensure cache table exists on first use.
+// Uses a shared promise so parallel calls on cold start only run once.
 // ---------------------------------------------------------------------------
 let tableChecked = false;
+let _ensurePromise: Promise<void> | null = null;
 
 async function ensureCacheTable(): Promise<void> {
   if (tableChecked) return;
-  try {
-    await prisma.$executeRawUnsafe(`
-      CREATE SCHEMA IF NOT EXISTS "${S}"
-    `);
-    await prisma.$executeRawUnsafe(`
-      CREATE UNLOGGED TABLE IF NOT EXISTS ${CACHE_TABLE} (
-        "key" VARCHAR(255) PRIMARY KEY,
-        "value" JSONB NOT NULL,
-        "expires_at" TIMESTAMPTZ NOT NULL
-      )
-    `);
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS idx_cache_expires ON ${CACHE_TABLE} ("expires_at")`,
-    );
-    tableChecked = true;
-  } catch (e) {
-    console.error("[cache] ensureCacheTable failed:", e);
-  }
+  if (_ensurePromise) return _ensurePromise;
+
+  _ensurePromise = (async () => {
+    try {
+      await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${S}"`);
+      await prisma.$executeRawUnsafe(`
+        CREATE UNLOGGED TABLE IF NOT EXISTS ${CACHE_TABLE} (
+          "key" VARCHAR(255) PRIMARY KEY,
+          "value" JSONB NOT NULL,
+          "expires_at" TIMESTAMPTZ NOT NULL
+        )
+      `);
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS idx_cache_expires ON ${CACHE_TABLE} ("expires_at")`,
+      );
+      tableChecked = true;
+    } catch (e) {
+      console.error("[cache] ensureCacheTable failed:", e);
+    } finally {
+      _ensurePromise = null;
+    }
+  })();
+
+  return _ensurePromise;
 }
 
 // ---------------------------------------------------------------------------

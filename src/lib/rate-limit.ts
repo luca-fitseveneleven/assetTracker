@@ -12,25 +12,34 @@ import { logger } from "@/lib/logger";
 const S = process.env.DB_SCHEMA || "assettool";
 const RL_TABLE = `"${S}"."rate_limits"`;
 
-// Self-healing: ensure rate_limits table exists
+// Self-healing: ensure rate_limits table exists.
+// Shared promise prevents parallel cold-start calls from racing.
 let rlTableChecked = false;
+let _rlEnsurePromise: Promise<void> | null = null;
 async function ensureRateLimitsTable(): Promise<void> {
   if (rlTableChecked) return;
-  try {
-    await prisma.$executeRawUnsafe(`
-      CREATE UNLOGGED TABLE IF NOT EXISTS ${RL_TABLE} (
-        "key" VARCHAR(255) PRIMARY KEY,
-        "count" INTEGER NOT NULL DEFAULT 1,
-        "reset_at" TIMESTAMPTZ NOT NULL
-      )
-    `);
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS idx_rate_limits_reset ON ${RL_TABLE} ("reset_at")`,
-    );
-    rlTableChecked = true;
-  } catch (e) {
-    logger.error("[rate-limit] ensureRateLimitsTable failed", { error: e });
-  }
+  if (_rlEnsurePromise) return _rlEnsurePromise;
+
+  _rlEnsurePromise = (async () => {
+    try {
+      await prisma.$executeRawUnsafe(`
+        CREATE UNLOGGED TABLE IF NOT EXISTS ${RL_TABLE} (
+          "key" VARCHAR(255) PRIMARY KEY,
+          "count" INTEGER NOT NULL DEFAULT 1,
+          "reset_at" TIMESTAMPTZ NOT NULL
+        )
+      `);
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS idx_rate_limits_reset ON ${RL_TABLE} ("reset_at")`,
+      );
+      rlTableChecked = true;
+    } catch (e) {
+      logger.error("[rate-limit] ensureRateLimitsTable failed", { error: e });
+    } finally {
+      _rlEnsurePromise = null;
+    }
+  })();
+  return _rlEnsurePromise;
 }
 
 export interface RateLimitConfig {

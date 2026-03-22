@@ -1,28 +1,71 @@
 import prisma from "./prisma";
 import { cached } from "./cache";
+import { getOrganizationContext } from "./organization-context";
+
+/**
+ * Build an org-scoped where clause for data queries.
+ * Includes records matching the user's org AND records with no org (null).
+ * This inclusive approach supports existing data that predates multi-tenancy.
+ *
+ * Caches the result per-request so that calling orgWhere() 8 times
+ * from Promise.all only resolves the session once.
+ *
+ * TODO: Once all records have organizationId set, remove the null fallback
+ * and use strict scoping: `{ organizationId: orgId }`.
+ */
+let _orgWherePromise: Promise<Record<string, unknown>> | null = null;
+let _orgWhereTimestamp = 0;
+
+async function orgWhere(): Promise<Record<string, unknown>> {
+  // Cache for 1 second — covers a single page render's parallel calls
+  // but doesn't persist stale org context across separate requests
+  const now = Date.now();
+  if (_orgWherePromise && now - _orgWhereTimestamp < 1000) {
+    return _orgWherePromise;
+  }
+
+  _orgWhereTimestamp = now;
+  _orgWherePromise = (async () => {
+    try {
+      const ctx = await getOrganizationContext();
+      const orgId = ctx?.organization?.id;
+      if (!orgId) return {};
+      return { OR: [{ organizationId: orgId }, { organizationId: null }] };
+    } catch {
+      return {};
+    }
+  })();
+
+  return _orgWherePromise;
+}
 
 export async function getAssetCount() {
-  return cached("asset_count", () => prisma.asset.count(), 2 * 60 * 1000);
+  const where = await orgWhere();
+  const key = `asset_count:${JSON.stringify(where)}`;
+  return cached(key, () => prisma.asset.count({ where }), 2 * 60 * 1000);
 }
 
 export async function getUserCount() {
-  return cached("user_count", () => prisma.user.count(), 2 * 60 * 1000);
+  const where = await orgWhere();
+  const key = `user_count:${JSON.stringify(where)}`;
+  return cached(key, () => prisma.user.count({ where }), 2 * 60 * 1000);
 }
 
 export async function getAccessoryCount() {
-  return cached(
-    "accessory_count",
-    () => prisma.accessories.count(),
-    2 * 60 * 1000,
-  );
+  const where = await orgWhere();
+  const key = `accessory_count:${JSON.stringify(where)}`;
+  return cached(key, () => prisma.accessories.count({ where }), 2 * 60 * 1000);
 }
 
 export async function getAssetStatusDistribution() {
+  const where = await orgWhere();
+  const key = `asset_status_distribution:${JSON.stringify(where)}`;
   return cached(
-    "asset_status_distribution",
+    key,
     async () => {
       const assets = await prisma.asset.groupBy({
         by: ["statustypeid"],
+        where,
         _count: { assetid: true },
       });
       return assets.map((a) => ({
@@ -58,7 +101,9 @@ export async function getUsers() {
 }
 
 export async function getAssets() {
-  return cached("assets_all", () => prisma.asset.findMany({}), 2 * 60 * 1000);
+  const where = await orgWhere();
+  const key = `assets_all:${JSON.stringify(where)}`;
+  return cached(key, () => prisma.asset.findMany({ where }), 2 * 60 * 1000);
 }
 
 export async function getAssetById(id: string) {
@@ -125,9 +170,11 @@ export async function getManufacturerById(id: string) {
 }
 
 export async function getAccessories() {
+  const where = await orgWhere();
+  const key = `accessories_all:${JSON.stringify(where)}`;
   return cached(
-    "accessories_all",
-    () => prisma.accessories.findMany({}),
+    key,
+    () => prisma.accessories.findMany({ where }),
     2 * 60 * 1000,
   );
 }
@@ -169,9 +216,11 @@ export async function getSupplierById(id: string) {
 }
 
 export async function getConsumables() {
+  const where = await orgWhere();
+  const key = `consumables_all:${JSON.stringify(where)}`;
   return cached(
-    "consumables_all",
-    () => prisma.consumable.findMany({}),
+    key,
+    () => prisma.consumable.findMany({ where }),
     2 * 60 * 1000,
   );
 }
@@ -203,11 +252,9 @@ export async function getAccessoryCategories() {
 }
 
 export async function getLicences() {
-  return cached(
-    "licences_all",
-    () => prisma.licence.findMany({}),
-    2 * 60 * 1000,
-  );
+  const where = await orgWhere();
+  const key = `licences_all:${JSON.stringify(where)}`;
+  return cached(key, () => prisma.licence.findMany({ where }), 2 * 60 * 1000);
 }
 
 export async function getLicenceById(id: string) {
@@ -305,11 +352,6 @@ export async function deleteUser(id: string) {
   await prisma.user.delete({
     where: { userid: id },
   });
-}
-
-export async function postData(): Promise<never> {
-  // Not used; kept for backward compatibility. Prefer API routes.
-  throw new Error("postData is deprecated. Use API routes instead.");
 }
 
 // Category Type data functions

@@ -61,7 +61,6 @@ import { capitalize } from "../../utils/utils";
 import QRCode from "react-qr-code";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import { Toaster, toast } from "sonner";
-import { asset } from "@/components/testData";
 import SavedFilters from "@/components/SavedFilters";
 import PrintLabelDialog from "@/components/PrintLabelDialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1808,7 +1807,7 @@ export default function App({
             className="flex items-center justify-center bg-white py-4"
           >
             <QRCodeCanvas
-              value={`http://192.168.0.81:3000/assets/${selectedAsset?.assetid}`}
+              value={`${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/assets/${selectedAsset?.assetid}`}
               size={256}
               bgColor={"#ffffff"}
               fgColor={"#000000"}

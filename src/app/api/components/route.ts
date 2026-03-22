@@ -7,7 +7,7 @@ import {
   validateBody,
   createComponentSchema,
   updateComponentSchema,
-} from "@/lib/validations";
+} from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { logger } from "@/lib/logger";
@@ -61,7 +61,7 @@ export async function GET(req: Request) {
       const matchingIds = await prisma
         .$queryRawUnsafe<
           Array<{ id: string }>
-        >(`SELECT "id" FROM "components" WHERE "search_vector" @@ to_tsquery('english', $1)`, tsQuery)
+        >(`SELECT "id" FROM "components" WHERE "search_vector" @@ websearch_to_tsquery('english', $1)`, tsQuery)
         .catch(() => null);
 
       if (matchingIds && matchingIds.length > 0) {

@@ -41,52 +41,27 @@ interface DashboardWidgetData {
 // Widget content components
 // ---------------------------------------------------------------------------
 
-function StatsWidget() {
-  const [stats, setStats] = useState<{
-    assets: number;
-    accessories: number;
-    users: number;
-  } | null>(null);
-
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const [assetsRes, accessoriesRes, usersRes] = await Promise.all([
-          fetch("/api/asset/getAsset"),
-          fetch("/api/accessories"),
-          fetch("/api/user/getUser"),
-        ]);
-        const assets = await assetsRes.json();
-        const accessories = await accessoriesRes.json();
-        const users = await usersRes.json();
-        setStats({
-          assets: Array.isArray(assets) ? assets.length : 0,
-          accessories: Array.isArray(accessories) ? accessories.length : 0,
-          users: Array.isArray(users) ? users.length : 0,
-        });
-      } catch {
-        setStats(null);
-      }
-    }
-    fetchStats();
-  }, []);
-
-  if (!stats) {
-    return <p className="text-muted-foreground text-sm">Loading stats...</p>;
+function StatsWidget({
+  serverStats,
+}: {
+  serverStats?: { assets: number; accessories: number; users: number };
+}) {
+  if (!serverStats) {
+    return <p className="text-muted-foreground text-sm">No stats available</p>;
   }
 
   return (
     <div className="grid grid-cols-3 gap-2 text-center">
       <div>
-        <p className="text-2xl font-bold">{stats.assets}</p>
+        <p className="text-2xl font-bold">{serverStats.assets}</p>
         <p className="text-muted-foreground text-xs">Assets</p>
       </div>
       <div>
-        <p className="text-2xl font-bold">{stats.accessories}</p>
+        <p className="text-2xl font-bold">{serverStats.accessories}</p>
         <p className="text-muted-foreground text-xs">Accessories</p>
       </div>
       <div>
-        <p className="text-2xl font-bold">{stats.users}</p>
+        <p className="text-2xl font-bold">{serverStats.users}</p>
         <p className="text-muted-foreground text-xs">Users</p>
       </div>
     </div>
@@ -222,10 +197,16 @@ function CostOverviewWidget() {
   );
 }
 
-function WidgetContent({ widgetType }: { widgetType: string }) {
+function WidgetContent({
+  widgetType,
+  serverStats,
+}: {
+  widgetType: string;
+  serverStats?: { assets: number; accessories: number; users: number };
+}) {
   switch (widgetType) {
     case "stats":
-      return <StatsWidget />;
+      return <StatsWidget serverStats={serverStats} />;
     case "assetsByStatus":
       return <AssetsByStatusWidget />;
     case "recentActivity":
@@ -250,9 +231,11 @@ function WidgetContent({ widgetType }: { widgetType: string }) {
 function SortableWidget({
   widget,
   onRemove,
+  serverStats,
 }: {
   widget: DashboardWidgetData;
   onRemove: (id: string) => void;
+  serverStats?: { assets: number; accessories: number; users: number };
 }) {
   const {
     attributes,
@@ -298,7 +281,10 @@ function SortableWidget({
           </div>
         </CardHeader>
         <CardContent>
-          <WidgetContent widgetType={widget.widgetType} />
+          <WidgetContent
+            widgetType={widget.widgetType}
+            serverStats={serverStats}
+          />
         </CardContent>
       </Card>
     </div>
@@ -309,7 +295,11 @@ function SortableWidget({
 // Main DashboardGrid
 // ---------------------------------------------------------------------------
 
-export default function DashboardGrid() {
+export default function DashboardGrid({
+  serverStats,
+}: {
+  serverStats?: { assets: number; accessories: number; users: number };
+} = {}) {
   const [widgets, setWidgets] = useState<DashboardWidgetData[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -474,6 +464,7 @@ export default function DashboardGrid() {
                 key={widget.id}
                 widget={widget}
                 onRemove={handleRemove}
+                serverStats={serverStats}
               />
             ))}
           </div>

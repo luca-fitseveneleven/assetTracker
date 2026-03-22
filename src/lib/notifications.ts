@@ -384,6 +384,94 @@ export async function checkExpiringWarranties(): Promise<number> {
 }
 
 /**
+ * Send ticket assignment notification to the assignee
+ */
+export async function notifyTicketAssigned(
+  ticketTitle: string,
+  ticketId: string,
+  assigneeEmail: string,
+  assigneeUserId: string,
+  assigneeName: string,
+): Promise<void> {
+  const template = emailTemplates.ticketAssigned;
+  const subject = renderTemplate(template.subject, { ticketTitle });
+  const html = renderTemplate(template.html, {
+    assigneeName,
+    ticketTitle,
+    priority: "Normal",
+    descriptionPreview: "",
+  });
+
+  await queueEmail(
+    assigneeUserId,
+    "ticket_assigned",
+    assigneeEmail,
+    subject,
+    html,
+  );
+}
+
+/**
+ * Send notification when someone comments on a ticket
+ */
+export async function notifyTicketComment(
+  ticketTitle: string,
+  ticketId: string,
+  recipientEmail: string,
+  recipientUserId: string,
+  recipientName: string,
+  commenterName: string,
+  commentText: string,
+): Promise<void> {
+  const template = emailTemplates.ticketComment;
+  const subject = renderTemplate(template.subject, { ticketTitle });
+  const html = renderTemplate(template.html, {
+    recipientName,
+    ticketTitle,
+    commenterName,
+    commentText,
+  });
+
+  await queueEmail(
+    recipientUserId,
+    "ticket_comment",
+    recipientEmail,
+    subject,
+    html,
+  );
+}
+
+/**
+ * Send notification when ticket status changes
+ */
+export async function notifyTicketStatusChanged(
+  ticketTitle: string,
+  ticketId: string,
+  creatorEmail: string,
+  creatorUserId: string,
+  creatorName: string,
+  oldStatus: string,
+  newStatus: string,
+): Promise<void> {
+  const template = emailTemplates.ticketStatusChanged;
+  const subject = renderTemplate(template.subject, { ticketTitle });
+  const html = renderTemplate(template.html, {
+    creatorName,
+    ticketTitle,
+    oldStatus,
+    newStatus,
+  });
+
+  await queueEmail(
+    creatorUserId,
+    "ticket_status_changed",
+    creatorEmail,
+    subject,
+    html,
+  );
+}
+
+/**
  * Get user notification preferences
  */
 async function getUserNotificationPrefs(userId: string) {

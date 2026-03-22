@@ -5,6 +5,10 @@ import prisma from "@/lib/prisma";
 import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { createFreshdeskClient } from "@/lib/freshdesk";
 import { logger } from "@/lib/logger";
+import {
+  notifyTicketAssigned,
+  notifyTicketStatusChanged,
+} from "@/lib/notifications";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -86,6 +90,16 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     const { status, priority, assignedTo } = body || {};
 
+    // Fetch the existing ticket to detect changes
+    const existingTicket = await prisma.tickets.findUnique({
+      where: { id },
+      select: { status: true, assignedTo: true, title: true },
+    });
+
+    if (!existingTicket) {
+      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+    }
+
     const updateData: any = {
       updatedAt: new Date(),
     };
@@ -126,6 +140,44 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       assignee: rawTicket.user_tickets_assignedToTouser,
       comments: [],
     };
+
+    // Fire-and-forget: notify assignee if assignedTo changed
+    if (
+      assignedTo &&
+      assignedTo !== existingTicket.assignedTo &&
+      ticket.assignee?.email
+    ) {
+      const assigneeName = `${ticket.assignee.firstname} ${ticket.assignee.lastname}`;
+      notifyTicketAssigned(
+        existingTicket.title,
+        id,
+        ticket.assignee.email,
+        ticket.assignee.userid,
+        assigneeName,
+      ).catch((e) =>
+        logger.error("Failed to send ticket assignment notification", {
+          error: e,
+        }),
+      );
+    }
+
+    // Fire-and-forget: notify creator if status changed
+    if (status && status !== existingTicket.status && ticket.creator?.email) {
+      const creatorName = `${ticket.creator.firstname} ${ticket.creator.lastname}`;
+      notifyTicketStatusChanged(
+        existingTicket.title,
+        id,
+        ticket.creator.email,
+        ticket.creator.userid,
+        creatorName,
+        existingTicket.status,
+        status,
+      ).catch((e) =>
+        logger.error("Failed to send ticket status change notification", {
+          error: e,
+        }),
+      );
+    }
 
     return NextResponse.json(ticket, { status: 200 });
   } catch (error) {

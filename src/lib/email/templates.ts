@@ -328,6 +328,83 @@ export const emailTemplates = {
       </div>
     `,
   },
+
+  ticketAssigned: {
+    subject: "Ticket Assigned: {{ticketTitle}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Ticket Assigned to You</h2>
+        <p>Hello {{assigneeName}},</p>
+        <p>You have been assigned a ticket:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Title</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{ticketTitle}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Priority</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{priority}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Description</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{descriptionPreview}}</td>
+          </tr>
+        </table>
+        <p>Please log in to the Asset Tracker to view and work on this ticket.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
+
+  ticketComment: {
+    subject: "New Comment on: {{ticketTitle}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">New Comment on Your Ticket</h2>
+        <p>Hello {{recipientName}},</p>
+        <p><strong>{{commenterName}}</strong> commented on your ticket:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Ticket</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{ticketTitle}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Comment</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{commentText}}</td>
+          </tr>
+        </table>
+        <p>Please log in to the Asset Tracker to view the full conversation.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
+
+  ticketStatusChanged: {
+    subject: "Ticket Updated: {{ticketTitle}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #d97706;">Ticket Status Updated</h2>
+        <p>Hello {{creatorName}},</p>
+        <p>The status of your ticket has been updated:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Ticket</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{ticketTitle}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Previous Status</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{oldStatus}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #dbeafe;"><strong>New Status</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #dbeafe;">{{newStatus}}</td>
+          </tr>
+        </table>
+        <p>Please log in to the Asset Tracker to view your ticket.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
 };
 
 export type TemplateType = keyof typeof emailTemplates;

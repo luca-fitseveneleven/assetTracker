@@ -379,6 +379,22 @@ export const emailTemplates = {
     `,
   },
 
+  maintenanceCompleted: {
+    subject: "Maintenance Completed: {{assetName}}",
+    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #16a34a;">Maintenance Completed</h2>
+    <p>Hello {{userName}},</p>
+    <p>A maintenance task has been completed:</p>
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <tr><td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Task</strong></td><td style="padding: 10px; border: 1px solid #ddd;">{{taskTitle}}</td></tr>
+      <tr><td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Asset</strong></td><td style="padding: 10px; border: 1px solid #ddd;">{{assetName}}</td></tr>
+      <tr><td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Completed</strong></td><td style="padding: 10px; border: 1px solid #ddd;">{{completedDate}}</td></tr>
+      <tr><td style="padding: 10px; border: 1px solid #ddd; background: #dbeafe;"><strong>Next Due</strong></td><td style="padding: 10px; border: 1px solid #ddd; background: #dbeafe;">{{nextDueDate}}</td></tr>
+    </table>
+    <p>Best regards,<br>Asset Tracker System</p>
+  </div>`,
+  },
+
   ticketStatusChanged: {
     subject: "Ticket Updated: {{ticketTitle}}",
     html: `

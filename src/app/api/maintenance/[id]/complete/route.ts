@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
+import { queueEmail } from "@/lib/email/service";
+import { emailTemplates, renderTemplate } from "@/lib/email/templates";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -96,11 +98,40 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             select: { assetid: true, assetname: true },
           },
           user: {
-            select: { userid: true, firstname: true, lastname: true },
+            select: {
+              userid: true,
+              firstname: true,
+              lastname: true,
+              email: true,
+            },
           },
         },
       }),
     ]);
+
+    // Send notification to assigned user about completion and next due date
+    if (updatedSchedule.assignedTo && updatedSchedule.user?.email) {
+      const template = emailTemplates.maintenanceCompleted;
+      const variables = {
+        userName: `${updatedSchedule.user.firstname} ${updatedSchedule.user.lastname}`,
+        taskTitle: updatedSchedule.title,
+        assetName: updatedSchedule.asset?.assetname || "Unknown Asset",
+        completedDate: now.toLocaleDateString(),
+        nextDueDate: newNextDueDate.toLocaleDateString(),
+      };
+
+      queueEmail(
+        updatedSchedule.assignedTo,
+        "maintenance_completed",
+        updatedSchedule.user.email,
+        renderTemplate(template.subject, variables),
+        renderTemplate(template.html, variables),
+      ).catch((err) => {
+        logger.error("Failed to queue maintenance completion email", {
+          error: err,
+        });
+      });
+    }
 
     return NextResponse.json(
       {

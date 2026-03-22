@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -223,6 +223,29 @@ export default function ReportsPage({
   depreciationAssets,
 }: ReportsPageProps) {
   const [activeTab, setActiveTab] = useState("overview");
+
+  const costByCategoryData = useMemo(() => {
+    const categoryMap = new Map<string, number>();
+    for (const asset of data.rawData.assets) {
+      const cat = asset.category || "Uncategorized";
+      categoryMap.set(cat, (categoryMap.get(cat) || 0) + asset.purchasePrice);
+    }
+    return Array.from(categoryMap.entries())
+      .map(([name, total]) => ({ name, total: Math.round(total) }))
+      .sort((a, b) => b.total - a.total);
+  }, [data.rawData.assets]);
+
+  const assetAgeData = useMemo(() => {
+    const yearMap = new Map<number, number>();
+    for (const asset of data.rawData.assets) {
+      if (!asset.purchaseDate) continue;
+      const year = new Date(asset.purchaseDate).getFullYear();
+      yearMap.set(year, (yearMap.get(year) || 0) + 1);
+    }
+    return Array.from(yearMap.entries())
+      .map(([year, count]) => ({ year: String(year), count }))
+      .sort((a, b) => a.year.localeCompare(b.year));
+  }, [data.rawData.assets]);
 
   const exportToCSV = () => {
     const headers = [
@@ -640,6 +663,48 @@ export default function ReportsPage({
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="value" fill="#ffc658" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Cost by Category</CardTitle>
+                <CardDescription>
+                  Total purchase value per asset category
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={costByCategoryData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis tickFormatter={(v: number) => formatCurrency(v)} />
+                    <Tooltip
+                      formatter={(value: number) => formatCurrency(value)}
+                    />
+                    <Bar dataKey="total" fill="#8884d8" name="Total Value" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Asset Age Distribution</CardTitle>
+                <CardDescription>
+                  Number of assets purchased per year
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={assetAgeData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#82ca9d" name="Assets" />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>

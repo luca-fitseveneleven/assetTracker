@@ -342,133 +342,115 @@ export default function AccessoriesTable({
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Accessories</h1>
+      {/* Header: title + create button */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Accessories</h1>
+        <Button asChild>
+          <Link href="/accessories/create">
+            <PlusIcon className="mr-2 h-4 w-4" />
+            Create
+          </Link>
+        </Button>
+      </div>
+
+      {/* Search + filters row */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+          <Input
+            className="pl-9"
+            placeholder="Search by name, tag, manufacturer, or model"
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+          />
         </div>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="relative w-full lg:max-w-md">
-            <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-            <Input
-              className="pl-9"
-              placeholder="Search by name, tag, manufacturer, or model"
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1">
-              <span className="text-muted-foreground text-xs font-medium">
-                Status
-              </span>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  {statuses.map((status) => (
-                    <SelectItem
-                      key={String(status.statustypeid)}
-                      value={String(status.statustypeid)}
-                    >
-                      {status.statustypename}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <span className="text-muted-foreground text-xs font-medium">
-                Category
-              </span>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-44">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem
-                      key={String(category.accessoriecategorytypeid)}
-                      value={String(category.accessoriecategorytypeid)}
-                    >
-                      {category.accessoriecategorytypename}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <span className="text-muted-foreground text-xs font-medium">
-                Location
-              </span>
-              <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="w-44">
-                  <SelectValue placeholder="All Locations" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
-                  {locations.map((location) => (
-                    <SelectItem
-                      key={String(location.locationid)}
-                      value={String(location.locationid)}
-                    >
-                      {location.locationname}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <span className="text-muted-foreground text-xs font-medium">
-                Requestable
-              </span>
-              <Select
-                value={requestableFilter}
-                onValueChange={setRequestableFilter}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  {requestableOptions.map((option) => (
-                    <SelectItem key={option.key} value={option.key}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button asChild>
-              <Link href="/accessories/create">
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Create
-              </Link>
-            </Button>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-muted-foreground text-sm">
-            Showing {paginatedItems.length} of {filteredItems.length}{" "}
-            accessories
-          </span>
-          <Select
-            value={String(rowsPerPage)}
-            onValueChange={(value) => setRowsPerPage(Number(value))}
-          >
-            <SelectTrigger className="w-24">
-              <SelectValue />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 w-[140px]">
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              {ROWS_PER_PAGE_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
+              <SelectItem value="all">All Statuses</SelectItem>
+              {statuses.map((status) => (
+                <SelectItem
+                  key={String(status.statustypeid)}
+                  value={String(status.statustypeid)}
+                >
+                  {status.statustypename}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-9 w-[140px]">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map((category) => (
+                <SelectItem
+                  key={String(category.accessoriecategorytypeid)}
+                  value={String(category.accessoriecategorytypeid)}
+                >
+                  {category.accessoriecategorytypename}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={locationFilter} onValueChange={setLocationFilter}>
+            <SelectTrigger className="h-9 w-[140px]">
+              <SelectValue placeholder="Location" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Locations</SelectItem>
+              {locations.map((location) => (
+                <SelectItem
+                  key={String(location.locationid)}
+                  value={String(location.locationid)}
+                >
+                  {location.locationname}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={requestableFilter}
+            onValueChange={setRequestableFilter}
+          >
+            <SelectTrigger className="h-9 w-[120px]">
+              <SelectValue placeholder="Requestable" />
+            </SelectTrigger>
+            <SelectContent>
+              {requestableOptions.map((option) => (
+                <SelectItem key={option.key} value={option.key}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Stats + rows per page */}
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground text-sm">
+          {filteredItems.length} accessories
+        </span>
+        <Select
+          value={String(rowsPerPage)}
+          onValueChange={(value) => setRowsPerPage(Number(value))}
+        >
+          <SelectTrigger className="h-9 w-20">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ROWS_PER_PAGE_OPTIONS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <ResponsiveTable
         columns={columns}

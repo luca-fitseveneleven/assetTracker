@@ -7,19 +7,36 @@ import { getOrganizationContext } from "./organization-context";
  * Includes records matching the user's org AND records with no org (null).
  * This inclusive approach supports existing data that predates multi-tenancy.
  *
+ * Caches the result per-request so that calling orgWhere() 8 times
+ * from Promise.all only resolves the session once.
+ *
  * TODO: Once all records have organizationId set, remove the null fallback
  * and use strict scoping: `{ organizationId: orgId }`.
  */
+let _orgWherePromise: Promise<Record<string, unknown>> | null = null;
+let _orgWhereTimestamp = 0;
+
 async function orgWhere(): Promise<Record<string, unknown>> {
-  try {
-    const ctx = await getOrganizationContext();
-    const orgId = ctx?.organization?.id;
-    if (!orgId) return {};
-    return { OR: [{ organizationId: orgId }, { organizationId: null }] };
-  } catch {
-    // Outside of a request context (e.g., scripts) — no scoping
-    return {};
+  // Cache for 1 second — covers a single page render's parallel calls
+  // but doesn't persist stale org context across separate requests
+  const now = Date.now();
+  if (_orgWherePromise && now - _orgWhereTimestamp < 1000) {
+    return _orgWherePromise;
   }
+
+  _orgWhereTimestamp = now;
+  _orgWherePromise = (async () => {
+    try {
+      const ctx = await getOrganizationContext();
+      const orgId = ctx?.organization?.id;
+      if (!orgId) return {};
+      return { OR: [{ organizationId: orgId }, { organizationId: null }] };
+    } catch {
+      return {};
+    }
+  })();
+
+  return _orgWherePromise;
 }
 
 export async function getAssetCount() {

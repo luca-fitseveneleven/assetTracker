@@ -13,30 +13,16 @@ import { getOrganizationContext } from "./organization-context";
  * TODO: Once all records have organizationId set, remove the null fallback
  * and use strict scoping: `{ organizationId: orgId }`.
  */
-let _orgWherePromise: Promise<Record<string, unknown>> | null = null;
-let _orgWhereTimestamp = 0;
-
 async function orgWhere(): Promise<Record<string, unknown>> {
-  // Cache for 1 second — covers a single page render's parallel calls
-  // but doesn't persist stale org context across separate requests
-  const now = Date.now();
-  if (_orgWherePromise && now - _orgWhereTimestamp < 1000) {
-    return _orgWherePromise;
+  try {
+    const ctx = await getOrganizationContext();
+    const orgId = ctx?.organization?.id;
+    if (!orgId) return {};
+    return { OR: [{ organizationId: orgId }, { organizationId: null }] };
+  } catch {
+    // Outside of a request context (e.g., scripts) — no scoping
+    return {};
   }
-
-  _orgWhereTimestamp = now;
-  _orgWherePromise = (async () => {
-    try {
-      const ctx = await getOrganizationContext();
-      const orgId = ctx?.organization?.id;
-      if (!orgId) return {};
-      return { OR: [{ organizationId: orgId }, { organizationId: null }] };
-    } catch {
-      return {};
-    }
-  })();
-
-  return _orgWherePromise;
 }
 
 export async function getAssetCount() {
@@ -242,13 +228,19 @@ export async function getConsumableById(id: string) {
 }
 
 export async function getConsumableCategories() {
-  const cats = await prisma.consumableCategoryType.findMany({});
-  return cats;
+  return cached(
+    "consumable_categories",
+    () => prisma.consumableCategoryType.findMany({}),
+    2 * 60 * 1000,
+  );
 }
 
 export async function getAccessoryCategories() {
-  const cats = await prisma.accessorieCategoryType.findMany({});
-  return cats;
+  return cached(
+    "accessory_categories",
+    () => prisma.accessorieCategoryType.findMany({}),
+    2 * 60 * 1000,
+  );
 }
 
 export async function getLicences() {
@@ -274,8 +266,11 @@ export async function getLicenceById(id: string) {
 }
 
 export async function getLicenceCategories() {
-  const cats = await prisma.licenceCategoryType.findMany({});
-  return cats;
+  return cached(
+    "licence_categories",
+    () => prisma.licenceCategoryType.findMany({}),
+    2 * 60 * 1000,
+  );
 }
 
 export async function getModel() {

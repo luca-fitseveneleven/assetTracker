@@ -83,7 +83,13 @@ export default async function DashboardPage() {
         <AssetStatusChart data={chartData} />
       </div>
       <div className="mt-6 sm:mt-8 md:mt-10">
-        <DashboardGrid />
+        <DashboardGrid
+          serverStats={{
+            assets: assetCount,
+            accessories: accessoryCount,
+            users: userCount,
+          }}
+        />
       </div>
     </main>
   );

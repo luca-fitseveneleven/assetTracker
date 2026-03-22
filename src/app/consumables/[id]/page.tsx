@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import prisma from "@/lib/prisma";
@@ -17,7 +18,12 @@ export const metadata = {
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const consumableRaw = await getConsumableById(params.id);
+  let consumableRaw;
+  try {
+    consumableRaw = await getConsumableById(params.id);
+  } catch {
+    notFound();
+  }
 
   const consumable = {
     ...consumableRaw,

@@ -3,6 +3,7 @@ import { Providers } from "../lib/providers";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import SkipToContent from "../components/SkipToContent";
+import Script from "next/script";
 import OfflineBanner from "../components/OfflineBanner";
 import PWAInstallPrompt from "../components/PWAInstallPrompt";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
@@ -43,6 +44,11 @@ export default async function RootLayout({ children }) {
       className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
     >
       <body>
+        <Script
+          src="https://analytics.711x.de/script.js"
+          data-website-id="733bdd9f-8777-407e-826b-3042eb417e4f"
+          strategy="afterInteractive"
+        />
         <SkipToContent />
         <OfflineBanner />
         <ServiceWorkerRegistration />

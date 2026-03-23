@@ -18,6 +18,7 @@ import {
   buildPaginatedResponse,
 } from "@/lib/pagination";
 import { logger } from "@/lib/logger";
+import { invalidateCache } from "@/lib/cache";
 
 const MODEL_SORT_FIELDS = ["modelname", "modelnumber", "creation_date"];
 
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
       details: { modelname, modelnumber },
     });
 
+    invalidateCache("models").catch(() => {});
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
     logger.error("POST /api/model error", { error: e });
@@ -180,6 +182,7 @@ export async function PUT(req: NextRequest) {
       details: { modelname, modelnumber },
     });
 
+    invalidateCache("models").catch(() => {});
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
     logger.error("PUT /api/model error", { error: e });
@@ -261,6 +264,7 @@ export async function DELETE(req: NextRequest) {
       details: { modelname: model.modelname },
     });
 
+    invalidateCache("models").catch(() => {});
     return NextResponse.json(
       { message: "Model deleted successfully" },
       { status: 200 },

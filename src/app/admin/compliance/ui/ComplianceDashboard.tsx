@@ -38,7 +38,11 @@ interface ComplianceData {
   };
 }
 
-type ComplianceStatus = "Compliant" | "Needs Review" | "Not Configured";
+type ComplianceStatus =
+  | "Compliant"
+  | "Needs Review"
+  | "Not Configured"
+  | "Not Yet Available";
 
 interface ComplianceCheckItem {
   id: string;
@@ -56,7 +60,8 @@ const complianceChecklist: ComplianceCheckItem[] = [
   {
     id: "access-control-review",
     label: "Access Control Review",
-    description: "Admin user accounts are documented and access privileges are reviewed.",
+    description:
+      "Admin user accounts are documented and access privileges are reviewed.",
     framework: "SOX",
     getStatus: (data) => {
       if (data.accessControl.totalUsers === 0) return "Not Configured";
@@ -69,7 +74,8 @@ const complianceChecklist: ComplianceCheckItem[] = [
   {
     id: "audit-trail",
     label: "Audit Trail Coverage",
-    description: "All entity changes are tracked through the audit logging system.",
+    description:
+      "All entity changes are tracked through the audit logging system.",
     framework: "SOX",
     getStatus: (data) => {
       if (data.auditCoverage.totalAuditLogs === 0) return "Not Configured";
@@ -81,7 +87,8 @@ const complianceChecklist: ComplianceCheckItem[] = [
   {
     id: "data-retention-policy",
     label: "Data Retention Policy",
-    description: "GDPR retention settings are configured and actively enforced.",
+    description:
+      "GDPR retention settings are configured and actively enforced.",
     framework: "HIPAA",
     getStatus: (data) => {
       if (!data.dataRetention.gdprConfigured) return "Not Configured";
@@ -91,7 +98,8 @@ const complianceChecklist: ComplianceCheckItem[] = [
   {
     id: "asset-inventory",
     label: "Asset Inventory Management",
-    description: "A complete inventory of IT assets is maintained with lifecycle tracking.",
+    description:
+      "A complete inventory of IT assets is maintained with lifecycle tracking.",
     framework: "SOX",
     getStatus: (data) => {
       if (data.assetInventory.totalAssets === 0) return "Not Configured";
@@ -101,27 +109,28 @@ const complianceChecklist: ComplianceCheckItem[] = [
   {
     id: "user-authentication",
     label: "User Authentication Controls",
-    description: "Multi-factor authentication and strong password policies are enforced.",
+    description:
+      "Multi-factor authentication is not yet implemented. Coming in a future update.",
     framework: "HIPAA",
     getStatus: () => {
-      // 2FA is not yet implemented in the system
-      return "Needs Review";
+      return "Not Yet Available";
     },
   },
   {
     id: "data-encryption",
     label: "Data Encryption at Rest",
-    description: "Sensitive data is encrypted at rest using industry-standard algorithms.",
+    description:
+      "Encryption coverage is not yet implemented. Coming in a future update.",
     framework: "HIPAA",
     getStatus: () => {
-      // Placeholder -- encryption module exists but coverage is TBD
-      return "Needs Review";
+      return "Not Yet Available";
     },
   },
   {
     id: "incident-response",
     label: "Incident Response Plan",
-    description: "A documented incident response plan is in place for security breaches.",
+    description:
+      "A documented incident response plan is in place for security breaches.",
     framework: "HIPAA",
     getStatus: () => {
       return "Not Configured";
@@ -130,7 +139,8 @@ const complianceChecklist: ComplianceCheckItem[] = [
   {
     id: "change-management",
     label: "Change Management Process",
-    description: "All system changes are documented and approved through a formal process.",
+    description:
+      "All system changes are documented and approved through a formal process.",
     framework: "SOX",
     getStatus: (data) => {
       if (data.auditCoverage.totalAuditLogs === 0) return "Not Configured";
@@ -144,7 +154,7 @@ const complianceChecklist: ComplianceCheckItem[] = [
 // ---------------------------------------------------------------------------
 
 function statusBadgeVariant(
-  status: ComplianceStatus
+  status: ComplianceStatus,
 ): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case "Compliant":
@@ -153,6 +163,8 @@ function statusBadgeVariant(
       return "secondary";
     case "Not Configured":
       return "destructive";
+    case "Not Yet Available":
+      return "secondary";
     default:
       return "outline";
   }
@@ -218,7 +230,7 @@ export default function ComplianceDashboard() {
       toast.success("Compliance report downloaded successfully");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to generate report"
+        error instanceof Error ? error.message : "Failed to generate report",
       );
     } finally {
       setExporting(false);
@@ -229,15 +241,15 @@ export default function ComplianceDashboard() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold mb-2">Compliance Reporting</h1>
+          <h1 className="mb-2 text-2xl font-bold">Compliance Reporting</h1>
           <p className="text-muted-foreground">Loading compliance data...</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
               <CardContent className="py-8">
-                <div className="h-4 bg-muted animate-pulse rounded w-3/4 mb-2" />
-                <div className="h-8 bg-muted animate-pulse rounded w-1/2" />
+                <div className="bg-muted mb-2 h-4 w-3/4 animate-pulse rounded" />
+                <div className="bg-muted h-8 w-1/2 animate-pulse rounded" />
               </CardContent>
             </Card>
           ))}
@@ -249,10 +261,10 @@ export default function ComplianceDashboard() {
   if (!data) {
     return (
       <div>
-        <h1 className="text-2xl font-bold mb-2">Compliance Reporting</h1>
+        <h1 className="mb-2 text-2xl font-bold">Compliance Reporting</h1>
         <Card>
           <CardContent className="py-8">
-            <p className="text-center text-muted-foreground">
+            <p className="text-muted-foreground text-center">
               Failed to load compliance data. Please try again later.
             </p>
           </CardContent>
@@ -266,9 +278,10 @@ export default function ComplianceDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-2">Compliance Reporting</h1>
+          <h1 className="mb-2 text-2xl font-bold">Compliance Reporting</h1>
           <p className="text-muted-foreground">
-            SOX and HIPAA compliance overview with audit trail and access control metrics.
+            SOX and HIPAA compliance overview with audit trail and access
+            control metrics.
           </p>
         </div>
         <Button onClick={handleExport} disabled={exporting}>
@@ -281,13 +294,15 @@ export default function ComplianceDashboard() {
         {/* Access Control Card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-muted-foreground text-sm font-medium">
               Access Control
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.accessControl.totalUsers}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <div className="text-2xl font-bold">
+              {data.accessControl.totalUsers}
+            </div>
+            <p className="text-muted-foreground mt-1 text-xs">
               {data.accessControl.adminUsers} admin{" "}
               {data.accessControl.adminUsers === 1 ? "user" : "users"} /{" "}
               {data.accessControl.regularUsers} regular
@@ -298,7 +313,7 @@ export default function ComplianceDashboard() {
         {/* Audit Coverage Card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-muted-foreground text-sm font-medium">
               Audit Coverage
             </CardTitle>
           </CardHeader>
@@ -306,7 +321,7 @@ export default function ComplianceDashboard() {
             <div className="text-2xl font-bold">
               {data.auditCoverage.coveragePercent}%
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-xs">
               {data.auditCoverage.auditedEntities} of{" "}
               {data.auditCoverage.totalEntities} entities audited (90d)
             </p>
@@ -316,7 +331,7 @@ export default function ComplianceDashboard() {
         {/* Data Retention Card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-muted-foreground text-sm font-medium">
               Data Retention
             </CardTitle>
           </CardHeader>
@@ -328,7 +343,7 @@ export default function ComplianceDashboard() {
                 <Badge variant="destructive">Not Configured</Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-xs">
               {data.dataRetention.gdprConfigured
                 ? `Audit logs: ${data.dataRetention.auditLogRetentionDays}d`
                 : "GDPR settings need to be configured"}
@@ -339,13 +354,15 @@ export default function ComplianceDashboard() {
         {/* Asset Inventory Card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-muted-foreground text-sm font-medium">
               Asset Inventory
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.assetInventory.totalAssets}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <div className="text-2xl font-bold">
+              {data.assetInventory.totalAssets}
+            </div>
+            <p className="text-muted-foreground mt-1 text-xs">
               {data.assetInventory.activeAssets} active /{" "}
               {data.assetInventory.retiredAssets} retired
             </p>
@@ -361,32 +378,34 @@ export default function ComplianceDashboard() {
             <CardTitle>Access Control Summary</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">Total Users</span>
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">Total Users</span>
               <span className="text-sm font-medium">
                 {data.accessControl.totalUsers}
               </span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">Admin Users</span>
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">Admin Users</span>
               <span className="text-sm font-medium">
                 {data.accessControl.adminUsers}
               </span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">Regular Users</span>
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
+                Regular Users
+              </span>
               <span className="text-sm font-medium">
                 {data.accessControl.regularUsers}
               </span>
             </div>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-sm text-muted-foreground">Admin Ratio</span>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-muted-foreground text-sm">Admin Ratio</span>
               <span className="text-sm font-medium">
                 {data.accessControl.totalUsers > 0
                   ? Math.round(
                       (data.accessControl.adminUsers /
                         data.accessControl.totalUsers) *
-                        100
+                        100,
                     )
                   : 0}
                 %
@@ -401,14 +420,16 @@ export default function ComplianceDashboard() {
             <CardTitle>Audit Trail Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">Total Audit Entries</span>
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
+                Total Audit Entries
+              </span>
               <span className="text-sm font-medium">
                 {data.auditCoverage.totalAuditLogs.toLocaleString()}
               </span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
                 Entities with Recent Activity
               </span>
               <span className="text-sm font-medium">
@@ -416,14 +437,18 @@ export default function ComplianceDashboard() {
                 {data.auditCoverage.totalEntities}
               </span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">Coverage (90 days)</span>
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
+                Coverage (90 days)
+              </span>
               <span className="text-sm font-medium">
                 {data.auditCoverage.coveragePercent}%
               </span>
             </div>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-sm text-muted-foreground">Last Activity</span>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-muted-foreground text-sm">
+                Last Activity
+              </span>
               <span className="text-sm font-medium">
                 {formatDate(data.auditCoverage.lastActivityDate)}
               </span>
@@ -437,8 +462,10 @@ export default function ComplianceDashboard() {
             <CardTitle>Data Retention Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">GDPR Configured</span>
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
+                GDPR Configured
+              </span>
               <Badge
                 variant={
                   data.dataRetention.gdprConfigured ? "default" : "destructive"
@@ -447,30 +474,34 @@ export default function ComplianceDashboard() {
                 {data.dataRetention.gdprConfigured ? "Yes" : "No"}
               </Badge>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
                 Audit Log Retention
               </span>
               <span className="text-sm font-medium">
                 {data.dataRetention.auditLogRetentionDays} days
               </span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
                 Deleted User Retention
               </span>
               <span className="text-sm font-medium">
                 {data.dataRetention.deletedUserRetentionDays} days
               </span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">Export Retention</span>
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
+                Export Retention
+              </span>
               <span className="text-sm font-medium">
                 {data.dataRetention.exportRetentionDays} days
               </span>
             </div>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-sm text-muted-foreground">Last Updated</span>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-muted-foreground text-sm">
+                Last Updated
+              </span>
               <span className="text-sm font-medium">
                 {formatDate(data.dataRetention.lastUpdated)}
               </span>
@@ -484,26 +515,34 @@ export default function ComplianceDashboard() {
             <CardTitle>Asset Inventory Breakdown</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">Total Assets</span>
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
+                Total Assets
+              </span>
               <span className="text-sm font-medium">
                 {data.assetInventory.totalAssets}
               </span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">Active Assets</span>
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
+                Active Assets
+              </span>
               <span className="text-sm font-medium">
                 {data.assetInventory.activeAssets}
               </span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-sm text-muted-foreground">Retired Assets</span>
+            <div className="flex items-center justify-between border-b py-2">
+              <span className="text-muted-foreground text-sm">
+                Retired Assets
+              </span>
               <span className="text-sm font-medium">
                 {data.assetInventory.retiredAssets}
               </span>
             </div>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-sm text-muted-foreground">Other Status</span>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-muted-foreground text-sm">
+                Other Status
+              </span>
               <span className="text-sm font-medium">
                 {data.assetInventory.otherAssets}
               </span>
@@ -518,9 +557,9 @@ export default function ComplianceDashboard() {
           <CardTitle>Compliance Checklist</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Review each compliance requirement below. Items are evaluated against
-            current system configuration and data.
+          <p className="text-muted-foreground mb-4 text-sm">
+            Review each compliance requirement below. Items are evaluated
+            against current system configuration and data.
           </p>
           <div className="divide-y">
             {complianceChecklist.map((item) => {
@@ -530,14 +569,14 @@ export default function ComplianceDashboard() {
                   key={item.id}
                   className="flex items-center justify-between py-3"
                 >
-                  <div className="flex-1 min-w-0 mr-4">
+                  <div className="mr-4 min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{item.label}</span>
                       <Badge variant="outline" className="text-xs">
                         {item.framework}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-muted-foreground mt-0.5 text-xs">
                       {item.description}
                     </p>
                   </div>

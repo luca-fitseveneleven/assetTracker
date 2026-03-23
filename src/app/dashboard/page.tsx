@@ -9,11 +9,21 @@ import StatCard from "../../components/StatCard";
 import AssetStatusChart from "@/components/charts/AssetStatusChart";
 import DismissibleHelpTip from "@/components/DismissibleHelpTip";
 import DashboardGrid from "@/components/dashboard/DashboardGrid";
+import UserDashboard from "@/components/dashboard/UserDashboard";
+import { getOrganizationContext } from "@/lib/organization-context";
+
 export const metadata = {
   title: "Dashboard | Asset Tracker",
 };
 
 export default async function DashboardPage() {
+  const ctx = await getOrganizationContext();
+  const isAdmin = ctx?.isAdmin ?? false;
+
+  if (!isAdmin) {
+    return <UserDashboard userId={ctx?.userId} />;
+  }
+
   const [userCount, assetCount, accessoryCount, statusDistribution, statuses] =
     await Promise.all([
       getUserCount(),

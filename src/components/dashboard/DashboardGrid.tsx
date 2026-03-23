@@ -178,21 +178,188 @@ function UpcomingMaintenanceWidget() {
 }
 
 function ExpiringLicencesWidget() {
+  const [licences, setLicences] = useState<
+    Array<{
+      licenceid: string;
+      licencekey: string | null;
+      licensedtoemail: string | null;
+      expirationdate: string | null;
+      daysUntilExpiry: number;
+    }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchLicences() {
+      try {
+        const res = await fetch("/api/licence");
+        const data = await res.json();
+        if (!Array.isArray(data)) {
+          setLicences([]);
+          return;
+        }
+        const now = new Date();
+        const in90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+        const expiring = data
+          .filter((l: { expirationdate: string | null }) => {
+            if (!l.expirationdate) return false;
+            const exp = new Date(l.expirationdate);
+            return exp >= now && exp <= in90Days;
+          })
+          .map(
+            (l: {
+              licenceid: string;
+              licencekey: string | null;
+              licensedtoemail: string | null;
+              expirationdate: string;
+            }) => {
+              const exp = new Date(l.expirationdate);
+              const daysUntilExpiry = Math.ceil(
+                (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+              );
+              return { ...l, daysUntilExpiry };
+            },
+          )
+          .sort(
+            (a: { daysUntilExpiry: number }, b: { daysUntilExpiry: number }) =>
+              a.daysUntilExpiry - b.daysUntilExpiry,
+          )
+          .slice(0, 5);
+
+        setLicences(expiring);
+      } catch {
+        setLicences([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchLicences();
+  }, []);
+
+  if (loading) {
+    return <p className="text-muted-foreground text-sm">Loading licences...</p>;
+  }
+
+  if (licences.length === 0) {
+    return (
+      <p className="text-muted-foreground text-sm">No licences expiring soon</p>
+    );
+  }
+
   return (
-    <div className="flex h-24 items-center justify-center">
-      <p className="text-muted-foreground text-sm">
-        Expiring licences - Coming soon
-      </p>
-    </div>
+    <ul className="space-y-2">
+      {licences.map((licence) => {
+        let badgeClass = "bg-blue-100 text-blue-800";
+        if (licence.daysUntilExpiry < 7) {
+          badgeClass = "bg-red-100 text-red-800";
+        } else if (licence.daysUntilExpiry < 30) {
+          badgeClass = "bg-yellow-100 text-yellow-800";
+        }
+
+        return (
+          <li
+            key={licence.licenceid}
+            className="flex items-center justify-between text-sm"
+          >
+            <div className="min-w-0 flex-1">
+              <span className="block truncate font-medium">
+                {licence.licencekey
+                  ? licence.licencekey.length > 20
+                    ? licence.licencekey.slice(0, 20) + "..."
+                    : licence.licencekey
+                  : "No key"}
+              </span>
+              <span className="text-muted-foreground block truncate text-xs">
+                {licence.licensedtoemail ?? "No email"}
+              </span>
+            </div>
+            <span
+              className={`ml-2 inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}
+            >
+              {licence.daysUntilExpiry}d
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
 function CostOverviewWidget() {
+  const [costData, setCostData] = useState<{
+    totalAssets: number;
+    totalValue: number;
+    avgValue: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCostData() {
+      try {
+        const res = await fetch("/api/asset/getAsset");
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) {
+          setCostData(null);
+          return;
+        }
+        const totalAssets = data.length;
+        const totalValue = data.reduce(
+          (sum: number, a: { purchaseprice: number | null }) =>
+            sum + (Number(a.purchaseprice) || 0),
+          0,
+        );
+        const avgValue = totalAssets > 0 ? totalValue / totalAssets : 0;
+        setCostData({ totalAssets, totalValue, avgValue });
+      } catch {
+        setCostData(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCostData();
+  }, []);
+
+  if (loading) {
+    return (
+      <p className="text-muted-foreground text-sm">Loading cost data...</p>
+    );
+  }
+
+  if (!costData) {
+    return (
+      <p className="text-muted-foreground text-sm">No cost data available</p>
+    );
+  }
+
   return (
-    <div className="flex h-24 items-center justify-center">
-      <p className="text-muted-foreground text-sm">
-        Cost overview - Coming soon
-      </p>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Total Assets</span>
+        <span className="font-medium">
+          {costData.totalAssets.toLocaleString()}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Total Value</span>
+        <span className="font-medium">
+          $
+          {costData.totalValue.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Avg. Value</span>
+        <span className="font-medium">
+          $
+          {costData.avgValue.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
     </div>
   );
 }

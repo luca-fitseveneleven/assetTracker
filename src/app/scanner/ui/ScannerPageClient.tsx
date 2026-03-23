@@ -4,10 +4,18 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { QrCode, Camera, Search } from "lucide-react";
+import {
+  QrCode,
+  Camera,
+  Search,
+  Loader2,
+  Eye,
+  LogOut,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 import QRCodeDisplay from "./QRCodeDisplay";
 
@@ -17,6 +25,18 @@ interface AssetSearchResult {
   title: string;
   subtitle: string;
   href: string;
+}
+
+interface ScannedAsset {
+  assetid: string;
+  assetname: string;
+  assettag: string | null;
+  serialnumber: string | null;
+  statusType?: {
+    statustypeid: string;
+    statustypename: string;
+  } | null;
+  assignedUser?: string | null;
 }
 
 export default function ScannerPageClient() {
@@ -33,13 +53,15 @@ export default function ScannerPageClient() {
   >("prompt");
   const [barcodeSupported, setBarcodeSupported] = useState(true);
   const [lastDetected, setLastDetected] = useState<string | null>(null);
+  const [scannedAsset, setScannedAsset] = useState<ScannedAsset | null>(null);
+  const [isLoadingAsset, setIsLoadingAsset] = useState(false);
 
   // --- Generate mode state ---
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<AssetSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetSearchResult | null>(
-    null
+    null,
   );
 
   // Check BarcodeDetector support on mount
@@ -119,9 +141,36 @@ export default function ScannerPageClient() {
             const url = new URL(rawValue);
             const pathMatch = url.pathname.match(/\/assets\/(.+)/);
             if (pathMatch) {
-              toast.success(`Asset found: ${pathMatch[1]}`);
+              const assetId = pathMatch[1];
               stopScanning();
-              router.push(url.pathname);
+              setIsLoadingAsset(true);
+              setScannedAsset(null);
+
+              try {
+                const res = await fetch(
+                  `/api/asset/getAsset?id=${encodeURIComponent(assetId)}`,
+                );
+                if (!res.ok) {
+                  throw new Error("Asset not found");
+                }
+                const asset = await res.json();
+                setScannedAsset({
+                  assetid: asset.assetid,
+                  assetname: asset.assetname,
+                  assettag: asset.assettag,
+                  serialnumber: asset.serialnumber,
+                  statusType: asset.statusType ?? null,
+                  assignedUser: null,
+                });
+                toast.success(`Asset found: ${asset.assetname}`);
+              } catch {
+                toast.error(
+                  "Could not load asset details. Navigating to asset page.",
+                );
+                router.push(url.pathname);
+              } finally {
+                setIsLoadingAsset(false);
+              }
               return;
             }
           } catch {
@@ -160,6 +209,13 @@ export default function ScannerPageClient() {
     }
   }, []);
 
+  const scanAnother = useCallback(() => {
+    setScannedAsset(null);
+    setLastDetected(null);
+    setIsLoadingAsset(false);
+    startScanning();
+  }, [startScanning]);
+
   // --- Generate mode: asset search ---
   useEffect(() => {
     if (searchQuery.length < 2) {
@@ -173,17 +229,19 @@ export default function ScannerPageClient() {
       try {
         const res = await fetch(
           `/api/search?q=${encodeURIComponent(searchQuery)}&type=assets`,
-          { signal: controller.signal }
+          { signal: controller.signal },
         );
         if (!res.ok) throw new Error("Search failed");
         const data = await res.json();
-        const mapped = (data.results || []).map((r: Record<string, string>) => ({
-          id: r.id,
-          type: r.type,
-          title: r.label || r.title || "",
-          subtitle: r.sublabel || r.subtitle || "",
-          href: r.href,
-        }));
+        const mapped = (data.results || []).map(
+          (r: Record<string, string>) => ({
+            id: r.id,
+            type: r.type,
+            title: r.label || r.title || "",
+            subtitle: r.sublabel || r.subtitle || "",
+            href: r.href,
+          }),
+        );
         setSearchResults(mapped);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -204,7 +262,7 @@ export default function ScannerPageClient() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold">QR Code Scanner</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-muted-foreground mt-1 text-sm">
           Scan asset QR codes or generate new ones
         </p>
       </div>
@@ -227,7 +285,7 @@ export default function ScannerPageClient() {
             <CardContent className="flex flex-col items-center gap-4 p-6">
               {!barcodeSupported && (
                 <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-center text-sm text-yellow-800 dark:border-yellow-600 dark:bg-yellow-950 dark:text-yellow-200">
-                  <p className="font-medium mb-1">
+                  <p className="mb-1 font-medium">
                     BarcodeDetector API not supported
                   </p>
                   <p>
@@ -240,13 +298,13 @@ export default function ScannerPageClient() {
 
               {barcodeSupported && cameraPermission === "prompt" && (
                 <div className="flex flex-col items-center gap-4 py-8">
-                  <Camera className="h-12 w-12 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground text-center max-w-sm">
+                  <Camera className="text-muted-foreground h-12 w-12" />
+                  <p className="text-muted-foreground max-w-sm text-center text-sm">
                     Camera access is required to scan QR codes. Click the button
                     below to grant permission.
                   </p>
                   <Button onClick={requestCamera}>
-                    <Camera className="h-4 w-4 mr-2" />
+                    <Camera className="mr-2 h-4 w-4" />
                     Allow Camera Access
                   </Button>
                 </div>
@@ -254,7 +312,7 @@ export default function ScannerPageClient() {
 
               {barcodeSupported && cameraPermission === "denied" && (
                 <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-center text-sm text-red-800 dark:border-red-600 dark:bg-red-950 dark:text-red-200">
-                  <p className="font-medium mb-1">Camera access denied</p>
+                  <p className="mb-1 font-medium">Camera access denied</p>
                   <p>
                     Please enable camera permissions in your browser settings
                     and reload the page.
@@ -264,17 +322,17 @@ export default function ScannerPageClient() {
 
               {barcodeSupported && cameraPermission === "granted" && (
                 <>
-                  <div className="relative w-full max-w-lg rounded-lg overflow-hidden bg-black">
+                  <div className="relative w-full max-w-lg overflow-hidden rounded-lg bg-black">
                     <video
                       ref={videoRef}
                       autoPlay
                       playsInline
                       muted
-                      className="w-full aspect-video object-cover"
+                      className="aspect-video w-full object-cover"
                     />
                     {scanning && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-48 h-48 border-2 border-white/50 rounded-lg" />
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <div className="h-48 w-48 rounded-lg border-2 border-white/50" />
                       </div>
                     )}
                   </div>
@@ -283,7 +341,7 @@ export default function ScannerPageClient() {
                     onClick={scanning ? stopScanning : startScanning}
                     variant={scanning ? "destructive" : "default"}
                   >
-                    <Camera className="h-4 w-4 mr-2" />
+                    <Camera className="mr-2 h-4 w-4" />
                     {scanning ? "Stop Scanning" : "Start Scanning"}
                   </Button>
 
@@ -299,16 +357,95 @@ export default function ScannerPageClient() {
               )}
             </CardContent>
           </Card>
+
+          {/* ============ ACTION PANEL ============ */}
+          {isLoadingAsset && (
+            <Card className="mt-4">
+              <CardContent className="flex items-center justify-center gap-3 p-6">
+                <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+                <p className="text-muted-foreground text-sm">
+                  Loading asset details...
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {scannedAsset && !isLoadingAsset && (
+            <Card className="mt-4">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Scanned Asset</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="truncate text-base font-semibold">
+                      {scannedAsset.assetname}
+                    </h3>
+                    {scannedAsset.statusType && (
+                      <Badge variant="secondary" className="shrink-0">
+                        {scannedAsset.statusType.statustypename}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    {scannedAsset.assettag && (
+                      <>
+                        <span className="text-muted-foreground">Tag</span>
+                        <span className="font-mono">
+                          {scannedAsset.assettag}
+                        </span>
+                      </>
+                    )}
+                    {scannedAsset.serialnumber && (
+                      <>
+                        <span className="text-muted-foreground">Serial</span>
+                        <span className="font-mono">
+                          {scannedAsset.serialnumber}
+                        </span>
+                      </>
+                    )}
+                    <span className="text-muted-foreground">Assigned To</span>
+                    <span>{scannedAsset.assignedUser || "Unassigned"}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    onClick={() =>
+                      router.push(`/assets/${scannedAsset.assetid}`)
+                    }
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Details
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      router.push(`/assets/${scannedAsset.assetid}`)
+                    }
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Check Out
+                  </Button>
+                  <Button variant="outline" onClick={scanAnother}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Scan Another
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* ============ GENERATE TAB ============ */}
         <TabsContent value="generate">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* Search panel */}
             <Card>
               <CardContent className="p-6">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                   <Input
                     placeholder="Search assets by name, tag, or serial..."
                     value={searchQuery}
@@ -318,25 +455,27 @@ export default function ScannerPageClient() {
                 </div>
 
                 {searchLoading && (
-                  <p className="text-sm text-muted-foreground mt-4">
+                  <p className="text-muted-foreground mt-4 text-sm">
                     Searching...
                   </p>
                 )}
 
-                {!searchLoading && searchQuery.length >= 2 && searchResults.length === 0 && (
-                  <p className="text-sm text-muted-foreground mt-4">
-                    No assets found.
-                  </p>
-                )}
+                {!searchLoading &&
+                  searchQuery.length >= 2 &&
+                  searchResults.length === 0 && (
+                    <p className="text-muted-foreground mt-4 text-sm">
+                      No assets found.
+                    </p>
+                  )}
 
                 {searchResults.length > 0 && (
-                  <div className="mt-4 space-y-2 max-h-[400px] overflow-y-auto">
+                  <div className="mt-4 max-h-[400px] space-y-2 overflow-y-auto">
                     {searchResults.map((result) => (
                       <button
                         key={result.id}
                         type="button"
                         onClick={() => setSelectedAsset(result)}
-                        className={`w-full text-left rounded-lg border p-3 transition-colors hover:bg-accent ${
+                        className={`hover:bg-accent w-full rounded-lg border p-3 text-left transition-colors ${
                           selectedAsset?.id === result.id
                             ? "border-primary bg-primary/5"
                             : "border-border"
@@ -344,10 +483,10 @@ export default function ScannerPageClient() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium text-sm truncate">
+                            <p className="truncate text-sm font-medium">
                               {result.title}
                             </p>
-                            <p className="text-xs text-muted-foreground truncate">
+                            <p className="text-muted-foreground truncate text-xs">
                               {result.subtitle}
                             </p>
                           </div>
@@ -362,8 +501,8 @@ export default function ScannerPageClient() {
 
                 {searchQuery.length < 2 && (
                   <div className="flex flex-col items-center gap-2 py-8">
-                    <QrCode className="h-10 w-10 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground text-center">
+                    <QrCode className="text-muted-foreground h-10 w-10" />
+                    <p className="text-muted-foreground text-center text-sm">
                       Search for an asset to generate its QR code
                     </p>
                   </div>
@@ -385,10 +524,10 @@ export default function ScannerPageClient() {
                   assetName={selectedAsset.title}
                 />
               ) : (
-                <Card className="w-full max-w-sm mx-auto">
-                  <CardContent className="flex flex-col items-center justify-center gap-2 p-6 min-h-[300px]">
-                    <QrCode className="h-10 w-10 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground text-center">
+                <Card className="mx-auto w-full max-w-sm">
+                  <CardContent className="flex min-h-[300px] flex-col items-center justify-center gap-2 p-6">
+                    <QrCode className="text-muted-foreground h-10 w-10" />
+                    <p className="text-muted-foreground text-center text-sm">
                       Select an asset to view its QR code
                     </p>
                   </CardContent>
@@ -417,7 +556,9 @@ declare global {
 
   class BarcodeDetector {
     constructor(options?: BarcodeDetectorOptions);
-    detect(source: HTMLVideoElement | HTMLImageElement | ImageBitmap): Promise<DetectedBarcode[]>;
+    detect(
+      source: HTMLVideoElement | HTMLImageElement | ImageBitmap,
+    ): Promise<DetectedBarcode[]>;
     static getSupportedFormats(): Promise<string[]>;
   }
 

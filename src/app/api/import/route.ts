@@ -7,6 +7,8 @@ import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 // Entity field mappings for CSV import
 const ENTITY_FIELDS: Record<string, string[]> = {
@@ -182,6 +184,43 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Fetch default reference records for FK fields that may not be in the CSV
+    const [
+      defaultManufacturer,
+      defaultStatus,
+      defaultLocation,
+      defaultSupplier,
+      defaultModel,
+      defaultAssetCategory,
+      defaultAccessoryCategory,
+      defaultConsumableCategory,
+      defaultLicenceCategory,
+    ] = await Promise.all([
+      prisma.manufacturer.findFirst(),
+      prisma.statusType.findFirst(),
+      prisma.location.findFirst(),
+      prisma.supplier.findFirst(),
+      prisma.model.findFirst(),
+      prisma.assetCategoryType.findFirst(),
+      prisma.accessorieCategoryType.findFirst(),
+      prisma.consumableCategoryType.findFirst(),
+      prisma.licenceCategoryType.findFirst(),
+    ]);
+
+    const defaultRefs = {
+      manufacturerid: defaultManufacturer?.manufacturerid,
+      statustypeid: defaultStatus?.statustypeid,
+      locationid: defaultLocation?.locationid,
+      supplierid: defaultSupplier?.supplierid,
+      modelid: defaultModel?.modelid,
+      assetcategorytypeid: defaultAssetCategory?.assetcategorytypeid,
+      accessoriecategorytypeid:
+        defaultAccessoryCategory?.accessoriecategorytypeid,
+      consumablecategorytypeid:
+        defaultConsumableCategory?.consumablecategorytypeid,
+      licencecategorytypeid: defaultLicenceCategory?.licencecategorytypeid,
+    };
+
     // Process rows (in a real app, this would be done asynchronously)
     const errors: { row: number; error: string }[] = [];
     let successCount = 0;
@@ -198,6 +237,7 @@ export async function POST(req: NextRequest) {
           rowData,
           authUser.id!,
           importOrgId,
+          defaultRefs,
         );
         successCount++;
       } catch (err) {
@@ -391,6 +431,7 @@ async function createEntity(
   data: Record<string, string>,
   userId: string,
   organizationId: string | null,
+  defaultRefs: Record<string, string | undefined>,
 ): Promise<void> {
   const now = new Date();
 
@@ -417,6 +458,131 @@ async function createEntity(
       });
       break;
 
+    case "accessory": {
+      const accManufacturer = data.manufacturerid || defaultRefs.manufacturerid;
+      const accStatus = data.statustypeid || defaultRefs.statustypeid;
+      const accCategory =
+        data.accessoriecategorytypeid || defaultRefs.accessoriecategorytypeid;
+      const accLocation = data.locationid || defaultRefs.locationid;
+      const accSupplier = data.supplierid || defaultRefs.supplierid;
+      const accModel = data.modelid || defaultRefs.modelid;
+      if (
+        !accManufacturer ||
+        !accStatus ||
+        !accCategory ||
+        !accLocation ||
+        !accSupplier ||
+        !accModel
+      ) {
+        throw new Error(
+          "Missing required reference data for accessory import. Ensure manufacturer, status type, accessory category, location, supplier, and model records exist.",
+        );
+      }
+      await prisma.accessories.create({
+        data: {
+          accessoriename: data.accessoriename,
+          accessorietag: data.accessorietag || `ACC-${Date.now()}`,
+          purchaseprice: data.purchaseprice
+            ? parseFloat(data.purchaseprice)
+            : null,
+          purchasedate: data.purchasedate ? new Date(data.purchasedate) : null,
+          requestable: data.requestable === "true" || data.requestable === "1",
+          creation_date: now,
+          manufacturerid: accManufacturer,
+          statustypeid: accStatus,
+          accessoriecategorytypeid: accCategory,
+          locationid: accLocation,
+          supplierid: accSupplier,
+          modelid: accModel,
+          organizationId,
+        },
+      });
+      break;
+    }
+
+    case "consumable": {
+      const conManufacturer = data.manufacturerid || defaultRefs.manufacturerid;
+      const conCategory =
+        data.consumablecategorytypeid || defaultRefs.consumablecategorytypeid;
+      const conSupplier = data.supplierid || defaultRefs.supplierid;
+      if (!conManufacturer || !conCategory || !conSupplier) {
+        throw new Error(
+          "Missing required reference data for consumable import. Ensure manufacturer, consumable category, and supplier records exist.",
+        );
+      }
+      await prisma.consumable.create({
+        data: {
+          consumablename: data.consumablename,
+          purchaseprice: data.purchaseprice
+            ? parseFloat(data.purchaseprice)
+            : null,
+          purchasedate: data.purchasedate ? new Date(data.purchasedate) : null,
+          quantity: data.quantity ? parseInt(data.quantity, 10) : 0,
+          minQuantity: data.minquantity ? parseInt(data.minquantity, 10) : 0,
+          creation_date: now,
+          consumablecategorytypeid: conCategory,
+          manufacturerid: conManufacturer,
+          supplierid: conSupplier,
+          organizationId,
+        },
+      });
+      break;
+    }
+
+    case "licence": {
+      const licManufacturer = data.manufacturerid || defaultRefs.manufacturerid;
+      const licCategory =
+        data.licencecategorytypeid || defaultRefs.licencecategorytypeid;
+      const licSupplier = data.supplierid || defaultRefs.supplierid;
+      if (!licManufacturer || !licCategory || !licSupplier) {
+        throw new Error(
+          "Missing required reference data for licence import. Ensure manufacturer, licence category, and supplier records exist.",
+        );
+      }
+      await prisma.licence.create({
+        data: {
+          licencekey: data.licencekey || null,
+          licensedtoemail: data.licensedtoemail || null,
+          purchaseprice: data.purchaseprice
+            ? parseFloat(data.purchaseprice)
+            : null,
+          purchasedate: data.purchasedate ? new Date(data.purchasedate) : null,
+          expirationdate: data.expirationdate
+            ? new Date(data.expirationdate)
+            : null,
+          notes: data.notes || null,
+          requestable: data.requestable === "true" || data.requestable === "1",
+          seatCount: data.seatcount ? parseInt(data.seatcount, 10) : 1,
+          creation_date: now,
+          licencecategorytypeid: licCategory,
+          manufacturerid: licManufacturer,
+          supplierid: licSupplier,
+          organizationId,
+        },
+      });
+      break;
+    }
+
+    case "user": {
+      const randomPassword = await bcrypt.hash(
+        crypto.randomBytes(32).toString("hex"),
+        10,
+      );
+      await prisma.user.create({
+        data: {
+          username: data.username || null,
+          email: data.email || null,
+          firstname: data.firstname,
+          lastname: data.lastname,
+          password: randomPassword,
+          isadmin: data.isadmin === "true" || data.isadmin === "1",
+          canrequest: data.canrequest !== "false" && data.canrequest !== "0",
+          creation_date: now,
+        },
+      });
+      break;
+    }
+
     case "location":
       await prisma.location.create({
         data: {
@@ -430,7 +596,6 @@ async function createEntity(
       });
       break;
 
-    // Add more entity types as needed
     default:
       throw new Error(`Import not implemented for entity type: ${entityType}`);
   }

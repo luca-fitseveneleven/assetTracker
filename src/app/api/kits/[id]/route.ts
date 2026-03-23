@@ -4,6 +4,10 @@ import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, updateKitSchema } from "@/lib/validation";
 import { logger } from "@/lib/logger";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -14,9 +18,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     await requirePermission("kit:view");
     const { id } = await params;
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
-    const kit = await prisma.kit.findUnique({
-      where: { id },
+    const kit = await prisma.kit.findFirst({
+      where: scopeToOrganization({ id }, orgId),
       include: { items: true },
     });
 
@@ -44,6 +50,18 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("kit:edit");
     const { id } = await params;
+
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify kit belongs to user's organization
+    const existingKit = await prisma.kit.findFirst({
+      where: scopeToOrganization({ id }, orgId),
+      select: { id: true },
+    });
+    if (!existingKit) {
+      return NextResponse.json({ error: "Kit not found" }, { status: 404 });
+    }
 
     const body = await req.json();
     const validated = validateBody(updateKitSchema, body);
@@ -113,9 +131,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const authUser = await requirePermission("kit:delete");
     const { id } = await params;
 
-    const kit = await prisma.kit.findUnique({
-      where: { id },
-      select: { name: true },
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    const kit = await prisma.kit.findFirst({
+      where: scopeToOrganization({ id }, orgId),
+      select: { id: true, name: true },
     });
 
     if (!kit) {

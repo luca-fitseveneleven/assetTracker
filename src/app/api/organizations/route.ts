@@ -16,9 +16,14 @@ const ORGANIZATION_SORT_FIELDS = ["name", "slug", "createdAt"];
 
 export async function GET(req: NextRequest) {
   try {
-    await requirePermission("org:view");
+    const authUser = await requirePermission("org:view");
 
     const searchParams = req.nextUrl.searchParams;
+
+    // Scope to the user's own organization to prevent enumeration
+    const orgFilter: Record<string, unknown> = authUser.organizationId
+      ? { id: authUser.organizationId }
+      : {};
 
     const include = {
       _count: {
@@ -29,6 +34,7 @@ export async function GET(req: NextRequest) {
     // If no `page` param, return all results for backward compatibility
     if (!searchParams.has("page")) {
       const organizations = await prisma.organization.findMany({
+        where: orgFilter,
         include,
         orderBy: { name: "asc" },
       });
@@ -39,7 +45,7 @@ export async function GET(req: NextRequest) {
     const params = parsePaginationParams(searchParams);
     const prismaArgs = buildPrismaArgs(params, ORGANIZATION_SORT_FIELDS);
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { ...orgFilter };
 
     // Search filter
     if (params.search) {

@@ -252,6 +252,175 @@ export const emailTemplates = {
     </div>
   `,
   },
+  reservationRequest: {
+    subject: "New Asset Request: {{assetName}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">New Asset Reservation Request</h2>
+        <p>A user has requested to reserve an asset that requires your approval:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Requested By</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{requesterName}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Asset</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{assetName}} ({{assetTag}})</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Period</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{startDate}} — {{endDate}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Notes</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{notes}}</td>
+          </tr>
+        </table>
+        <p>Please log in to the Asset Tracker to approve or reject this request.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
+  reservationApproved: {
+    subject: "Request Approved: {{assetName}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #16a34a;">Reservation Approved</h2>
+        <p>Hello {{userName}},</p>
+        <p>Your reservation request has been <strong style="color: #16a34a;">approved</strong>:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Asset</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{assetName}} ({{assetTag}})</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Period</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{startDate}} — {{endDate}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Approved By</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{approverName}}</td>
+          </tr>
+        </table>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
+  reservationRejected: {
+    subject: "Request Rejected: {{assetName}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #dc2626;">Reservation Rejected</h2>
+        <p>Hello {{userName}},</p>
+        <p>Your reservation request has been <strong style="color: #dc2626;">rejected</strong>:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Asset</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{assetName}} ({{assetTag}})</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Reason</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{notes}}</td>
+          </tr>
+        </table>
+        <p>If you have questions, please contact your administrator.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
+
+  ticketAssigned: {
+    subject: "Ticket Assigned: {{ticketTitle}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Ticket Assigned to You</h2>
+        <p>Hello {{assigneeName}},</p>
+        <p>You have been assigned a ticket:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Title</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{ticketTitle}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Priority</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{priority}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Description</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{descriptionPreview}}</td>
+          </tr>
+        </table>
+        <p>Please log in to the Asset Tracker to view and work on this ticket.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
+
+  ticketComment: {
+    subject: "New Comment on: {{ticketTitle}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">New Comment on Your Ticket</h2>
+        <p>Hello {{recipientName}},</p>
+        <p><strong>{{commenterName}}</strong> commented on your ticket:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Ticket</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{ticketTitle}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Comment</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{commentText}}</td>
+          </tr>
+        </table>
+        <p>Please log in to the Asset Tracker to view the full conversation.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
+
+  maintenanceCompleted: {
+    subject: "Maintenance Completed: {{assetName}}",
+    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #16a34a;">Maintenance Completed</h2>
+    <p>Hello {{userName}},</p>
+    <p>A maintenance task has been completed:</p>
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <tr><td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Task</strong></td><td style="padding: 10px; border: 1px solid #ddd;">{{taskTitle}}</td></tr>
+      <tr><td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Asset</strong></td><td style="padding: 10px; border: 1px solid #ddd;">{{assetName}}</td></tr>
+      <tr><td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Completed</strong></td><td style="padding: 10px; border: 1px solid #ddd;">{{completedDate}}</td></tr>
+      <tr><td style="padding: 10px; border: 1px solid #ddd; background: #dbeafe;"><strong>Next Due</strong></td><td style="padding: 10px; border: 1px solid #ddd; background: #dbeafe;">{{nextDueDate}}</td></tr>
+    </table>
+    <p>Best regards,<br>Asset Tracker System</p>
+  </div>`,
+  },
+
+  ticketStatusChanged: {
+    subject: "Ticket Updated: {{ticketTitle}}",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #d97706;">Ticket Status Updated</h2>
+        <p>Hello {{creatorName}},</p>
+        <p>The status of your ticket has been updated:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Ticket</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{ticketTitle}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Previous Status</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{oldStatus}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #dbeafe;"><strong>New Status</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #dbeafe;">{{newStatus}}</td>
+          </tr>
+        </table>
+        <p>Please log in to the Asset Tracker to view your ticket.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
 };
 
 export type TemplateType = keyof typeof emailTemplates;

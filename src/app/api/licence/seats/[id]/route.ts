@@ -5,6 +5,7 @@ import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { logger } from "@/lib/logger";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 // GET /api/licence/seats/[id]
 export async function GET(
@@ -15,6 +16,8 @@ export async function GET(
     await requirePermission("license:view");
 
     const { id } = await params;
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const assignment = await prisma.licenceSeatAssignment.findUnique({
       where: { id },
@@ -40,12 +43,21 @@ export async function GET(
             licenceid: true,
             licencekey: true,
             seatCount: true,
+            organizationId: true,
           },
         },
       },
     });
 
     if (!assignment) {
+      return NextResponse.json(
+        { error: "Seat assignment not found" },
+        { status: 404 },
+      );
+    }
+
+    // Verify the parent licence belongs to the user's organization
+    if (orgId && assignment.licence.organizationId !== orgId) {
       return NextResponse.json(
         { error: "Seat assignment not found" },
         { status: 404 },
@@ -81,6 +93,8 @@ export async function DELETE(
     const admin = await requirePermission("license:assign");
 
     const { id } = await params;
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     // Fetch the existing assignment
     const existing = await prisma.licenceSeatAssignment.findUnique({
@@ -97,12 +111,21 @@ export async function DELETE(
           select: {
             licenceid: true,
             licencekey: true,
+            organizationId: true,
           },
         },
       },
     });
 
     if (!existing) {
+      return NextResponse.json(
+        { error: "Seat assignment not found" },
+        { status: 404 },
+      );
+    }
+
+    // Verify the parent licence belongs to the user's organization
+    if (orgId && existing.licence.organizationId !== orgId) {
       return NextResponse.json(
         { error: "Seat assignment not found" },
         { status: 404 },
@@ -137,7 +160,8 @@ export async function DELETE(
       },
     });
 
-    const userName = `${existing.user.firstname ?? ""} ${existing.user.lastname ?? ""}`.trim();
+    const userName =
+      `${existing.user.firstname ?? ""} ${existing.user.lastname ?? ""}`.trim();
 
     // Webhook
     triggerWebhook("license.seat_unassigned", {

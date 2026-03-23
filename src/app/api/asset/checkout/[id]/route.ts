@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
+import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { logger } from "@/lib/logger";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 
 // GET /api/asset/checkout/[id]
 export async function GET(
@@ -12,13 +16,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireApiAuth();
+    await requirePermission("asset:assign");
 
     const { id } = await params;
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const checkout = await prisma.assetCheckout.findUnique({
       where: { id },
       include: {
+        asset: { select: { organizationId: true } },
         checkedOutToUser: {
           select: { userid: true, firstname: true, lastname: true },
         },
@@ -35,6 +42,14 @@ export async function GET(
     });
 
     if (!checkout) {
+      return NextResponse.json(
+        { error: "Checkout not found" },
+        { status: 404 },
+      );
+    }
+
+    // Verify the associated asset belongs to the user's organization
+    if (orgId && checkout.asset?.organizationId !== orgId) {
       return NextResponse.json(
         { error: "Checkout not found" },
         { status: 404 },
@@ -66,18 +81,35 @@ export async function PUT(
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
-    const user = await requireApiAuth();
+    const user = await requirePermission("asset:assign");
 
     const { id } = await params;
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const existing = await prisma.assetCheckout.findUnique({
       where: { id },
       include: {
-        asset: { select: { assetid: true, assetname: true, assettag: true } },
+        asset: {
+          select: {
+            assetid: true,
+            assetname: true,
+            assettag: true,
+            organizationId: true,
+          },
+        },
       },
     });
 
     if (!existing) {
+      return NextResponse.json(
+        { error: "Checkout not found" },
+        { status: 404 },
+      );
+    }
+
+    // Verify the associated asset belongs to the user's organization
+    if (orgId && existing.asset?.organizationId !== orgId) {
       return NextResponse.json(
         { error: "Checkout not found" },
         { status: 404 },

@@ -81,20 +81,13 @@ export async function getOrganizationContext(): Promise<OrganizationContext | nu
  */
 /**
  * Scope a Prisma where clause to the user's organization.
- *
- * Includes records with matching organizationId AND records with null
- * organizationId (for backward compatibility with data created before
- * multi-tenancy was added).
- *
- * TODO: Once all records have organizationId set, remove the null
- * fallback and use strict scoping: `{ organizationId }`.
+ * Strict scoping — only returns records matching the user's org.
  */
 export function scopeToOrganization<T extends Record<string, unknown>>(
   baseWhere: T,
   organizationId?: string | null,
-): T & { OR?: Array<Record<string, unknown>> } {
+): T {
   if (!organizationId) {
-    // No org context — only match records with no org
     return {
       ...baseWhere,
       organizationId: null,
@@ -103,7 +96,7 @@ export function scopeToOrganization<T extends Record<string, unknown>>(
 
   return {
     ...baseWhere,
-    OR: [{ organizationId }, { organizationId: null }],
+    organizationId,
   };
 }
 

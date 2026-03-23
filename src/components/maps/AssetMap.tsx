@@ -43,7 +43,7 @@ export default function AssetMap({
     locations.reduce((sum, l) => sum + l.longitude, 0) / locations.length;
 
   return (
-    <div className="h-[400px] w-full overflow-hidden rounded-lg border">
+    <div className="h-[300px] w-full overflow-hidden rounded-lg border">
       <Map
         center={[centerLng, centerLat]}
         zoom={locations.length === 1 ? 14 : 5}

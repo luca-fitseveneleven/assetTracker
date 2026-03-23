@@ -123,13 +123,11 @@ export default async function DashboardPage() {
           />
         </div>
       </div>
-      <div className="mt-6 sm:mt-8 md:mt-10">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         <AssetStatusChart data={chartData} />
-      </div>
-      <div className="mt-6 sm:mt-8 md:mt-10">
         <Card>
-          <CardHeader>
-            <CardTitle>Asset Locations</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Asset Locations</CardTitle>
           </CardHeader>
           <CardContent>
             <AssetMap locations={mapLocations} />

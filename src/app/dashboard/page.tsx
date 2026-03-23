@@ -14,7 +14,6 @@ import UserDashboard from "@/components/dashboard/UserDashboard";
 import { getOrganizationContext } from "@/lib/organization-context";
 import prisma from "@/lib/prisma";
 import AssetMap from "@/components/maps/AssetMap";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata = {
   title: "Asset Tracker - Dashboard",
@@ -131,14 +130,11 @@ export default async function DashboardPage() {
       </div>
       <div className="mt-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         <AssetStatusChart data={chartData} />
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Asset Locations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AssetMap locations={mapLocations} />
-          </CardContent>
-        </Card>
+        <AssetMap
+          locations={mapLocations}
+          totalAssets={assetCount}
+          totalLocations={mapLocations.length}
+        />
       </div>
       <div className="mt-6 sm:mt-8 md:mt-10">
         <DashboardGrid

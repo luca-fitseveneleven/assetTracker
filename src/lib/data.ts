@@ -105,7 +105,14 @@ export async function getAssetById(id: string) {
 }
 
 export async function getLocation() {
-  return cached("locations", () => prisma.location.findMany({}));
+  return cached("locations", () =>
+    prisma.location.findMany({
+      include: {
+        parent: { select: { locationid: true, locationname: true } },
+        children: { select: { locationid: true, locationname: true } },
+      },
+    }),
+  );
 }
 
 export async function getLocationById(id: string) {
@@ -116,6 +123,10 @@ export async function getLocationById(id: string) {
   const location = await prisma.location.findUnique({
     where: {
       locationid: id,
+    },
+    include: {
+      parent: { select: { locationid: true, locationname: true } },
+      children: { select: { locationid: true, locationname: true } },
     },
   });
   if (!location) {

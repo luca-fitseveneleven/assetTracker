@@ -5,6 +5,13 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { Toaster, toast } from "sonner";
@@ -12,16 +19,22 @@ import { Toaster, toast } from "sonner";
 export default function LocationCreateForm({
   initialData = null,
   mode = "create",
+  locations = [],
+}: {
+  initialData?: Record<string, unknown> | null;
+  mode?: "create" | "edit";
+  locations?: { locationid: string; locationname: string | null }[];
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState(() => ({
-    locationname: initialData?.locationname ?? "",
-    street: initialData?.street ?? "",
-    housenumber: initialData?.housenumber ?? "",
-    city: initialData?.city ?? "",
-    country: initialData?.country ?? "",
+    locationname: (initialData?.locationname as string) ?? "",
+    street: (initialData?.street as string) ?? "",
+    housenumber: (initialData?.housenumber as string) ?? "",
+    city: (initialData?.city as string) ?? "",
+    country: (initialData?.country as string) ?? "",
+    parentId: (initialData?.parentId as string) ?? "",
   }));
 
   const onChange = (e) => {
@@ -42,6 +55,7 @@ export default function LocationCreateForm({
         housenumber: form.housenumber || null,
         city: form.city || null,
         country: form.country || null,
+        parentId: form.parentId || null,
       };
 
       if (mode === "edit" && initialData?.locationid) {
@@ -151,6 +165,36 @@ export default function LocationCreateForm({
                 value={form.country}
                 onChange={onChange}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="parentId">Parent Location</Label>
+              <Select
+                value={form.parentId}
+                onValueChange={(value) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    parentId: value === "none" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger id="parentId">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {locations
+                    .filter(
+                      (loc) =>
+                        loc.locationid !==
+                        (initialData?.locationid as string | undefined),
+                    )
+                    .map((loc) => (
+                      <SelectItem key={loc.locationid} value={loc.locationid}>
+                        {loc.locationname ?? "(unnamed)"}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </section>

@@ -1,6 +1,6 @@
 import React from "react";
 import LocationCreateForm from "../../create/ui/LocationCreateForm";
-import { getLocationById } from "@/lib/data";
+import { getLocationById, getLocation } from "@/lib/data";
 
 export const metadata = {
   title: "Asset Tracker - Edit Location",
@@ -12,7 +12,14 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const locationRaw = await getLocationById(id);
+  const [locationRaw, allLocationsRaw] = await Promise.all([
+    getLocationById(id),
+    getLocation(),
+  ]);
+  const allLocations = allLocationsRaw as {
+    locationid: string;
+    locationname: string | null;
+  }[];
   const location = {
     ...locationRaw,
     creation_date: locationRaw.creation_date
@@ -27,5 +34,16 @@ export default async function Page({
       : null,
   };
 
-  return <LocationCreateForm initialData={location} mode="edit" />;
+  const locationOptions = allLocations.map((loc) => ({
+    locationid: loc.locationid,
+    locationname: loc.locationname,
+  }));
+
+  return (
+    <LocationCreateForm
+      initialData={location}
+      mode="edit"
+      locations={locationOptions}
+    />
+  );
 }

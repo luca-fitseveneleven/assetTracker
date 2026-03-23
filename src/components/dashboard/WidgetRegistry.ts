@@ -2,6 +2,7 @@ export interface WidgetDefinition {
   type: string;
   title: string;
   description: string;
+  icon?: string;
   defaultConfig?: Record<string, unknown>;
 }
 
@@ -35,6 +36,12 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     type: "costOverview",
     title: "Cost Overview",
     description: "Total asset value breakdown",
+  },
+  {
+    type: "lastEdited",
+    title: "Recently Modified",
+    description: "Assets updated in the last 24 hours",
+    icon: "Clock",
   },
 ];
 

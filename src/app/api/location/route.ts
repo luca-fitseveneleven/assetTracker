@@ -29,10 +29,16 @@ export async function GET(req: NextRequest) {
 
     const searchParams = req.nextUrl.searchParams;
 
+    const locationInclude = {
+      parent: { select: { locationid: true, locationname: true } },
+      children: { select: { locationid: true, locationname: true } },
+    };
+
     // If no `page` param, return all results for backward compatibility
     if (!searchParams.has("page")) {
       const items = await prisma.location.findMany({
         orderBy: { locationname: "asc" },
+        include: locationInclude,
       });
       return NextResponse.json(items, { status: 200 });
     }
@@ -51,7 +57,11 @@ export async function GET(req: NextRequest) {
     }
 
     const [items, total] = await Promise.all([
-      prisma.location.findMany({ where, ...prismaArgs }),
+      prisma.location.findMany({
+        where,
+        ...prismaArgs,
+        include: locationInclude,
+      }),
       prisma.location.count({ where }),
     ]);
 
@@ -94,7 +104,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { locationname, street, housenumber, city, country } =
+    const { locationname, street, housenumber, city, country, parentId } =
       validationResult.data;
 
     const created = await prisma.location.create({
@@ -104,6 +114,7 @@ export async function POST(req: NextRequest) {
         housenumber: housenumber ?? null,
         city: city ?? null,
         country: country ?? null,
+        parentId: parentId ?? null,
         creation_date: new Date(),
       } as Prisma.locationUncheckedCreateInput,
     });
@@ -166,8 +177,15 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const { locationid, locationname, street, housenumber, city, country } =
-      body;
+    const {
+      locationid,
+      locationname,
+      street,
+      housenumber,
+      city,
+      country,
+      parentId,
+    } = body;
 
     const updated = await prisma.location.update({
       where: { locationid },
@@ -177,6 +195,7 @@ export async function PUT(req: NextRequest) {
         ...(housenumber !== undefined && { housenumber: housenumber ?? null }),
         ...(city !== undefined && { city: city ?? null }),
         ...(country !== undefined && { country: country ?? null }),
+        ...(parentId !== undefined && { parentId: parentId ?? null }),
         change_date: new Date(),
       },
     });

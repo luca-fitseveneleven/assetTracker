@@ -520,12 +520,24 @@ export default function AssetCreateForm({
                     variant="outline"
                     size="icon"
                     className="h-9 w-9 shrink-0"
-                    title="Generate asset tag"
-                    disabled={generatingTag}
+                    title={
+                      !form.assetcategorytypeid
+                        ? "Select a category first to generate a tag"
+                        : "Generate asset tag"
+                    }
+                    disabled={generatingTag || !form.assetcategorytypeid}
                     onClick={async () => {
                       setGeneratingTag(true);
                       try {
-                        const res = await fetch("/api/asset/nextTag");
+                        const params = new URLSearchParams();
+                        if (form.assetcategorytypeid)
+                          params.set("categoryId", form.assetcategorytypeid);
+                        if (form.manufacturerid)
+                          params.set("manufacturerId", form.manufacturerid);
+                        if (form.modelid) params.set("modelId", form.modelid);
+                        const res = await fetch(
+                          `/api/asset/nextTag?${params.toString()}`,
+                        );
                         if (!res.ok) throw new Error("Failed to generate tag");
                         const data = await res.json();
                         setForm((f) => ({ ...f, assettag: data.tag }));

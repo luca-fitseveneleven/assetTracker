@@ -127,8 +127,8 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       <Breadcrumb options={breadcrumbOptions} />
 
       <div className="flex h-full w-full flex-col overflow-hidden">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <h1 className="text-2xl font-semibold">
               {user.firstname} {user.lastname}
             </h1>
@@ -137,7 +137,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
               {user.username ? ` • @${user.username}` : ""}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {user.isadmin ? (
               <span className="bg-foreground-200/60 text-foreground inline-flex items-center rounded-full px-2 py-1 text-xs font-medium">
                 Admin

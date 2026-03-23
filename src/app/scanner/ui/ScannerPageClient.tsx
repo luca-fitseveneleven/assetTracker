@@ -56,6 +56,9 @@ export default function ScannerPageClient() {
   const [scannedAsset, setScannedAsset] = useState<ScannedAsset | null>(null);
   const [isLoadingAsset, setIsLoadingAsset] = useState(false);
 
+  // --- Fallback manual tag input ---
+  const [manualTag, setManualTag] = useState("");
+
   // --- Generate mode state ---
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<AssetSearchResult[]>([]);
@@ -284,15 +287,47 @@ export default function ScannerPageClient() {
           <Card>
             <CardContent className="flex flex-col items-center gap-4 p-6">
               {!barcodeSupported && (
-                <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-center text-sm text-yellow-800 dark:border-yellow-600 dark:bg-yellow-950 dark:text-yellow-200">
-                  <p className="mb-1 font-medium">
-                    BarcodeDetector API not supported
-                  </p>
-                  <p>
-                    Your browser does not support the native BarcodeDetector
-                    API. Please use Chrome or Edge on desktop, or Chrome on
-                    Android for QR code scanning.
-                  </p>
+                <div className="w-full space-y-4">
+                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center dark:border-yellow-600 dark:bg-yellow-950">
+                    <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                      Live scanning not available
+                    </p>
+                    <p className="mt-1 text-xs text-yellow-700 dark:text-yellow-300">
+                      Your browser doesn&apos;t support the BarcodeDetector API.
+                      Use Chrome on Android for live scanning.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">
+                      Look up by asset tag instead:
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter asset tag..."
+                        value={manualTag}
+                        onChange={(e) => setManualTag(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && manualTag.trim()) {
+                            router.push(
+                              `/assets?search=${encodeURIComponent(manualTag.trim())}`,
+                            );
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={() => {
+                          if (manualTag.trim()) {
+                            router.push(
+                              `/assets?search=${encodeURIComponent(manualTag.trim())}`,
+                            );
+                          }
+                        }}
+                      >
+                        <Search className="mr-2 h-4 w-4" />
+                        Search
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
 

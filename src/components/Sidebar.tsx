@@ -34,6 +34,10 @@ import {
   User,
   Bell,
   Boxes,
+  Puzzle,
+  ClipboardList,
+  BadgeCheck,
+  MapPin,
 } from "lucide-react";
 import { PlusIcon as SidebarPlusIcon } from "../ui/Icons";
 import SearchTypeahead from "./SearchTypeahead";
@@ -108,11 +112,33 @@ const Sidebar = ({ initialCollapsed = false }) => {
         )}
       >
         {/* ─── Header: App identity ─── */}
-        <div className="flex h-14 shrink-0 items-center gap-2 px-3">
-          <div className="bg-primary text-primary-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-            <Boxes className="h-4 w-4" />
+        {collapsed ? (
+          <div className="flex h-14 shrink-0 flex-col items-center justify-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    setCollapsed(false);
+                    if (typeof window !== "undefined") {
+                      window.localStorage.setItem("sidebar:collapsed", "false");
+                      document.cookie =
+                        "sidebar_collapsed=false; path=/; max-age=31536000";
+                    }
+                  }}
+                  className="bg-primary text-primary-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-opacity hover:opacity-80"
+                  aria-label="Expand sidebar"
+                >
+                  <Boxes className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Expand sidebar</TooltipContent>
+            </Tooltip>
           </div>
-          {!collapsed && (
+        ) : (
+          <div className="flex h-14 shrink-0 items-center gap-2 px-3">
+            <div className="bg-primary text-primary-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
+              <Boxes className="h-4 w-4" />
+            </div>
             <div className="flex flex-1 items-center justify-between">
               <Link href="/dashboard" className="flex flex-col leading-tight">
                 <span className="text-sm font-semibold">Asset Tracker</span>
@@ -142,26 +168,8 @@ const Sidebar = ({ initialCollapsed = false }) => {
                 <PanelLeftClose className="h-4 w-4" />
               </Button>
             </div>
-          )}
-          {collapsed && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setCollapsed(false);
-                if (typeof window !== "undefined") {
-                  window.localStorage.setItem("sidebar:collapsed", "false");
-                  document.cookie =
-                    "sidebar_collapsed=false; path=/; max-age=31536000";
-                }
-              }}
-              aria-label="Expand sidebar"
-              className="h-7 w-7 p-0"
-            >
-              <PanelRightOpen className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
+          </div>
+        )}
 
         <Separator className="mx-3 w-auto" />
 
@@ -247,17 +255,61 @@ const Sidebar = ({ initialCollapsed = false }) => {
           })}
         </div>
 
-        {/* ─── Quick action ─── */}
-        {!collapsed && (
-          <div className="px-3 pb-2">
-            <Button asChild size="sm" className="w-full">
-              <Link href="/assets/create">
-                <SidebarPlusIcon className="mr-2 h-4 w-4" />
-                Create Asset
-              </Link>
-            </Button>
-          </div>
-        )}
+        {/* ─── Quick create dropdown ─── */}
+        <div className="px-3 pb-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                className={cn("w-full", collapsed && "w-10 p-0")}
+              >
+                <SidebarPlusIcon
+                  className={collapsed ? "h-4 w-4" : "mr-2 h-4 w-4"}
+                />
+                {!collapsed && "Quick Create"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side="top" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/assets/create">
+                  <Boxes className="mr-2 h-4 w-4" />
+                  New Asset
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/accessories/create">
+                  <Puzzle className="mr-2 h-4 w-4" />
+                  New Accessory
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/consumables/create">
+                  <ClipboardList className="mr-2 h-4 w-4" />
+                  New Consumable
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/licences/create">
+                  <BadgeCheck className="mr-2 h-4 w-4" />
+                  New Licence
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/user/create">
+                  <User className="mr-2 h-4 w-4" />
+                  New User
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/locations/create">
+                  <MapPin className="mr-2 h-4 w-4" />
+                  New Location
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         <Separator className="mx-3 w-auto" />
 

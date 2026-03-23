@@ -12,6 +12,7 @@ import {
   uuidSchema,
 } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { invalidateCache } from "@/lib/cache";
 import {
   parsePaginationParams,
   buildPrismaArgs,
@@ -128,6 +129,7 @@ export async function POST(req: NextRequest) {
       details: { locationname },
     });
 
+    invalidateCache("locations").catch(() => {});
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
     logger.error("POST /api/location error", { error: e });
@@ -209,6 +211,7 @@ export async function PUT(req: NextRequest) {
       details: { locationname: updated.locationname },
     });
 
+    invalidateCache("locations").catch(() => {});
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
     logger.error("PUT /api/location error", { error: e });
@@ -301,6 +304,7 @@ export async function DELETE(req: NextRequest) {
       details: { locationname: location.locationname },
     });
 
+    invalidateCache("locations").catch(() => {});
     return NextResponse.json(
       { message: "Location deleted successfully" },
       { status: 200 },

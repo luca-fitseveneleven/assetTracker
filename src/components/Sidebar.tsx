@@ -112,11 +112,33 @@ const Sidebar = ({ initialCollapsed = false }) => {
         )}
       >
         {/* ─── Header: App identity ─── */}
-        <div className="flex h-14 shrink-0 items-center gap-2 px-3">
-          <div className="bg-primary text-primary-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-            <Boxes className="h-4 w-4" />
+        {collapsed ? (
+          <div className="flex h-14 shrink-0 flex-col items-center justify-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    setCollapsed(false);
+                    if (typeof window !== "undefined") {
+                      window.localStorage.setItem("sidebar:collapsed", "false");
+                      document.cookie =
+                        "sidebar_collapsed=false; path=/; max-age=31536000";
+                    }
+                  }}
+                  className="bg-primary text-primary-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-opacity hover:opacity-80"
+                  aria-label="Expand sidebar"
+                >
+                  <Boxes className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Expand sidebar</TooltipContent>
+            </Tooltip>
           </div>
-          {!collapsed && (
+        ) : (
+          <div className="flex h-14 shrink-0 items-center gap-2 px-3">
+            <div className="bg-primary text-primary-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
+              <Boxes className="h-4 w-4" />
+            </div>
             <div className="flex flex-1 items-center justify-between">
               <Link href="/dashboard" className="flex flex-col leading-tight">
                 <span className="text-sm font-semibold">Asset Tracker</span>
@@ -146,26 +168,8 @@ const Sidebar = ({ initialCollapsed = false }) => {
                 <PanelLeftClose className="h-4 w-4" />
               </Button>
             </div>
-          )}
-          {collapsed && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setCollapsed(false);
-                if (typeof window !== "undefined") {
-                  window.localStorage.setItem("sidebar:collapsed", "false");
-                  document.cookie =
-                    "sidebar_collapsed=false; path=/; max-age=31536000";
-                }
-              }}
-              aria-label="Expand sidebar"
-              className="h-7 w-7 p-0"
-            >
-              <PanelRightOpen className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
+          </div>
+        )}
 
         <Separator className="mx-3 w-auto" />
 

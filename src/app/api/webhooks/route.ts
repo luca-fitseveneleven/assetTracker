@@ -174,6 +174,7 @@ export async function POST(req: NextRequest) {
 
 // List available webhook events
 export async function OPTIONS() {
+  await requirePermission("webhook:view");
   const events = getWebhookEvents();
   return NextResponse.json({ events });
 }

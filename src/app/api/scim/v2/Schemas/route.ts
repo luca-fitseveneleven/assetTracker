@@ -4,6 +4,10 @@ import { scimHeaders } from "@/lib/scim";
 /**
  * GET /api/scim/v2/Schemas
  * SCIM 2.0 Schema Discovery (RFC 7643 Section 7)
+ *
+ * NOTE: This endpoint is intentionally unauthenticated per RFC 7644 Section 4.
+ * SCIM Schemas and ServiceProviderConfig endpoints are defined as publicly
+ * accessible discovery endpoints that clients use before authentication.
  */
 export async function GET() {
   return NextResponse.json(
@@ -108,7 +112,8 @@ export async function GET() {
           ],
           meta: {
             resourceType: "Schema",
-            location: "/api/scim/v2/Schemas/urn:ietf:params:scim:schemas:core:2.0:User",
+            location:
+              "/api/scim/v2/Schemas/urn:ietf:params:scim:schemas:core:2.0:User",
           },
         },
       ],

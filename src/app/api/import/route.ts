@@ -7,6 +7,8 @@ import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 // Entity field mappings for CSV import
 const ENTITY_FIELDS: Record<string, string[]> = {
@@ -561,19 +563,25 @@ async function createEntity(
       break;
     }
 
-    case "user":
+    case "user": {
+      const randomPassword = await bcrypt.hash(
+        crypto.randomBytes(32).toString("hex"),
+        10,
+      );
       await prisma.user.create({
         data: {
           username: data.username || null,
           email: data.email || null,
           firstname: data.firstname,
           lastname: data.lastname,
+          password: randomPassword,
           isadmin: data.isadmin === "true" || data.isadmin === "1",
           canrequest: data.canrequest !== "false" && data.canrequest !== "0",
           creation_date: now,
         },
       });
       break;
+    }
 
     case "location":
       await prisma.location.create({

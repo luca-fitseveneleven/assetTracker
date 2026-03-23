@@ -4,6 +4,10 @@ import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, updateComponentSchema } from "@/lib/validation";
 import { logger } from "@/lib/logger";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -15,9 +19,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     await requirePermission("component:view");
 
     const { id } = await params;
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
-    const component = await prisma.component.findUnique({
-      where: { id },
+    const component = await prisma.component.findFirst({
+      where: scopeToOrganization({ id }, orgId),
       include: {
         category: true,
         manufacturer: true,
@@ -66,6 +72,21 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     const authUser = await requirePermission("component:edit");
 
     const { id } = await params;
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify component belongs to user's organization
+    const existingComponent = await prisma.component.findFirst({
+      where: scopeToOrganization({ id }, orgId),
+      select: { id: true },
+    });
+    if (!existingComponent) {
+      return NextResponse.json(
+        { error: "Component not found" },
+        { status: 404 },
+      );
+    }
+
     const body = await req.json();
     const validated = validateBody(updateComponentSchema, body);
     if (validated instanceof NextResponse) return validated;
@@ -140,10 +161,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const authUser = await requirePermission("component:delete");
 
     const { id } = await params;
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
-    const component = await prisma.component.findUnique({
-      where: { id },
-      select: { name: true },
+    const component = await prisma.component.findFirst({
+      where: scopeToOrganization({ id }, orgId),
+      select: { id: true, name: true },
     });
 
     if (!component) {

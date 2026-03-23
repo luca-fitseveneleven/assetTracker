@@ -105,6 +105,7 @@ export async function POST(req: NextRequest) {
       salutation,
       email,
       phonenumber,
+      website,
     } = validationResult.data;
 
     const created = await prisma.supplier.create({
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
         salutation: salutation ?? null,
         email: email ?? null,
         phonenumber: phonenumber ?? null,
+        website: website ?? null,
         creation_date: new Date(),
       } as Prisma.supplierUncheckedCreateInput,
     });
@@ -186,6 +188,7 @@ export async function PUT(req: NextRequest) {
       salutation,
       email,
       phonenumber,
+      website,
     } = body;
 
     const updated = await prisma.supplier.update({
@@ -197,6 +200,7 @@ export async function PUT(req: NextRequest) {
         ...(salutation !== undefined && { salutation: salutation ?? null }),
         ...(email !== undefined && { email: email ?? null }),
         ...(phonenumber !== undefined && { phonenumber: phonenumber ?? null }),
+        ...(website !== undefined && { website: website ?? null }),
         change_date: new Date(),
       },
     });

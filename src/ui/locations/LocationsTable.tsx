@@ -26,7 +26,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
-import { PlusIcon, SearchIcon, EditIcon, DeleteIcon, MoreVertical } from "../Icons";
+import {
+  PlusIcon,
+  SearchIcon,
+  EditIcon,
+  DeleteIcon,
+  MoreVertical,
+} from "../Icons";
 import { toast } from "sonner";
 
 const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
@@ -34,7 +40,9 @@ const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
 export default function LocationsTable({ items }) {
   const [searchValue, setSearchValue] = useState("");
   const [countryFilter, setCountryFilter] = useState("all");
-  const [rowsPerPage, setRowsPerPage] = useState(Number(ROWS_PER_PAGE_OPTIONS[0]));
+  const [rowsPerPage, setRowsPerPage] = useState(
+    Number(ROWS_PER_PAGE_OPTIONS[0]),
+  );
   const [page, setPage] = useState(1);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -44,7 +52,10 @@ export default function LocationsTable({ items }) {
     const unique = new Set<string>(
       locationsData
         .map((item) => item.country)
-        .filter((country): country is string => typeof country === 'string' && country.trim().length > 0)
+        .filter(
+          (country): country is string =>
+            typeof country === "string" && country.trim().length > 0,
+        ),
     );
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
   }, [locationsData]);
@@ -67,10 +78,13 @@ export default function LocationsTable({ items }) {
           item.postalcode,
         ]
           .filter(Boolean)
-          .some((value) => value.toString().toLowerCase().includes(normalizedQuery));
+          .some((value) =>
+            value.toString().toLowerCase().includes(normalizedQuery),
+          );
 
       const matchesCountry =
-        countryFilter === "all" || (item.country ?? "").toLowerCase() === countryFilter.toLowerCase();
+        countryFilter === "all" ||
+        (item.country ?? "").toLowerCase() === countryFilter.toLowerCase();
 
       return matchesSearch && matchesCountry;
     });
@@ -83,11 +97,12 @@ export default function LocationsTable({ items }) {
   }, [filteredItems, page, rowsPerPage]);
 
   const columns = [
-    { key: 'locationname', label: 'Name' },
-    { key: 'street', label: 'Street' },
-    { key: 'city', label: 'City' },
-    { key: 'country', label: 'Country' },
-    { key: 'actions', label: 'Actions' },
+    { key: "locationname", label: "Name" },
+    { key: "parent", label: "Parent" },
+    { key: "street", label: "Street" },
+    { key: "city", label: "City" },
+    { key: "country", label: "Country" },
+    { key: "actions", label: "Actions" },
   ];
 
   const handleDelete = async (locationId: string) => {
@@ -109,7 +124,9 @@ export default function LocationsTable({ items }) {
         description: `${locationId} deleted successfully`,
       });
 
-      setLocationsData((prevItems) => prevItems.filter((item) => item.locationid !== locationId));
+      setLocationsData((prevItems) =>
+        prevItems.filter((item) => item.locationid !== locationId),
+      );
       setIsDeleteModalOpen(false);
     } catch (error) {
       console.error("Error deleting location:", error);
@@ -121,19 +138,23 @@ export default function LocationsTable({ items }) {
 
   const renderCell = (item, columnKey) => {
     switch (columnKey) {
-      case 'locationname':
+      case "locationname":
         return item.locationname;
-      case 'street':
-        return item.street ? `${item.street} ${item.housenumber ?? ""}`.trim() : "-";
-      case 'city':
+      case "parent":
+        return item.parent?.locationname ?? "-";
+      case "street":
+        return item.street
+          ? `${item.street} ${item.housenumber ?? ""}`.trim()
+          : "-";
+      case "city":
         return item.city ?? "-";
-      case 'country':
+      case "country":
         return item.country ?? "-";
-      case 'actions':
+      case "actions":
         return (
           <div className="flex items-center gap-2">
             <Button
-              className="text-lg text-muted-foreground cursor-pointer hover:opacity-80 h-6 w-6"
+              className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
               size="icon"
               variant="ghost"
               asChild
@@ -145,7 +166,7 @@ export default function LocationsTable({ items }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  className="text-lg text-muted-foreground cursor-pointer hover:opacity-80 h-6 w-6"
+                  className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
                   size="icon"
                   variant="ghost"
                 >
@@ -180,7 +201,7 @@ export default function LocationsTable({ items }) {
         </div>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="relative w-full lg:max-w-md">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               className="pl-9"
               placeholder="Search by name or address details"
@@ -196,7 +217,9 @@ export default function LocationsTable({ items }) {
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 {countries.map((country) => (
-                  <SelectItem key={country} value={country}>{country}</SelectItem>
+                  <SelectItem key={country} value={country}>
+                    {country}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -209,16 +232,21 @@ export default function LocationsTable({ items }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-muted-foreground text-sm">
             Showing {paginatedItems.length} of {filteredItems.length} locations
           </span>
-          <Select value={String(rowsPerPage)} onValueChange={(value) => setRowsPerPage(Number(value))}>
+          <Select
+            value={String(rowsPerPage)}
+            onValueChange={(value) => setRowsPerPage(Number(value))}
+          >
             <SelectTrigger className="w-24">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {ROWS_PER_PAGE_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>{option}</SelectItem>
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -259,7 +287,9 @@ export default function LocationsTable({ items }) {
           <DialogHeader>
             <DialogTitle>Delete Location</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete location &quot;{selectedLocation?.locationname}&quot;? This action cannot be undone.
+              Are you sure you want to delete location &quot;
+              {selectedLocation?.locationname}&quot;? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -278,4 +308,3 @@ export default function LocationsTable({ items }) {
     </div>
   );
 }
-

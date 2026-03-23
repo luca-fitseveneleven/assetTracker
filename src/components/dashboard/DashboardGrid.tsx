@@ -364,6 +364,83 @@ function CostOverviewWidget() {
   );
 }
 
+function formatRelativeTime(dateString: string): string {
+  const now = Date.now();
+  const then = new Date(dateString).getTime();
+  const diffMs = now - then;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
+function LastEditedWidget() {
+  const [assets, setAssets] = useState<
+    Array<{
+      assetid: string;
+      assetname: string;
+      assettag: string;
+      change_date: string;
+    }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchRecentAssets() {
+      try {
+        const res = await fetch(
+          "/api/asset?page=1&pageSize=5&sortBy=change_date&sortOrder=desc",
+        );
+        const data = await res.json();
+        setAssets(data.data ?? []);
+      } catch {
+        setAssets([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRecentAssets();
+  }, []);
+
+  if (loading) {
+    return (
+      <p className="text-muted-foreground text-sm">Loading recent edits...</p>
+    );
+  }
+
+  if (assets.length === 0) {
+    return <p className="text-muted-foreground text-sm">No recent edits</p>;
+  }
+
+  return (
+    <ul className="space-y-2">
+      {assets.map((asset) => (
+        <li key={asset.assetid} className="text-sm">
+          <a
+            href={`/assets/${asset.assetid}`}
+            className="hover:bg-muted -mx-1 flex items-center justify-between rounded px-1 py-0.5 transition-colors"
+          >
+            <div className="min-w-0 flex-1">
+              <span className="block truncate font-medium">
+                {asset.assetname}
+              </span>
+              <span className="text-muted-foreground block truncate text-xs">
+                {asset.assettag}
+              </span>
+            </div>
+            <span className="text-muted-foreground ml-2 text-xs whitespace-nowrap">
+              {asset.change_date ? formatRelativeTime(asset.change_date) : "-"}
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function WidgetContent({
   widgetType,
   serverStats,
@@ -384,6 +461,8 @@ function WidgetContent({
       return <ExpiringLicencesWidget />;
     case "costOverview":
       return <CostOverviewWidget />;
+    case "lastEdited":
+      return <LastEditedWidget />;
     default:
       return (
         <p className="text-muted-foreground text-sm">Unknown widget type</p>

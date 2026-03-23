@@ -32,6 +32,7 @@ export default function SupplierCreateForm({
     lastname: initialData?.lastname ?? "",
     email: initialData?.email ?? "",
     phonenumber: initialData?.phonenumber ?? "",
+    website: initialData?.website ?? "",
   }));
 
   const onChange = (e) => {
@@ -53,6 +54,7 @@ export default function SupplierCreateForm({
         lastname: form.lastname || null,
         email: form.email || null,
         phonenumber: form.phonenumber || null,
+        website: form.website || null,
       };
 
       if (mode === "edit" && initialData?.supplierid) {
@@ -181,6 +183,17 @@ export default function SupplierCreateForm({
                 id="phonenumber"
                 name="phonenumber"
                 value={form.phonenumber}
+                onChange={onChange}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="website">Website</Label>
+              <Input
+                id="website"
+                name="website"
+                type="url"
+                placeholder="https://example.com"
+                value={form.website}
                 onChange={onChange}
               />
             </div>

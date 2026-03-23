@@ -599,11 +599,16 @@ model location {
   country       String?       @db.VarChar
   creation_date DateTime      @db.Timestamp(6)
   change_date   DateTime?     @db.Timestamp(6)
+  parentId      String?       @db.Uuid
+  parent        location?     @relation("LocationHierarchy", fields: [parentId], references: [locationid], onDelete: SetNull)
+  children      location[]    @relation("LocationHierarchy")
   accessories   accessories[]
   asset         asset[]
   components    Component[]
   checkoutsReceived AssetCheckout[] @relation("checkout_to_location")
   auditEntries  AuditEntry[]
+
+  @@index([parentId])
   @@schema("assettool")
 }
 
@@ -762,6 +767,7 @@ model supplier {
   salutation    String?       @db.VarChar
   email         String?       @db.VarChar
   phonenumber   String?       @db.VarChar
+  website       String?       @db.VarChar(500)
   creation_date DateTime      @db.Timestamp(6)
   change_date   DateTime?     @db.Timestamp(6)
   accessories   accessories[]

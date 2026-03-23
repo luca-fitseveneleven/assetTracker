@@ -242,6 +242,7 @@ export const createSupplierSchema = z.object({
   salutation: z.string().max(50).nullable().optional(),
   email: z.string().email().nullable().optional(),
   phonenumber: z.string().max(50).nullable().optional(),
+  website: z.string().url().max(500).nullable().optional(),
 });
 
 export const updateSupplierSchema = createSupplierSchema.partial();
@@ -256,6 +257,7 @@ export const createLocationSchema = z.object({
   housenumber: z.string().max(50).nullable().optional(),
   city: z.string().max(255).nullable().optional(),
   country: z.string().max(255).nullable().optional(),
+  parentId: z.string().uuid().nullable().optional(),
 });
 
 export const updateLocationSchema = createLocationSchema.partial();

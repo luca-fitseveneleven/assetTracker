@@ -26,7 +26,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
-import { PlusIcon, SearchIcon, EditIcon, DeleteIcon, MoreVertical } from "../Icons";
+import {
+  PlusIcon,
+  SearchIcon,
+  EditIcon,
+  DeleteIcon,
+  MoreVertical,
+} from "../Icons";
 import { toast } from "sonner";
 
 const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
@@ -54,7 +60,9 @@ export default function SuppliersTable({ items }) {
   const [searchValue, setSearchValue] = useState("");
   const [contactFilter, setContactFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
-  const [rowsPerPage, setRowsPerPage] = useState(Number(ROWS_PER_PAGE_OPTIONS[0]));
+  const [rowsPerPage, setRowsPerPage] = useState(
+    Number(ROWS_PER_PAGE_OPTIONS[0]),
+  );
   const [page, setPage] = useState(1);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
@@ -64,7 +72,7 @@ export default function SuppliersTable({ items }) {
     const unique = new Set<number>(
       suppliersData
         .map((item) => getYear(item.creation_date))
-        .filter((year): year is number => typeof year === "number")
+        .filter((year): year is number => typeof year === "number"),
     );
     return Array.from(unique).sort((a, b) => b - a);
   }, [suppliersData]);
@@ -91,7 +99,8 @@ export default function SuppliersTable({ items }) {
         (contactFilter === "without" && !hasContact);
 
       const matchesYear =
-        yearFilter === "all" || String(getYear(item.creation_date) ?? "") === yearFilter;
+        yearFilter === "all" ||
+        String(getYear(item.creation_date) ?? "") === yearFilter;
 
       return matchesSearch && matchesContact && matchesYear;
     });
@@ -104,12 +113,13 @@ export default function SuppliersTable({ items }) {
   }, [filteredItems, page, rowsPerPage]);
 
   const columns = [
-    { key: 'suppliername', label: 'Name' },
-    { key: 'contact', label: 'Contact' },
-    { key: 'email', label: 'Email' },
-    { key: 'phonenumber', label: 'Phone' },
-    { key: 'creation_date', label: 'Created' },
-    { key: 'actions', label: 'Actions' },
+    { key: "suppliername", label: "Name" },
+    { key: "contact", label: "Contact" },
+    { key: "email", label: "Email" },
+    { key: "phonenumber", label: "Phone" },
+    { key: "website", label: "Website" },
+    { key: "creation_date", label: "Created" },
+    { key: "actions", label: "Actions" },
   ];
 
   const handleDelete = async (supplierId: string) => {
@@ -131,7 +141,9 @@ export default function SuppliersTable({ items }) {
         description: `${supplierId} deleted successfully`,
       });
 
-      setSuppliersData((prevItems) => prevItems.filter((item) => item.supplierid !== supplierId));
+      setSuppliersData((prevItems) =>
+        prevItems.filter((item) => item.supplierid !== supplierId),
+      );
       setIsDeleteModalOpen(false);
     } catch (error) {
       console.error("Error deleting supplier:", error);
@@ -143,22 +155,36 @@ export default function SuppliersTable({ items }) {
 
   const renderCell = (item, columnKey) => {
     switch (columnKey) {
-      case 'suppliername':
+      case "suppliername":
         return item.suppliername;
-      case 'contact':
-        const fullName = `${item.firstname ?? ""} ${item.lastname ?? ""}`.trim();
+      case "contact":
+        const fullName =
+          `${item.firstname ?? ""} ${item.lastname ?? ""}`.trim();
         return fullName || "-";
-      case 'email':
+      case "email":
         return item.email ?? "-";
-      case 'phonenumber':
+      case "phonenumber":
         return item.phonenumber ?? "-";
-      case 'creation_date':
+      case "website":
+        return item.website ? (
+          <a
+            href={item.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            {item.website}
+          </a>
+        ) : (
+          "-"
+        );
+      case "creation_date":
         return formatDate(item.creation_date);
-      case 'actions':
+      case "actions":
         return (
           <div className="flex items-center gap-2">
             <Button
-              className="text-lg text-muted-foreground cursor-pointer hover:opacity-80 h-6 w-6"
+              className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
               size="icon"
               variant="ghost"
               asChild
@@ -170,7 +196,7 @@ export default function SuppliersTable({ items }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  className="text-lg text-muted-foreground cursor-pointer hover:opacity-80 h-6 w-6"
+                  className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
                   size="icon"
                   variant="ghost"
                 >
@@ -205,7 +231,7 @@ export default function SuppliersTable({ items }) {
         </div>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="relative w-full lg:max-w-md">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               className="pl-9"
               placeholder="Search suppliers and contacts"
@@ -220,7 +246,9 @@ export default function SuppliersTable({ items }) {
               </SelectTrigger>
               <SelectContent>
                 {contactOptions.map((option) => (
-                  <SelectItem key={option.key} value={option.key}>{option.label}</SelectItem>
+                  <SelectItem key={option.key} value={option.key}>
+                    {option.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -231,7 +259,9 @@ export default function SuppliersTable({ items }) {
               <SelectContent>
                 <SelectItem value="all">All years</SelectItem>
                 {years.map((year) => (
-                  <SelectItem key={String(year)} value={String(year)}>{year}</SelectItem>
+                  <SelectItem key={String(year)} value={String(year)}>
+                    {year}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -244,16 +274,21 @@ export default function SuppliersTable({ items }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-muted-foreground text-sm">
             Showing {paginatedItems.length} of {filteredItems.length} suppliers
           </span>
-          <Select value={String(rowsPerPage)} onValueChange={(value) => setRowsPerPage(Number(value))}>
+          <Select
+            value={String(rowsPerPage)}
+            onValueChange={(value) => setRowsPerPage(Number(value))}
+          >
             <SelectTrigger className="w-24">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {ROWS_PER_PAGE_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>{option}</SelectItem>
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -294,7 +329,9 @@ export default function SuppliersTable({ items }) {
           <DialogHeader>
             <DialogTitle>Delete Supplier</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete supplier &quot;{selectedSupplier?.suppliername}&quot;? This action cannot be undone.
+              Are you sure you want to delete supplier &quot;
+              {selectedSupplier?.suppliername}&quot;? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -313,4 +350,3 @@ export default function SuppliersTable({ items }) {
     </div>
   );
 }
-

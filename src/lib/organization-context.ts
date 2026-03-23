@@ -79,13 +79,15 @@ export async function getOrganizationContext(): Promise<OrganizationContext | nu
  * Scope a Prisma where clause to the user's organization
  * Returns the original where if user has no organization (for backward compatibility)
  */
+/**
+ * Scope a Prisma where clause to the user's organization.
+ * Strict scoping — only returns records matching the user's org.
+ */
 export function scopeToOrganization<T extends Record<string, unknown>>(
   baseWhere: T,
   organizationId?: string | null,
 ): T {
   if (!organizationId) {
-    // Fail closed: when no org is available, only match records with no org
-    // This prevents users without an organization from seeing all tenant data
     return {
       ...baseWhere,
       organizationId: null,

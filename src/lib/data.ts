@@ -4,21 +4,14 @@ import { getOrganizationContext } from "./organization-context";
 
 /**
  * Build an org-scoped where clause for data queries.
- * Includes records matching the user's org AND records with no org (null).
- * This inclusive approach supports existing data that predates multi-tenancy.
- *
- * Caches the result per-request so that calling orgWhere() 8 times
- * from Promise.all only resolves the session once.
- *
- * TODO: Once all records have organizationId set, remove the null fallback
- * and use strict scoping: `{ organizationId: orgId }`.
+ * Strict scoping — only returns records matching the user's org.
  */
 async function orgWhere(): Promise<Record<string, unknown>> {
   try {
     const ctx = await getOrganizationContext();
     const orgId = ctx?.organization?.id;
     if (!orgId) return {};
-    return { OR: [{ organizationId: orgId }, { organizationId: null }] };
+    return { organizationId: orgId };
   } catch {
     // Outside of a request context (e.g., scripts) — no scoping
     return {};

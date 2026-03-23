@@ -1009,8 +1009,8 @@ export default function App({
 
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex items-end justify-between gap-3">
-          <div className="relative w-full sm:max-w-[44%]">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="relative w-full sm:w-auto sm:max-w-[44%] sm:flex-1">
             <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               className="pl-9"
@@ -1019,7 +1019,7 @@ export default function App({
               onChange={(e) => onSearchChange(e.target.value)}
             />
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild className="hidden sm:flex">
                 <Button variant="outline">
@@ -1074,24 +1074,26 @@ export default function App({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <SavedFilters
-              entity="asset"
-              currentFilters={{
-                search: filterValue,
-                statuses: Array.from(statusFilter),
-                columns: Array.from(visibleColumns),
-              }}
-              onApplyFilter={(filters: Record<string, unknown>) => {
-                if (filters.search !== undefined)
-                  setFilterValue(filters.search as string);
-                if (filters.statuses)
-                  setStatusFilter(new Set(filters.statuses as string[]));
-                if (filters.columns)
-                  setVisibleColumns(new Set(filters.columns as string[]));
-              }}
-            />
+            <div className="hidden sm:flex">
+              <SavedFilters
+                entity="asset"
+                currentFilters={{
+                  search: filterValue,
+                  statuses: Array.from(statusFilter),
+                  columns: Array.from(visibleColumns),
+                }}
+                onApplyFilter={(filters: Record<string, unknown>) => {
+                  if (filters.search !== undefined)
+                    setFilterValue(filters.search as string);
+                  if (filters.statuses)
+                    setStatusFilter(new Set(filters.statuses as string[]));
+                  if (filters.columns)
+                    setVisibleColumns(new Set(filters.columns as string[]));
+                }}
+              />
+            </div>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              <DropdownMenuTrigger asChild className="hidden sm:flex">
                 <Button variant="outline" disabled={!deleteButtonActive}>
                   Bulk Edit
                   <ChevronDownIcon className="ml-2 h-4 w-4" />
@@ -1118,6 +1120,7 @@ export default function App({
             </DropdownMenu>
             <Button
               variant="outline"
+              className="hidden sm:inline-flex"
               onClick={() => refreshData()}
               disabled={isRefreshing}
             >
@@ -1285,37 +1288,51 @@ export default function App({
                       {stat?.statustypename || "Unknown"}
                     </Badge>
                   </div>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Serial</span>
-                      <span className="ml-2 truncate">{item.serialnumber}</span>
+                  <div className="space-y-1 text-xs sm:text-sm">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground shrink-0">
+                        Serial
+                      </span>
+                      <span className="min-w-0 truncate text-right">
+                        {item.serialnumber}
+                      </span>
                     </div>
                     {cat && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Category</span>
-                        <span>{cat.assetcategorytypename}</span>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">
+                          Category
+                        </span>
+                        <span className="min-w-0 truncate text-right">
+                          {cat.assetcategorytypename}
+                        </span>
                       </div>
                     )}
                     {loc && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Location</span>
-                        <span>{loc.locationname}</span>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">
+                          Location
+                        </span>
+                        <span className="min-w-0 truncate text-right">
+                          {loc.locationname}
+                        </span>
                       </div>
                     )}
                     {manu && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">
                           Manufacturer
                         </span>
-                        <span>{manu.manufacturername}</span>
+                        <span className="min-w-0 truncate text-right">
+                          {manu.manufacturername}
+                        </span>
                       </div>
                     )}
                     {assignedUser && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">
                           Assigned To
                         </span>
-                        <span>
+                        <span className="min-w-0 truncate text-right">
                           {assignedUser.firstname} {assignedUser.lastname}
                         </span>
                       </div>

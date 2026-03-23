@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import jsQR from "jsqr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,17 +45,19 @@ export default function ScannerPageClient() {
 
   // --- Scan mode state ---
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const detectorRef = useRef<BarcodeDetector | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const [scanning, setScanning] = useState(false);
   const [cameraPermission, setCameraPermission] = useState<
     "prompt" | "granted" | "denied"
   >("prompt");
-  const [barcodeSupported, setBarcodeSupported] = useState(true);
   const [lastDetected, setLastDetected] = useState<string | null>(null);
   const [scannedAsset, setScannedAsset] = useState<ScannedAsset | null>(null);
   const [isLoadingAsset, setIsLoadingAsset] = useState(false);
+
+  // --- Fallback manual tag input ---
+  const [manualTag, setManualTag] = useState("");
 
   // --- Generate mode state ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -63,13 +66,6 @@ export default function ScannerPageClient() {
   const [selectedAsset, setSelectedAsset] = useState<AssetSearchResult | null>(
     null,
   );
-
-  // Check BarcodeDetector support on mount
-  useEffect(() => {
-    if (typeof window !== "undefined" && !("BarcodeDetector" in window)) {
-      setBarcodeSupported(false);
-    }
-  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -97,99 +93,107 @@ export default function ScannerPageClient() {
   }, []);
 
   const startScanning = useCallback(async () => {
-    if (!barcodeSupported) return;
-
     if (!streamRef.current) {
       await requestCamera();
     }
 
     if (!streamRef.current) return;
 
-    try {
-      detectorRef.current = new BarcodeDetector({
-        formats: ["qr_code", "code_128", "code_39", "ean_13", "ean_8"],
-      });
-    } catch {
-      setBarcodeSupported(false);
-      return;
-    }
-
     setScanning(true);
     setLastDetected(null);
-    detectBarcode();
-  }, [barcodeSupported, requestCamera]);
+    detectQR();
+  }, [requestCamera]);
 
-  const detectBarcode = useCallback(() => {
-    const detect = async () => {
-      if (!videoRef.current || !detectorRef.current || !streamRef.current) {
-        return;
-      }
-
-      if (videoRef.current.readyState < 2) {
-        animFrameRef.current = requestAnimationFrame(detect);
-        return;
-      }
+  // Process a detected QR code value (shared between scan methods)
+  const handleDetectedValue = useCallback(
+    async (rawValue: string) => {
+      setLastDetected(rawValue);
 
       try {
-        const barcodes = await detectorRef.current.detect(videoRef.current);
-        if (barcodes.length > 0) {
-          const rawValue = barcodes[0].rawValue;
-          setLastDetected(rawValue);
+        const url = new URL(rawValue);
+        const pathMatch = url.pathname.match(/\/assets\/(.+)/);
+        if (pathMatch) {
+          const assetId = pathMatch[1];
+          stopScanning();
+          setIsLoadingAsset(true);
+          setScannedAsset(null);
 
-          // Check if it looks like a URL pointing to an asset page
           try {
-            const url = new URL(rawValue);
-            const pathMatch = url.pathname.match(/\/assets\/(.+)/);
-            if (pathMatch) {
-              const assetId = pathMatch[1];
-              stopScanning();
-              setIsLoadingAsset(true);
-              setScannedAsset(null);
-
-              try {
-                const res = await fetch(
-                  `/api/asset/getAsset?id=${encodeURIComponent(assetId)}`,
-                );
-                if (!res.ok) {
-                  throw new Error("Asset not found");
-                }
-                const asset = await res.json();
-                setScannedAsset({
-                  assetid: asset.assetid,
-                  assetname: asset.assetname,
-                  assettag: asset.assettag,
-                  serialnumber: asset.serialnumber,
-                  statusType: asset.statusType ?? null,
-                  assignedUser: null,
-                });
-                toast.success(`Asset found: ${asset.assetname}`);
-              } catch {
-                toast.error(
-                  "Could not load asset details. Navigating to asset page.",
-                );
-                router.push(url.pathname);
-              } finally {
-                setIsLoadingAsset(false);
-              }
-              return;
-            }
+            const res = await fetch(
+              `/api/asset/getAsset?id=${encodeURIComponent(assetId)}`,
+            );
+            if (!res.ok) throw new Error("Asset not found");
+            const asset = await res.json();
+            setScannedAsset({
+              assetid: asset.assetid,
+              assetname: asset.assetname,
+              assettag: asset.assettag,
+              serialnumber: asset.serialnumber,
+              statusType: asset.statusType ?? null,
+              assignedUser: null,
+            });
+            toast.success(`Asset found: ${asset.assetname}`);
           } catch {
-            // Not a URL - could be a raw asset tag or serial number
+            toast.error(
+              "Could not load asset details. Navigating to asset page.",
+            );
+            router.push(url.pathname);
+          } finally {
+            setIsLoadingAsset(false);
           }
-
-          // If it's not a recognized URL, try searching for it
-          toast.info(`Detected: ${rawValue}`);
+          return true;
         }
       } catch {
-        // Detection failed for this frame, keep trying
+        // Not a URL
       }
 
-      animFrameRef.current = requestAnimationFrame(detect);
+      toast.info(`Detected: ${rawValue}`);
+      return false;
+    },
+    [router],
+  );
+
+  // Use jsQR to decode QR codes from video frames — works on ALL browsers
+  const detectQR = useCallback(() => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
+
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+
+    let stopped = false;
+
+    const scan = async () => {
+      if (stopped || !streamRef.current) return;
+
+      if (video.readyState < 2) {
+        animFrameRef.current = requestAnimationFrame(scan);
+        return;
+      }
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert",
+      });
+
+      if (code && code.data) {
+        const handled = await handleDetectedValue(code.data);
+        if (handled) {
+          stopped = true;
+          return;
+        }
+      }
+
+      animFrameRef.current = requestAnimationFrame(scan);
     };
 
-    detect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+    scan();
+  }, [handleDetectedValue]);
 
   const stopScanning = useCallback(() => {
     setScanning(false);
@@ -283,20 +287,10 @@ export default function ScannerPageClient() {
         <TabsContent value="scan">
           <Card>
             <CardContent className="flex flex-col items-center gap-4 p-6">
-              {!barcodeSupported && (
-                <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-center text-sm text-yellow-800 dark:border-yellow-600 dark:bg-yellow-950 dark:text-yellow-200">
-                  <p className="mb-1 font-medium">
-                    BarcodeDetector API not supported
-                  </p>
-                  <p>
-                    Your browser does not support the native BarcodeDetector
-                    API. Please use Chrome or Edge on desktop, or Chrome on
-                    Android for QR code scanning.
-                  </p>
-                </div>
-              )}
+              {/* Hidden canvas for jsQR frame processing */}
+              <canvas ref={canvasRef} className="hidden" />
 
-              {barcodeSupported && cameraPermission === "prompt" && (
+              {cameraPermission === "prompt" && (
                 <div className="flex flex-col items-center gap-4 py-8">
                   <Camera className="text-muted-foreground h-12 w-12" />
                   <p className="text-muted-foreground max-w-sm text-center text-sm">
@@ -310,7 +304,7 @@ export default function ScannerPageClient() {
                 </div>
               )}
 
-              {barcodeSupported && cameraPermission === "denied" && (
+              {cameraPermission === "denied" && (
                 <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-center text-sm text-red-800 dark:border-red-600 dark:bg-red-950 dark:text-red-200">
                   <p className="mb-1 font-medium">Camera access denied</p>
                   <p>
@@ -320,7 +314,7 @@ export default function ScannerPageClient() {
                 </div>
               )}
 
-              {barcodeSupported && cameraPermission === "granted" && (
+              {cameraPermission === "granted" && (
                 <>
                   <div className="relative w-full max-w-lg overflow-hidden rounded-lg bg-black">
                     <video

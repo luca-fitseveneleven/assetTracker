@@ -36,6 +36,26 @@ export async function getAccessoryCount() {
   return cached(key, () => prisma.accessories.count({ where }), 2 * 60 * 1000);
 }
 
+export async function getAccessoryStatusDistribution() {
+  const where = await orgWhere();
+  const key = `accessory_status_distribution:${JSON.stringify(where)}`;
+  return cached(
+    key,
+    async () => {
+      const items = await prisma.accessories.groupBy({
+        by: ["statustypeid"],
+        where,
+        _count: { accessorieid: true },
+      });
+      return items.map((a) => ({
+        statustypeid: a.statustypeid,
+        count: a._count.accessorieid,
+      }));
+    },
+    2 * 60 * 1000,
+  );
+}
+
 export async function getAssetStatusDistribution() {
   const where = await orgWhere();
   const key = `asset_status_distribution:${JSON.stringify(where)}`;

@@ -654,25 +654,30 @@ export default function App({
       switch (columnKey) {
         case "assetid":
           return (
-            <div className="flex flex-col">
-              <p className="text-bold text-small select-all">{asset.assetid}</p>
-            </div>
+            <Link
+              href={`/assets/${asset.assetid}`}
+              className="text-small text-muted-foreground hover:text-foreground font-mono hover:underline"
+            >
+              {asset.assetid.slice(0, 8)}...
+            </Link>
           );
         case "assetname":
           return (
-            <div className="flex flex-col">
-              <p className="text-bold text-small capitalize">
-                {asset.assetname}
-              </p>
-            </div>
+            <Link
+              href={`/assets/${asset.assetid}`}
+              className="text-small hover:text-primary font-medium capitalize hover:underline"
+            >
+              {asset.assetname}
+            </Link>
           );
         case "assettag":
           return (
-            <div className="flex flex-col">
-              <p className="text-bold text-small capitalize">
-                {asset.assettag}
-              </p>
-            </div>
+            <Link
+              href={`/assets/${asset.assetid}`}
+              className="text-small hover:text-primary font-medium hover:underline"
+            >
+              {asset.assettag}
+            </Link>
           );
         case "serialnumber":
           return (

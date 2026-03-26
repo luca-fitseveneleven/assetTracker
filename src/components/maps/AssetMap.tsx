@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { useTheme } from "next-themes";
 import { MapPin } from "lucide-react";
 
 interface LocationMarker {
@@ -19,6 +20,11 @@ interface AssetMapProps {
   totalLocations?: number;
 }
 
+const TILE_STYLES = {
+  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+} as const;
+
 export default function AssetMap({
   locations: rawLocations,
   totalAssets,
@@ -26,22 +32,25 @@ export default function AssetMap({
 }: AssetMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
+  const { resolvedTheme } = useTheme();
 
-  const locations = rawLocations.filter(
-    (l) =>
-      typeof l.latitude === "number" &&
-      typeof l.longitude === "number" &&
-      !isNaN(l.latitude) &&
-      !isNaN(l.longitude),
+  const locations = useMemo(
+    () =>
+      rawLocations.filter(
+        (l) =>
+          typeof l.latitude === "number" &&
+          typeof l.longitude === "number" &&
+          !isNaN(l.latitude) &&
+          !isNaN(l.longitude),
+      ),
+    [rawLocations],
   );
 
   useEffect(() => {
     if (!mapContainer.current || locations.length === 0) return;
 
-    const isDark = document.documentElement.classList.contains("dark");
-    const style = isDark
-      ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-      : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+    const isDark = resolvedTheme === "dark";
+    const style = isDark ? TILE_STYLES.dark : TILE_STYLES.light;
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
@@ -68,8 +77,12 @@ export default function AssetMap({
       el.style.height = `${size}px`;
       el.style.borderRadius = "50%";
       el.style.background = "#10b981";
-      el.style.border = "2px solid rgba(255,255,255,0.8)";
-      el.style.boxShadow = "0 0 12px rgba(16,185,129,0.4)";
+      el.style.border = isDark
+        ? "2px solid rgba(0,0,0,0.4)"
+        : "2px solid rgba(255,255,255,0.8)";
+      el.style.boxShadow = isDark
+        ? "0 0 12px rgba(16,185,129,0.6)"
+        : "0 0 12px rgba(16,185,129,0.4)";
       el.style.display = "flex";
       el.style.alignItems = "center";
       el.style.justifyContent = "center";
@@ -79,10 +92,14 @@ export default function AssetMap({
       el.style.cursor = "pointer";
       el.textContent = String(loc.assetCount);
 
+      const popupBg = isDark ? "#1c1c1c" : "#fff";
+      const popupText = isDark ? "#e5e5e5" : "#111";
+      const popupSub = isDark ? "#a3a3a3" : "#666";
+
       const popup = new maplibregl.Popup({ offset: 25 }).setHTML(
-        `<div style="font-family:system-ui,sans-serif;padding:4px 2px;">
+        `<div style="font-family:system-ui,sans-serif;padding:4px 2px;background:${popupBg};color:${popupText};border-radius:6px;">
           <strong style="font-size:14px;">${loc.name ?? "Unknown"}</strong>
-          <br/><span style="color:#666;font-size:12px;">${loc.assetCount} asset${loc.assetCount !== 1 ? "s" : ""} at this location</span>
+          <br/><span style="color:${popupSub};font-size:12px;">${loc.assetCount} asset${loc.assetCount !== 1 ? "s" : ""} at this location</span>
         </div>`,
       );
 
@@ -101,7 +118,7 @@ export default function AssetMap({
     return () => {
       map.current?.remove();
     };
-  }, [locations]);
+  }, [locations, resolvedTheme]);
 
   if (locations.length === 0) {
     return (

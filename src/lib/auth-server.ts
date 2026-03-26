@@ -277,6 +277,34 @@ export const auth = betterAuth({
           }),
         ]
       : []),
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          genericOAuth({
+            config: [
+              {
+                providerId: "google",
+                clientId: process.env.GOOGLE_CLIENT_ID!,
+                clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+                discoveryUrl:
+                  "https://accounts.google.com/.well-known/openid-configuration",
+                scopes: ["openid", "email", "profile"],
+                mapProfileToUser(profile) {
+                  return {
+                    name:
+                      profile.given_name || profile.name?.split(" ")[0] || "",
+                    lastname:
+                      profile.family_name ||
+                      profile.name?.split(" ").slice(1).join(" ") ||
+                      "",
+                    email: profile.email || "",
+                    image: profile.picture || null,
+                  };
+                },
+              },
+            ],
+          }),
+        ]
+      : []),
     nextCookies(),
   ],
 

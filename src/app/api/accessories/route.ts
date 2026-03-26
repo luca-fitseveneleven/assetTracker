@@ -15,6 +15,12 @@ import {
   buildPaginatedResponse,
 } from "@/lib/pagination";
 import { logger } from "@/lib/logger";
+import {
+  createAuditLog,
+  createAuditLogWithDiff,
+  AUDIT_ACTIONS,
+  AUDIT_ENTITIES,
+} from "@/lib/audit-log";
 
 const ACCESSORY_SORT_FIELDS = ["accessoriename", "creation_date"];
 
@@ -188,6 +194,16 @@ export async function POST(req: NextRequest) {
 
     invalidateCache("accessories_all").catch(() => {});
     invalidateCache("accessory_count").catch(() => {});
+    createAuditLog({
+      userId: orgCtx?.userId ?? null,
+      action: AUDIT_ACTIONS.CREATE,
+      entity: AUDIT_ENTITIES.ACCESSORY,
+      entityId: created.accessorieid,
+      details: {
+        accessoriename: created.accessoriename,
+        accessorietag: created.accessorietag,
+      },
+    }).catch(() => {});
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
     logger.error("POST /api/accessories error", { error: e });
@@ -263,6 +279,14 @@ export async function PUT(req: NextRequest) {
     });
 
     invalidateCache("accessories_all").catch(() => {});
+    createAuditLogWithDiff({
+      userId: orgCtx?.userId ?? null,
+      action: AUDIT_ACTIONS.UPDATE,
+      entity: AUDIT_ENTITIES.ACCESSORY,
+      entityId: existing.accessorieid,
+      before: existing as unknown as Record<string, unknown>,
+      after: updated as unknown as Record<string, unknown>,
+    }).catch(() => {});
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
     logger.error("PUT /api/accessories error", { error: e });

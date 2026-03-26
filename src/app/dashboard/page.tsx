@@ -7,7 +7,6 @@ import {
   getStatus,
 } from "@/lib/data";
 import Breadcrumb from "@/components/Breadcrumb";
-import StatCard from "../../components/StatCard";
 import AssetStatusChart from "@/components/charts/AssetStatusChart";
 import DismissibleHelpTip from "@/components/DismissibleHelpTip";
 import DashboardGrid from "@/components/dashboard/DashboardGrid";
@@ -170,29 +169,7 @@ export default async function DashboardPage() {
         assets, accessories, and users. Use the sidebar to navigate to specific
         sections, or click the stat cards below to jump to detailed views.
       </DismissibleHelpTip>
-      <div className="mt-6 sm:mt-8 md:mt-10">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-3 xl:grid-cols-4">
-          <StatCard
-            href="/assets"
-            title="Total Assets"
-            value={assetCount}
-            icon="Boxes"
-          />
-          <StatCard
-            href="/accessories"
-            title="Total Accessories"
-            value={accessoryCount}
-            icon="Puzzle"
-          />
-          <StatCard
-            href="/user"
-            title="Total Users"
-            value={userCount}
-            icon="Users"
-          />
-        </div>
-      </div>
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 lg:grid-cols-2">
         <AssetStatusChart data={chartData} title="Asset Status" />
         <AssetStatusChart data={accChartData} title="Accessory Status" />
       </div>

@@ -26,6 +26,12 @@ import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { checkAssetLimit } from "@/lib/tenant-limits";
 import { logger } from "@/lib/logger";
+import {
+  createAuditLog,
+  createAuditLogWithDiff,
+  AUDIT_ACTIONS,
+  AUDIT_ENTITIES,
+} from "@/lib/audit-log";
 
 const ASSET_SORT_FIELDS = [
   "assetname",
@@ -204,6 +210,13 @@ export async function POST(req: NextRequest) {
 
     invalidateCache("assets_all").catch(() => {});
     invalidateCache("asset_count").catch(() => {});
+    createAuditLog({
+      userId: orgCtx?.userId ?? null,
+      action: AUDIT_ACTIONS.CREATE,
+      entity: AUDIT_ENTITIES.ASSET,
+      entityId: created.assetid,
+      details: { assetname: created.assetname, assettag: created.assettag },
+    }).catch(() => {});
     triggerWebhook("asset.created", {
       assetId: created.assetid,
       assetName: created.assetname,
@@ -272,6 +285,14 @@ export async function PUT(req: NextRequest) {
     });
 
     invalidateCache("assets_all").catch(() => {});
+    createAuditLogWithDiff({
+      userId: orgCtx?.userId ?? null,
+      action: AUDIT_ACTIONS.UPDATE,
+      entity: AUDIT_ENTITIES.ASSET,
+      entityId: existing.assetid,
+      before: existing as unknown as Record<string, unknown>,
+      after: updated as unknown as Record<string, unknown>,
+    }).catch(() => {});
     triggerWebhook("asset.updated", {
       assetId: updated.assetid,
       assetName: updated.assetname,

@@ -22,6 +22,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Typed error classes** — `AppError`, `UnauthorizedError`, `ForbiddenError`, `NotFoundError`, `ValidationError`, `RateLimitError`
 - **`getBaseUrl()` helper** — centralized URL resolution that throws in production if no URL env var is set
 - **Database migration** — new indexes for audit_logs, maintenance_schedules, custom_field_definitions, notification_queue
+- **Audit scan workflow** — live QR scan page for active audit campaigns with progress bar, continuous scanning, manual tag entry fallback, and found/missing reconciliation
+- **Item templates** — `AssetTemplate` model with CRUD API; "From Template" dropdown on asset create form pre-fills category, manufacturer, model, status, location, supplier, specs, notes
+- **Parametric search** — advanced search page at `/search` with entity type selector, dynamic filter rows (field + operator + value), custom field support, and paginated results
+- **Booking calendar** — month-view grid calendar showing reservations as colored bars (green=approved, yellow=pending, red=rejected) at `/reservations`
+- **Self-service user role** — non-admin users see only their assigned assets/accessories/licences on list pages; Maintenance, Audits, Import hidden from non-admin nav
+- **Programmable label templates** — `{{placeholder}}` syntax with `{{#if field}}...{{/if}}` conditionals, live preview in admin settings, backward compatible with old field-array templates
+- **Serial number auto-detect** — identifies Apple/Dell/Lenovo from serial patterns, auto-selects manufacturer and category on asset create form
+- **Event log with revert** — `createAuditLogWithSnapshot` stores before/after JSON diffs; revert API restores previous state; revert button in audit log viewer for UPDATE actions
+- **Sub-locations** — hierarchical parent-child locations with expandable tree table, parent dropdown in create/edit forms
+- **Supplier website** — URL field on supplier model, clickable link in table
+- **Smart auto-tags** — generates tags from `CATEGORY-MANUFACTURER-MODEL-0001`
+- **Asset location map** — MapLibre GL map with auto-geocoding (OpenStreetMap Nominatim), emerald markers sized by asset count, stats overlay, dark/light theme
+- **Recently Modified dashboard widget** — shows last 5 edited assets with relative timestamps
+- **Quick Create dropdown** — sidebar button to create assets, accessories, consumables, licences, users, locations
+- **Cross-browser QR scanning** — jsQR library replaces BarcodeDetector API for Safari/Firefox support
+- **Umami analytics** — self-hosted tracking via `next/script` with `afterInteractive` strategy
 
 ### Changed
 

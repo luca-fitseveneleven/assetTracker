@@ -11,6 +11,7 @@ import {
   getCategories,
   getUserAssets,
 } from "@/lib/data";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 export const metadata = {
   title: "Asset Tracker - Assets",
@@ -75,6 +76,25 @@ export default async function Page() {
         : null,
   }));
 
+  // Self-service restriction: non-admin users only see assets assigned to them
+  let ctx;
+  try {
+    ctx = await getOrganizationContext();
+  } catch {}
+  const isAdmin = ctx?.isAdmin ?? true;
+
+  let displayAssets = databaseAssets;
+  if (!isAdmin && ctx?.userId) {
+    const assignedAssetIds = new Set(
+      userAssets
+        .filter((ua) => ua.userid === ctx.userId)
+        .map((ua) => ua.assetid),
+    );
+    displayAssets = databaseAssets.filter((a) =>
+      assignedAssetIds.has(a.assetid),
+    );
+  }
+
   return (
     <div>
       <Breadcrumb
@@ -84,7 +104,7 @@ export default async function Page() {
         ]}
       />
       <AssetsTableClient
-        data={databaseAssets}
+        data={displayAssets}
         locations={location}
         user={user}
         status={status}

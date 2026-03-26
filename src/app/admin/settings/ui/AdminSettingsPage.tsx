@@ -135,7 +135,10 @@ interface AdminSettingsPageProps {
     name: string;
     width: unknown;
     height: unknown;
+    layout: string;
+    fields: string;
     includeQR: boolean;
+    includeLogo: boolean;
     isDefault: boolean;
   }>;
   customFields: Array<{

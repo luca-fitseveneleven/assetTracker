@@ -277,6 +277,37 @@ export const auth = betterAuth({
           }),
         ]
       : []),
+    // Note: To restrict to a specific Google Workspace domain, add:
+    // authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth?hd=yourdomain.com"
+    // For multi-tenant SaaS, domain enforcement should be done post-login via organization settings.
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [
+          genericOAuth({
+            config: [
+              {
+                providerId: "google",
+                clientId: process.env.GOOGLE_CLIENT_ID!,
+                clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+                discoveryUrl:
+                  "https://accounts.google.com/.well-known/openid-configuration",
+                scopes: ["openid", "email", "profile"],
+                mapProfileToUser(profile) {
+                  return {
+                    name:
+                      profile.given_name || profile.name?.split(" ")[0] || "",
+                    lastname:
+                      profile.family_name ||
+                      profile.name?.split(" ").slice(1).join(" ") ||
+                      "",
+                    email: profile.email || "",
+                    image: profile.picture || null,
+                  };
+                },
+              },
+            ],
+          }),
+        ]
+      : []),
     nextCookies(),
   ],
 

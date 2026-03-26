@@ -21,7 +21,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Toaster, toast } from "sonner";
-import { Wand2 } from "lucide-react";
+import { Wand2, FileText, Loader2 } from "lucide-react";
 import CustomFieldsSection from "@/components/CustomFieldsSection";
 import SelectWithQuickCreate, {
   type QuickCreateOption,
@@ -85,6 +85,13 @@ export default function AssetCreateForm({
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [assettagTaken, setAssettagTaken] = useState(false);
   const [serialTaken, setSerialTaken] = useState(false);
+  const [serialLookupLoading, setSerialLookupLoading] = useState(false);
+  const [serialLookupResult, setSerialLookupResult] = useState<{
+    detected: boolean;
+    manufacturer: string | null;
+    confidence: string | null;
+    suggestions: { category: string | null } | null;
+  } | null>(null);
   const [generatingTag, setGeneratingTag] = useState(false);
   const [customFieldValues, setCustomFieldValues] = useState<
     Record<string, string | null>
@@ -111,6 +118,54 @@ export default function AssetCreateForm({
   const isDirty =
     form.assetname !== "" || form.assettag !== "" || form.serialnumber !== "";
   useUnsavedChanges(isDirty);
+
+  // Asset templates
+  const [templates, setTemplates] = useState<
+    Array<{
+      id: string;
+      name: string;
+      description?: string | null;
+      assetcategorytypeid?: string | null;
+      manufacturerid?: string | null;
+      modelid?: string | null;
+      statustypeid?: string | null;
+      locationid?: string | null;
+      supplierid?: string | null;
+      defaultSpecs?: string | null;
+      defaultNotes?: string | null;
+    }>
+  >([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/asset-templates")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) setTemplates(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const applyTemplate = useCallback(
+    (templateId: string) => {
+      setSelectedTemplateId(templateId);
+      if (!templateId || templateId === "__none__") return;
+      const tpl = templates.find((t) => t.id === templateId);
+      if (!tpl) return;
+      setForm((f) => ({
+        ...f,
+        assetcategorytypeid: tpl.assetcategorytypeid || f.assetcategorytypeid,
+        manufacturerid: tpl.manufacturerid || f.manufacturerid,
+        modelid: tpl.modelid || f.modelid,
+        statustypeid: tpl.statustypeid || f.statustypeid,
+        locationid: tpl.locationid || f.locationid,
+        supplierid: tpl.supplierid || f.supplierid,
+        specs: tpl.defaultSpecs || f.specs,
+        notes: tpl.defaultNotes || f.notes,
+      }));
+    },
+    [templates],
+  );
 
   // Preselect default status "Available" if present
   useEffect(() => {
@@ -211,6 +266,9 @@ export default function AssetCreateForm({
       warrantyMonths: "",
       warrantyExpires: "",
     });
+    setSerialLookupResult(null);
+    setSerialTaken(false);
+    setAssettagTaken(false);
   }, []);
 
   return (
@@ -257,6 +315,28 @@ export default function AssetCreateForm({
             </Button>
           </div>
         </div>
+
+        {templates.length > 0 && (
+          <div className="border-default-200 bg-muted/30 flex items-center gap-3 rounded-lg border p-3">
+            <FileText className="text-muted-foreground h-4 w-4 shrink-0" />
+            <Label htmlFor="template" className="shrink-0 text-sm font-medium">
+              From Template
+            </Label>
+            <Select value={selectedTemplateId} onValueChange={applyTemplate}>
+              <SelectTrigger id="template" className="max-w-xs">
+                <SelectValue placeholder="No template" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No template</SelectItem>
+                {templates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           <section className="border-default-200 col-span-1 rounded-lg border p-4">
@@ -564,9 +644,14 @@ export default function AssetCreateForm({
                   id="serialnumber"
                   name="serialnumber"
                   value={form.serialnumber}
-                  onChange={onChange}
+                  onChange={(e) => {
+                    onChange(e);
+                    // Clear previous lookup when the user edits the field
+                    if (serialLookupResult) setSerialLookupResult(null);
+                  }}
                   onBlur={async () => {
                     if (!form.serialnumber) return;
+                    // Validate uniqueness
                     try {
                       const res = await fetch(
                         `/api/asset/validate?serialnumber=${encodeURIComponent(form.serialnumber)}`,
@@ -574,6 +659,50 @@ export default function AssetCreateForm({
                       const data = await res.json();
                       setSerialTaken(Boolean(data?.serialnumber?.exists));
                     } catch {}
+                    // Lookup manufacturer from serial pattern
+                    setSerialLookupLoading(true);
+                    setSerialLookupResult(null);
+                    try {
+                      const res = await fetch(
+                        `/api/asset/lookup-serial?serial=${encodeURIComponent(form.serialnumber)}`,
+                      );
+                      if (res.ok) {
+                        const data = await res.json();
+                        setSerialLookupResult(data);
+                        if (data.detected && data.manufacturer) {
+                          // Auto-select manufacturer if one matches by name
+                          const match = manufacturerOptions.find(
+                            (m) =>
+                              m.label?.toLowerCase() ===
+                              data.manufacturer.toLowerCase(),
+                          );
+                          if (match && !form.manufacturerid) {
+                            setForm((f) => ({
+                              ...f,
+                              manufacturerid: match.id,
+                            }));
+                          }
+                          // Auto-select category if suggestion matches
+                          if (data.suggestions?.category) {
+                            const catMatch = categoryOptions.find(
+                              (c) =>
+                                c.label?.toLowerCase() ===
+                                data.suggestions.category.toLowerCase(),
+                            );
+                            if (catMatch && !form.assetcategorytypeid) {
+                              setForm((f) => ({
+                                ...f,
+                                assetcategorytypeid: catMatch.id,
+                              }));
+                            }
+                          }
+                        }
+                      }
+                    } catch {
+                      // Lookup is best-effort; swallow errors
+                    } finally {
+                      setSerialLookupLoading(false);
+                    }
                   }}
                   className={serialTaken ? "border-red-500" : ""}
                   required
@@ -583,6 +712,35 @@ export default function AssetCreateForm({
                     Serial number already exists
                   </p>
                 )}
+                {serialLookupLoading && (
+                  <div className="text-muted-foreground mt-1.5 flex items-center gap-1.5 text-xs">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Detecting device...</span>
+                  </div>
+                )}
+                {serialLookupResult?.detected && !serialLookupLoading && (
+                  <div className="mt-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                    Detected: <strong>{serialLookupResult.manufacturer}</strong>
+                    {serialLookupResult.confidence && (
+                      <span className="ml-1 text-blue-600 dark:text-blue-400">
+                        ({serialLookupResult.confidence} confidence)
+                      </span>
+                    )}
+                    {serialLookupResult.suggestions?.category && (
+                      <span className="ml-1">
+                        &middot; Suggested category:{" "}
+                        {serialLookupResult.suggestions.category}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {serialLookupResult &&
+                  !serialLookupResult.detected &&
+                  !serialLookupLoading && (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Manufacturer could not be detected from serial number
+                    </p>
+                  )}
               </div>
             </div>
           </section>

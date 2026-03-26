@@ -9,7 +9,9 @@ import {
   getLocation,
   getSuppliers,
   getAccessoryCategories,
+  getUserAccessoires,
 } from "@/lib/data";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 export const metadata = {
   title: "Asset Tracker - Accessories",
@@ -25,6 +27,7 @@ export default async function Page() {
     locations,
     suppliers,
     categories,
+    userAccessoires,
   ] = await Promise.all([
     getAccessories(),
     getManufacturers(),
@@ -33,7 +36,27 @@ export default async function Page() {
     getLocation(),
     getSuppliers(),
     getAccessoryCategories(),
+    getUserAccessoires(),
   ]);
+
+  // Self-service restriction: non-admin users only see accessories assigned to them
+  let ctx;
+  try {
+    ctx = await getOrganizationContext();
+  } catch {}
+  const isAdmin = ctx?.isAdmin ?? true;
+
+  let filteredAccessories = accessoriesRaw;
+  if (!isAdmin && ctx?.userId) {
+    const assignedAccessoryIds = new Set(
+      userAccessoires
+        .filter((ua) => ua.userid === ctx.userId)
+        .map((ua) => ua.accessorieid),
+    );
+    filteredAccessories = accessoriesRaw.filter((a) =>
+      assignedAccessoryIds.has(a.accessorieid),
+    );
+  }
 
   return (
     <div>
@@ -45,7 +68,7 @@ export default async function Page() {
       />
       <Suspense fallback={null}>
         <AccessoriesTable
-          items={accessoriesRaw.map((item) => ({
+          items={filteredAccessories.map((item) => ({
             ...item,
             purchaseprice:
               item.purchaseprice !== null && item.purchaseprice !== undefined

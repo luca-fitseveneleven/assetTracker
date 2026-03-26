@@ -1,18 +1,7 @@
 "use client";
 
-import React from "react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  PolarAngleAxis,
-  PolarGrid,
-  Radar,
-  RadarChart,
-  PolarRadiusAxis,
-} from "recharts";
+import * as React from "react";
+import { Label, Pie, PieChart } from "recharts";
 import {
   Card,
   CardContent,
@@ -22,110 +11,147 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  ChartConfig,
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
 } from "@/components/ui/chart";
 
-const COLORS = [
-  "#2563eb",
-  "#22c55e",
-  "#f97316",
-  "#14b8a6",
-  "#a855f7",
-  "#e11d48",
-  "#4b5563",
+/** CSS variable chart palette — matches shadcn defaults (--chart-1 … --chart-5) plus extras */
+const CHART_COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-1) / 0.7)",
+  "hsl(var(--chart-2) / 0.7)",
+  "hsl(var(--chart-3) / 0.7)",
 ];
+
+/**
+ * Convert a label like "Ready to Deploy" into a slug key like "ready-to-deploy"
+ * so it can be used as a chartConfig key and CSS variable name.
+ */
+function toKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 function AssetStatusChart({
   data,
   title = "Asset status overview",
+  description,
 }: {
   data: Array<{ name: string; value: number }>;
   title?: string;
+  description?: string;
 }) {
   const hasData = data?.length && data.some((item) => item.value > 0);
 
   if (!hasData) {
     return (
-      <section className="border-default-200 bg-content1 rounded-lg border p-6">
-        <header className="mb-4 flex items-center justify-between">
-          <h2 className="text-foreground text-base font-semibold">{title}</h2>
-        </header>
-        <p className="text-foreground-500 text-sm">No data to display yet.</p>
-      </section>
+      <Card className="flex flex-col">
+        <CardHeader className="items-center pb-0">
+          <CardTitle>{title}</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-1 items-center justify-center py-10">
+          <p className="text-muted-foreground text-sm">
+            No data to display yet.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
-  const total = data.reduce((sum, item) => sum + item.value, 0);
-  const chartData = data.map((item) => ({
-    ...item,
-    percentage: total === 0 ? 0 : ((item.value / total) * 100).toFixed(1),
-  }));
+  // Filter out zero-value entries so the chart only shows meaningful slices
+  const activeData = data.filter((item) => item.value > 0);
 
-  const chartConfig = {
-    desktop: {
-      label: "Desktop",
-      color: "var(--chart-1)",
-    },
+  const total = activeData.reduce((sum, item) => sum + item.value, 0);
+
+  // Build the chartConfig dynamically from the data
+  const chartConfig: ChartConfig = {
+    value: { label: "Count" },
   };
+  activeData.forEach((item, i) => {
+    const key = toKey(item.name);
+    chartConfig[key] = {
+      label: item.name,
+      color: CHART_COLORS[i % CHART_COLORS.length],
+    };
+  });
+
+  // Transform data so each item has `fill: "var(--color-key)"` for ChartContainer
+  const chartData = activeData.map((item, i) => ({
+    status: toKey(item.name),
+    value: item.value,
+    fill: `var(--color-${toKey(item.name)})`,
+  }));
 
   return (
     <Card className="flex flex-col">
       <CardHeader className="items-center pb-0">
         <CardTitle>{title}</CardTitle>
-        <CardDescription>Total: {total}</CardDescription>
+        {description && <CardDescription>{description}</CardDescription>}
       </CardHeader>
       <CardContent className="flex-1 pb-0">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px] px-0"
+          className="mx-auto aspect-square max-h-[250px]"
         >
           <PieChart>
             <ChartTooltip
-              content={<ChartTooltipContent nameKey="name" hideLabel />}
+              cursor={false}
+              content={<ChartTooltipContent hideLabel />}
             />
             <Pie
               data={chartData}
               dataKey="value"
-              labelLine={true}
-              label={({ payload, ...props }) => {
-                return (
-                  <text
-                    cx={props.cx}
-                    cy={props.cy}
-                    x={props.x}
-                    y={props.y}
-                    textAnchor={props.textAnchor}
-                    dominantBaseline={props.dominantBaseline}
-                    fill="hsla(var(--foreground))"
-                    fontSize={12}
-                  >
-                    {payload.name} ({payload.value})
-                  </text>
-                );
-              }}
-              nameKey="name"
+              nameKey="status"
+              innerRadius={60}
+              strokeWidth={5}
             >
-              {chartData.map((sum, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
-                />
-              ))}
+              <Label
+                content={({ viewBox }) => {
+                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                    return (
+                      <text
+                        x={viewBox.cx}
+                        y={viewBox.cy}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        <tspan
+                          x={viewBox.cx}
+                          y={viewBox.cy}
+                          className="fill-foreground text-3xl font-bold"
+                        >
+                          {total.toLocaleString()}
+                        </tspan>
+                        <tspan
+                          x={viewBox.cx}
+                          y={(viewBox.cy || 0) + 24}
+                          className="fill-muted-foreground"
+                        >
+                          Total
+                        </tspan>
+                      </text>
+                    );
+                  }
+                }}
+              />
             </Pie>
+            <ChartLegend
+              content={<ChartLegendContent nameKey="status" />}
+              className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center"
+            />
           </PieChart>
         </ChartContainer>
       </CardContent>
-      {/* <CardFooter className="flex-col gap-2 text-sm">
-        <div className="flex items-center gap-2 leading-none font-medium">
-          Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
-        </div>
-        <div className="text-muted-foreground leading-none">
-          Showing total visitors for the last 6 months
-        </div>
-      </CardFooter> */}
     </Card>
   );
 }

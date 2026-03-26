@@ -3,6 +3,7 @@ import {
   getUserCount,
   getAccessoryCount,
   getAssetStatusDistribution,
+  getAccessoryStatusDistribution,
   getStatus,
 } from "@/lib/data";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -33,14 +34,21 @@ export default async function DashboardPage() {
     return <UserDashboard userId={ctx.userId} />;
   }
 
-  const [userCount, assetCount, accessoryCount, statusDistribution, statuses] =
-    await Promise.all([
-      getUserCount(),
-      getAssetCount(),
-      getAccessoryCount(),
-      getAssetStatusDistribution(),
-      getStatus(),
-    ]);
+  const [
+    userCount,
+    assetCount,
+    accessoryCount,
+    statusDistribution,
+    accessoryStatusDistribution,
+    statuses,
+  ] = await Promise.all([
+    getUserCount(),
+    getAssetCount(),
+    getAccessoryCount(),
+    getAssetStatusDistribution(),
+    getAccessoryStatusDistribution(),
+    getStatus(),
+  ]);
 
   // Map query is separate — gracefully handles missing columns
   let mapLocations: Array<{
@@ -111,6 +119,37 @@ export default async function DashboardPage() {
     chartData.push({ name: "Unassigned", value: unassignedCount });
   }
 
+  // Build accessory status chart data
+  const accStatusCounts = new Map<string, number>();
+  accessoryStatusDistribution.forEach((entry) => {
+    const key = entry.statustypeid ?? "__unassigned";
+    accStatusCounts.set(key, entry.count);
+  });
+
+  const accChartData: Array<{ name: string; value: number }> = [];
+  statuses.forEach((status) => {
+    const count = accStatusCounts.get(status.statustypeid) ?? 0;
+    accChartData.push({
+      name: status.statustypename ?? "Unknown",
+      value: count,
+    });
+  });
+
+  // Time-based greeting
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const userName = ctx?.userId
+    ? (await import("@/lib/prisma")).default.user
+        .findUnique({
+          where: { userid: ctx.userId },
+          select: { firstname: true },
+        })
+        .then((u) => u?.firstname)
+        .catch(() => null)
+    : null;
+  const firstName = await userName;
+
   return (
     <main>
       <Breadcrumb
@@ -120,7 +159,8 @@ export default async function DashboardPage() {
         ]}
       />
       <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-        Dashboard
+        {greeting}
+        {firstName ? `, ${firstName}` : ""}
       </h1>
       <p className="text-muted-foreground mt-1 text-sm">
         Overview of your asset management system
@@ -153,7 +193,10 @@ export default async function DashboardPage() {
         </div>
       </div>
       <div className="mt-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-        <AssetStatusChart data={chartData} />
+        <AssetStatusChart data={chartData} title="Asset Status" />
+        <AssetStatusChart data={accChartData} title="Accessory Status" />
+      </div>
+      <div className="mt-4 sm:mt-6">
         <Suspense
           fallback={
             <div className="text-muted-foreground flex h-[300px] items-center justify-center rounded-lg border text-sm">

@@ -58,7 +58,7 @@
 
   .scroll-shadow::before,
   .scroll-shadow::after {
-    content: '';
+    content: "";
     position: sticky;
     left: 0;
     right: 0;
@@ -117,7 +117,8 @@
     --info-bg: 214 95% 94%;
 
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.03), 0 1px 3px 0 rgb(0 0 0 / 0.04);
-    --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.04), 0 4px 12px -2px rgb(0 0 0 / 0.06);
+    --shadow-md:
+      0 2px 4px -1px rgb(0 0 0 / 0.04), 0 4px 12px -2px rgb(0 0 0 / 0.06);
   }
   .dark {
     --background: 220 13% 6%;
@@ -156,10 +157,10 @@
     --info-bg: 220 50% 12%;
 
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.08), 0 1px 3px 0 rgb(0 0 0 / 0.1);
-    --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.1), 0 4px 12px -2px rgb(0 0 0 / 0.15);
+    --shadow-md:
+      0 2px 4px -1px rgb(0 0 0 / 0.1), 0 4px 12px -2px rgb(0 0 0 / 0.15);
   }
 }
-
 
 @layer base {
   * {
@@ -176,7 +177,9 @@
 }
 
 .hover-lift {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .hover-lift:hover {
@@ -195,4 +198,25 @@
     min-height: 44px;
     min-width: 44px;
   }
+}
+
+/* MapLibre popup dark mode */
+.dark .maplibregl-popup-content {
+  background: hsl(220 13% 10%);
+  color: hsl(0 0% 98%);
+  border: 1px solid hsl(220 10% 20%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.dark .maplibregl-popup-tip {
+  border-top-color: hsl(220 13% 10%);
+}
+
+.dark .maplibregl-popup-close-button {
+  color: hsl(0 0% 64%);
+}
+
+.dark .maplibregl-popup-close-button:hover {
+  color: hsl(0 0% 98%);
+  background: hsl(220 10% 16%);
 }

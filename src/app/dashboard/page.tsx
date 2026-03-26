@@ -59,15 +59,33 @@ export default async function DashboardPage() {
         latitude: true,
         longitude: true,
         _count: { select: { asset: true } },
+        children: {
+          select: {
+            _count: { select: { asset: true } },
+            children: {
+              select: { _count: { select: { asset: true } } },
+            },
+          },
+        },
       },
     });
-    mapLocations = locationsWithCoords.map((loc) => ({
-      id: loc.locationid,
-      name: loc.locationname,
-      latitude: loc.latitude!,
-      longitude: loc.longitude!,
-      assetCount: loc._count.asset,
-    }));
+    mapLocations = locationsWithCoords.map((loc) => {
+      // Sum assets at this location + all children + grandchildren
+      let total = loc._count.asset;
+      for (const child of loc.children) {
+        total += child._count.asset;
+        for (const grandchild of child.children) {
+          total += grandchild._count.asset;
+        }
+      }
+      return {
+        id: loc.locationid,
+        name: loc.locationname,
+        latitude: loc.latitude!,
+        longitude: loc.longitude!,
+        assetCount: total,
+      };
+    });
   } catch {
     // latitude/longitude columns may not exist yet
   }

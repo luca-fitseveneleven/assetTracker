@@ -19,12 +19,14 @@ import {
 } from "@/components/ui/select";
 import { QRCodeSVG } from "qrcode.react";
 import { Printer } from "lucide-react";
+import { renderLabelTemplate } from "@/lib/label-renderer";
 
 interface LabelTemplate {
   id: string;
   name: string;
   width: number;
   height: number;
+  layout: string;
   includeQR: boolean;
   includeLogo: boolean;
   fields: string;
@@ -41,6 +43,9 @@ interface AssetData {
   locationid?: string;
   assetcategorytypeid?: string;
   purchasedate?: string;
+  purchaseprice?: string;
+  status?: string;
+  assignedto?: string;
 }
 
 interface PrintLabelDialogProps {
@@ -50,7 +55,10 @@ interface PrintLabelDialogProps {
   manufacturers?: Array<{ manufacturerid: string; manufacturername: string }>;
   models?: Array<{ modelid: string; modelname: string }>;
   locations?: Array<{ locationid: string; locationname: string }>;
-  categories?: Array<{ assetcategorytypeid: string; assetcategorytypename: string }>;
+  categories?: Array<{
+    assetcategorytypeid: string;
+    assetcategorytypename: string;
+  }>;
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -63,6 +71,11 @@ const FIELD_LABELS: Record<string, string> = {
   category: "Category",
   purchaseDate: "Purchase Date",
 };
+
+/** Check whether a template layout string uses {{placeholder}} syntax */
+function isTemplateString(layout: string | undefined): boolean {
+  return typeof layout === "string" && layout.includes("{{");
+}
 
 export default function PrintLabelDialog({
   open,
@@ -110,18 +123,55 @@ export default function PrintLabelDialog({
       case "serialNumber":
         return asset.serialnumber || "";
       case "manufacturer":
-        return manufacturers.find((m) => m.manufacturerid === asset.manufacturerid)?.manufacturername || "";
+        return (
+          manufacturers.find((m) => m.manufacturerid === asset.manufacturerid)
+            ?.manufacturername || ""
+        );
       case "model":
         return models.find((m) => m.modelid === asset.modelid)?.modelname || "";
       case "location":
-        return locations.find((l) => l.locationid === asset.locationid)?.locationname || "";
+        return (
+          locations.find((l) => l.locationid === asset.locationid)
+            ?.locationname || ""
+        );
       case "category":
-        return categories.find((c) => c.assetcategorytypeid === asset.assetcategorytypeid)?.assetcategorytypename || "";
+        return (
+          categories.find(
+            (c) => c.assetcategorytypeid === asset.assetcategorytypeid,
+          )?.assetcategorytypename || ""
+        );
       case "purchaseDate":
-        return asset.purchasedate ? new Date(asset.purchasedate).toLocaleDateString() : "";
+        return asset.purchasedate
+          ? new Date(asset.purchasedate).toLocaleDateString()
+          : "";
+      case "purchasePrice":
+        return asset.purchaseprice || "";
+      case "status":
+        return asset.status || "";
+      case "assignedTo":
+        return asset.assignedto || "";
       default:
         return "";
     }
+  };
+
+  /** Build the full data record for an asset, used by the template renderer */
+  const buildAssetData = (asset: AssetData): Record<string, string> => {
+    const qrCodeUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/assets/${asset.assetid}`;
+    return {
+      assetName: getFieldValue(asset, "assetName"),
+      assetTag: getFieldValue(asset, "assetTag"),
+      serialNumber: getFieldValue(asset, "serialNumber"),
+      manufacturer: getFieldValue(asset, "manufacturer"),
+      model: getFieldValue(asset, "model"),
+      location: getFieldValue(asset, "location"),
+      category: getFieldValue(asset, "category"),
+      purchaseDate: getFieldValue(asset, "purchaseDate"),
+      purchasePrice: getFieldValue(asset, "purchasePrice"),
+      status: getFieldValue(asset, "status"),
+      assignedTo: getFieldValue(asset, "assignedTo"),
+      qrCodeUrl,
+    };
   };
 
   const getTemplateFields = (template: LabelTemplate): string[] => {
@@ -157,6 +207,7 @@ export default function PrintLabelDialog({
       ".field { font-size: 8pt; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }",
       ".field-label { font-weight: bold; color: #333; }",
       ".field-value { color: #000; }",
+      ".template-rendered { font-size: 8pt; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }",
     ].join("\n");
     doc.head.appendChild(style);
     doc.title = "Print Labels";
@@ -170,34 +221,138 @@ export default function PrintLabelDialog({
     printWindow.print();
   };
 
+  /** Render a single label using the programmable template layout */
+  const renderTemplateLabel = (asset: AssetData, template: LabelTemplate) => {
+    const data = buildAssetData(asset);
+    const qrSize = Math.min(Number(template.height) * 72, 80);
+    const qrCodeUrl = data.qrCodeUrl;
+
+    // Check if the template references {{qrCode}} — we render it as a React component
+    const layoutStr = template.layout;
+    const hasQrPlaceholder = layoutStr.includes("{{qrCode}}");
+
+    // Split around {{qrCode}} so we can inject the SVG component
+    if (hasQrPlaceholder) {
+      const parts = layoutStr.split("{{qrCode}}");
+      const renderedParts = parts.map((part) =>
+        renderLabelTemplate(part, data),
+      );
+
+      return (
+        <div
+          key={asset.assetid}
+          className="label flex gap-3 rounded border bg-white p-3"
+          style={{ maxWidth: `${Number(template.width) * 96}px` }}
+        >
+          <div className="label-content template-rendered min-w-0 flex-1 text-xs break-words whitespace-pre-wrap">
+            {renderedParts.map((part, i) => (
+              <React.Fragment key={i}>
+                {part}
+                {i < renderedParts.length - 1 && (
+                  <span className="inline-block align-middle">
+                    <QRCodeSVG value={qrCodeUrl} size={qrSize} />
+                  </span>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // No {{qrCode}} placeholder — render text + optional QR on the side
+    const rendered = renderLabelTemplate(layoutStr, data);
+    return (
+      <div
+        key={asset.assetid}
+        className="label flex gap-3 rounded border bg-white p-3"
+        style={{ maxWidth: `${Number(template.width) * 96}px` }}
+      >
+        <div className="label-content template-rendered min-w-0 flex-1 text-xs break-words whitespace-pre-wrap">
+          {rendered}
+        </div>
+        {template.includeQR && (
+          <div className="label-qr flex-shrink-0">
+            <QRCodeSVG value={qrCodeUrl} size={qrSize} />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /** Render a single label using the legacy fields array approach */
+  const renderFieldsLabel = (asset: AssetData, template: LabelTemplate) => {
+    const fields = getTemplateFields(template);
+    const qrSize = Math.min(Number(template.height) * 72, 80);
+    return (
+      <div
+        key={asset.assetid}
+        className="label flex gap-3 rounded border bg-white p-3"
+        style={{ maxWidth: `${Number(template.width) * 96}px` }}
+      >
+        <div className="label-content min-w-0 flex-1">
+          {fields.map((field) => {
+            const value = getFieldValue(asset, field);
+            if (!value) return null;
+            return (
+              <div key={field} className="field truncate text-xs">
+                <span className="field-label text-muted-foreground">
+                  {FIELD_LABELS[field] || field}:{" "}
+                </span>
+                <span className="field-value font-medium">{value}</span>
+              </div>
+            );
+          })}
+        </div>
+        {template.includeQR && (
+          <div className="label-qr flex-shrink-0">
+            <QRCodeSVG
+              value={`${typeof window !== "undefined" ? window.location.origin : ""}/assets/${asset.assetid}`}
+              size={qrSize}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Print Labels</DialogTitle>
           <DialogDescription>
-            {assets.length} asset{assets.length !== 1 ? "s" : ""} selected for label printing.
+            {assets.length} asset{assets.length !== 1 ? "s" : ""} selected for
+            label printing.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {templates.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground">
+            <div className="text-muted-foreground py-6 text-center">
               <p>No label templates configured.</p>
-              <p className="text-sm mt-1">Create templates in Admin Settings &gt; Labels.</p>
+              <p className="mt-1 text-sm">
+                Create templates in Admin Settings &gt; Labels.
+              </p>
             </div>
           ) : (
             <>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Template</label>
-                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <label className="mb-1.5 block text-sm font-medium">
+                  Template
+                </label>
+                <Select
+                  value={selectedTemplateId}
+                  onValueChange={setSelectedTemplateId}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a template" />
                   </SelectTrigger>
                   <SelectContent>
                     {templates.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.name} ({Number(t.width)}&quot; x {Number(t.height)}&quot;)
+                        {t.name} ({Number(t.width)}&quot; x {Number(t.height)}
+                        &quot;)
                         {t.isDefault ? " (Default)" : ""}
                       </SelectItem>
                     ))}
@@ -206,44 +361,14 @@ export default function PrintLabelDialog({
               </div>
 
               {selectedTemplate && (
-                <div className="border rounded-lg p-4 bg-muted/30">
-                  <p className="text-sm font-medium mb-3">Preview</p>
+                <div className="bg-muted/30 rounded-lg border p-4">
+                  <p className="mb-3 text-sm font-medium">Preview</p>
                   <div ref={printRef} className="space-y-3">
                     {assets.map((asset) => {
-                      const fields = getTemplateFields(selectedTemplate);
-                      const qrSize = Math.min(Number(selectedTemplate.height) * 72, 80);
-                      return (
-                        <div
-                          key={asset.assetid}
-                          className="label bg-white border rounded p-3 flex gap-3"
-                          style={{
-                            maxWidth: `${Number(selectedTemplate.width) * 96}px`,
-                          }}
-                        >
-                          <div className="label-content flex-1 min-w-0">
-                            {fields.map((field) => {
-                              const value = getFieldValue(asset, field);
-                              if (!value) return null;
-                              return (
-                                <div key={field} className="field text-xs truncate">
-                                  <span className="field-label text-muted-foreground">
-                                    {FIELD_LABELS[field] || field}:{" "}
-                                  </span>
-                                  <span className="field-value font-medium">{value}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          {selectedTemplate.includeQR && (
-                            <div className="label-qr flex-shrink-0">
-                              <QRCodeSVG
-                                value={`${typeof window !== "undefined" ? window.location.origin : ""}/assets/${asset.assetid}`}
-                                size={qrSize}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      );
+                      if (isTemplateString(selectedTemplate.layout)) {
+                        return renderTemplateLabel(asset, selectedTemplate);
+                      }
+                      return renderFieldsLabel(asset, selectedTemplate);
                     })}
                   </div>
                 </div>
@@ -256,8 +381,11 @@ export default function PrintLabelDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handlePrint} disabled={!selectedTemplate || assets.length === 0}>
-            <Printer className="h-4 w-4 mr-2" />
+          <Button
+            onClick={handlePrint}
+            disabled={!selectedTemplate || assets.length === 0}
+          >
+            <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>
         </DialogFooter>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,8 +31,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Tag, Printer, Edit, Trash2, QrCode } from "lucide-react";
+import { renderLabelTemplate, LABEL_PLACEHOLDERS } from "@/lib/label-renderer";
 
 interface LabelSettingsTabProps {
   templates: Array<{
@@ -40,19 +42,46 @@ interface LabelSettingsTabProps {
     name: string;
     width: unknown;
     height: unknown;
+    layout: string;
+    fields: string;
     includeQR: boolean;
+    includeLogo: boolean;
     isDefault: boolean;
   }>;
 }
 
 const DEFAULT_SIZES = [
-  { name: "Small (2\" x 1\")", width: 2, height: 1 },
-  { name: "Medium (3\" x 2\")", width: 3, height: 2 },
-  { name: "Large (4\" x 2\")", width: 4, height: 2 },
-  { name: "Badge (3.5\" x 2\")", width: 3.5, height: 2 },
+  { name: 'Small (2" x 1")', width: 2, height: 1 },
+  { name: 'Medium (3" x 2")', width: 3, height: 2 },
+  { name: 'Large (4" x 2")', width: 4, height: 2 },
+  { name: 'Badge (3.5" x 2")', width: 3.5, height: 2 },
 ];
 
-export default function LabelSettingsTab({ templates: initialTemplates }: LabelSettingsTabProps) {
+const SAMPLE_DATA: Record<string, string> = {
+  assetName: 'MacBook Pro 16"',
+  assetTag: "AST-001234",
+  serialNumber: "C02ZW1XKLVDL",
+  manufacturer: "Apple",
+  model: "MacBook Pro 16-inch 2023",
+  category: "Laptop",
+  location: "HQ - Floor 3",
+  purchaseDate: "2024-01-15",
+  purchasePrice: "$2,499.00",
+  status: "Deployed",
+  assignedTo: "Jane Smith",
+  qrCodeUrl: "https://example.com/assets/abc-123",
+};
+
+const DEFAULT_TEMPLATE_LAYOUT = `{{assetName}}
+Tag: {{assetTag}}
+S/N: {{serialNumber}}
+{{#if manufacturer}}Mfg: {{manufacturer}}{{/if}}
+{{#if model}}Model: {{model}}{{/if}}
+{{#if location}}Location: {{location}}{{/if}}`;
+
+export default function LabelSettingsTab({
+  templates: initialTemplates,
+}: LabelSettingsTabProps) {
   const [templates, setTemplates] = useState(initialTemplates);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
@@ -63,6 +92,8 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
     includeQR: true,
     includeLogo: false,
     fields: ["assetName", "assetTag", "serialNumber"],
+    layout: DEFAULT_TEMPLATE_LAYOUT,
+    useTemplateMode: true,
   });
 
   const availableFields = [
@@ -76,12 +107,38 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
     { id: "purchaseDate", label: "Purchase Date" },
   ];
 
+  const previewHtml = useMemo(() => {
+    if (formData.useTemplateMode && formData.layout) {
+      return renderLabelTemplate(formData.layout, SAMPLE_DATA);
+    }
+    return "";
+  }, [formData.layout, formData.useTemplateMode]);
+
   const handleCreate = async () => {
     try {
+      const payload = formData.useTemplateMode
+        ? {
+            name: formData.name,
+            width: formData.width,
+            height: formData.height,
+            includeQR: formData.includeQR,
+            includeLogo: formData.includeLogo,
+            layout: formData.layout,
+            fields: formData.fields,
+          }
+        : {
+            name: formData.name,
+            width: formData.width,
+            height: formData.height,
+            includeQR: formData.includeQR,
+            includeLogo: formData.includeLogo,
+            fields: formData.fields,
+          };
+
       const response = await fetch("/api/admin/labels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -93,7 +150,7 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
       } else {
         toast.error("Failed to create template");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to create template");
     }
   };
@@ -102,15 +159,38 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
     if (!editingTemplate) return;
 
     try {
+      const payload = formData.useTemplateMode
+        ? {
+            name: formData.name,
+            width: formData.width,
+            height: formData.height,
+            includeQR: formData.includeQR,
+            includeLogo: formData.includeLogo,
+            layout: formData.layout,
+            fields: formData.fields,
+          }
+        : {
+            name: formData.name,
+            width: formData.width,
+            height: formData.height,
+            includeQR: formData.includeQR,
+            includeLogo: formData.includeLogo,
+            fields: formData.fields,
+          };
+
       const response = await fetch(`/api/admin/labels/${editingTemplate}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
         const updatedTemplate = await response.json();
-        setTemplates(templates.map((t) => (t.id === editingTemplate ? updatedTemplate : t)));
+        setTemplates(
+          templates.map((t) =>
+            t.id === editingTemplate ? updatedTemplate : t,
+          ),
+        );
         setIsDialogOpen(false);
         setEditingTemplate(null);
         resetForm();
@@ -118,7 +198,7 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
       } else {
         toast.error("Failed to update template");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update template");
     }
   };
@@ -137,7 +217,7 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
       } else {
         toast.error("Failed to delete template");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete template");
     }
   };
@@ -154,7 +234,7 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
       } else {
         toast.error("Failed to update default template");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update default template");
     }
   };
@@ -167,18 +247,32 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
       includeQR: true,
       includeLogo: false,
       fields: ["assetName", "assetTag", "serialNumber"],
+      layout: DEFAULT_TEMPLATE_LAYOUT,
+      useTemplateMode: true,
     });
   };
 
-  const openEditDialog = (template: typeof templates[0]) => {
+  const openEditDialog = (template: (typeof templates)[0]) => {
+    const isTemplate =
+      typeof template.layout === "string" && template.layout.includes("{{");
+    let fields: string[] = ["assetName", "assetTag", "serialNumber"];
+    try {
+      const parsed = JSON.parse(template.fields);
+      if (Array.isArray(parsed)) fields = parsed;
+    } catch {
+      // keep default
+    }
+
     setEditingTemplate(template.id);
     setFormData({
       name: template.name,
       width: Number(template.width),
       height: Number(template.height),
       includeQR: template.includeQR,
-      includeLogo: false,
-      fields: ["assetName", "assetTag", "serialNumber"],
+      includeLogo: template.includeLogo ?? false,
+      fields,
+      layout: isTemplate ? template.layout : DEFAULT_TEMPLATE_LAYOUT,
+      useTemplateMode: isTemplate,
     });
     setIsDialogOpen(true);
   };
@@ -186,10 +280,20 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
   const toggleField = (fieldId: string) => {
     const currentFields = formData.fields;
     if (currentFields.includes(fieldId)) {
-      setFormData({ ...formData, fields: currentFields.filter((f) => f !== fieldId) });
+      setFormData({
+        ...formData,
+        fields: currentFields.filter((f) => f !== fieldId),
+      });
     } else {
       setFormData({ ...formData, fields: [...currentFields, fieldId] });
     }
+  };
+
+  const insertPlaceholder = (key: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      layout: prev.layout + `{{${key}}}`,
+    }));
   };
 
   return (
@@ -204,18 +308,25 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => { setEditingTemplate(null); resetForm(); }}>
-                <Plus className="h-4 w-4 mr-2" />
+              <Button
+                onClick={() => {
+                  setEditingTemplate(null);
+                  resetForm();
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
                 New Template
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
-                  {editingTemplate ? "Edit Label Template" : "Create Label Template"}
+                  {editingTemplate
+                    ? "Edit Label Template"
+                    : "Create Label Template"}
                 </DialogTitle>
                 <DialogDescription>
-                  Configure the label size and what information to include
+                  Configure the label size and content layout
                 </DialogDescription>
               </DialogHeader>
 
@@ -224,7 +335,9 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
                   <Label>Template Name</Label>
                   <Input
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     placeholder="e.g., Standard Asset Label"
                   />
                 </div>
@@ -237,13 +350,18 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
                         key={size.name}
                         type="button"
                         variant={
-                          formData.width === size.width && formData.height === size.height
+                          formData.width === size.width &&
+                          formData.height === size.height
                             ? "default"
                             : "outline"
                         }
                         size="sm"
                         onClick={() =>
-                          setFormData({ ...formData, width: size.width, height: size.height })
+                          setFormData({
+                            ...formData,
+                            width: size.width,
+                            height: size.height,
+                          })
                         }
                       >
                         {size.name}
@@ -260,7 +378,10 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
                       step="0.25"
                       value={formData.width}
                       onChange={(e) =>
-                        setFormData({ ...formData, width: parseFloat(e.target.value) })
+                        setFormData({
+                          ...formData,
+                          width: parseFloat(e.target.value),
+                        })
                       }
                     />
                   </div>
@@ -271,7 +392,10 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
                       step="0.25"
                       value={formData.height}
                       onChange={(e) =>
-                        setFormData({ ...formData, height: parseFloat(e.target.value) })
+                        setFormData({
+                          ...formData,
+                          height: parseFloat(e.target.value),
+                        })
                       }
                     />
                   </div>
@@ -285,7 +409,10 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
                         id="includeQR"
                         checked={formData.includeQR}
                         onCheckedChange={(checked) =>
-                          setFormData({ ...formData, includeQR: checked as boolean })
+                          setFormData({
+                            ...formData,
+                            includeQR: checked as boolean,
+                          })
                         }
                       />
                       <label htmlFor="includeQR" className="text-sm">
@@ -297,7 +424,10 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
                         id="includeLogo"
                         checked={formData.includeLogo}
                         onCheckedChange={(checked) =>
-                          setFormData({ ...formData, includeLogo: checked as boolean })
+                          setFormData({
+                            ...formData,
+                            includeLogo: checked as boolean,
+                          })
                         }
                       />
                       <label htmlFor="includeLogo" className="text-sm">
@@ -307,27 +437,119 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
                   </div>
                 </div>
 
+                {/* Toggle between template mode and legacy fields mode */}
                 <div className="space-y-2">
-                  <Label>Fields to Include</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {availableFields.map((field) => (
-                      <div key={field.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={field.id}
-                          checked={formData.fields.includes(field.id)}
-                          onCheckedChange={() => toggleField(field.id)}
-                        />
-                        <label htmlFor={field.id} className="text-sm">
-                          {field.label}
-                        </label>
-                      </div>
-                    ))}
+                  <Label>Content Mode</Label>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="useTemplateMode"
+                      checked={formData.useTemplateMode}
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          useTemplateMode: checked as boolean,
+                        })
+                      }
+                    />
+                    <label htmlFor="useTemplateMode" className="text-sm">
+                      Use programmable template (with placeholders)
+                    </label>
                   </div>
                 </div>
+
+                {formData.useTemplateMode ? (
+                  <>
+                    {/* Template layout editor */}
+                    <div className="space-y-2">
+                      <Label>Template Layout</Label>
+                      <Textarea
+                        value={formData.layout}
+                        onChange={(e) =>
+                          setFormData({ ...formData, layout: e.target.value })
+                        }
+                        placeholder="Enter template with {{placeholders}}..."
+                        rows={8}
+                        className="font-mono text-sm"
+                      />
+                    </div>
+
+                    {/* Placeholder reference */}
+                    <div className="space-y-2">
+                      <Label className="text-muted-foreground text-xs">
+                        Available Placeholders (click to insert)
+                      </Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {LABEL_PLACEHOLDERS.map((p) => (
+                          <button
+                            key={p.key}
+                            type="button"
+                            onClick={() => insertPlaceholder(p.key)}
+                            className="bg-muted hover:bg-accent hover:text-accent-foreground inline-flex cursor-pointer items-center rounded border px-2 py-0.5 font-mono text-xs transition-colors"
+                          >
+                            {`{{${p.key}}}`}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => insertPlaceholder("qrCode")}
+                          className="bg-muted hover:bg-accent hover:text-accent-foreground inline-flex cursor-pointer items-center rounded border px-2 py-0.5 font-mono text-xs transition-colors"
+                        >
+                          {`{{qrCode}}`}
+                        </button>
+                      </div>
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        Use{" "}
+                        <code className="bg-muted rounded px-1">{`{{#if field}}...{{/if}}`}</code>{" "}
+                        to conditionally show content only when a field has a
+                        value.
+                      </p>
+                    </div>
+
+                    {/* Live preview */}
+                    <div className="space-y-2">
+                      <Label>Live Preview</Label>
+                      <div
+                        className="min-h-[60px] rounded-md border bg-white p-3 font-mono text-xs break-words whitespace-pre-wrap"
+                        style={{ maxWidth: `${formData.width * 96}px` }}
+                      >
+                        {previewHtml || (
+                          <span className="text-muted-foreground italic">
+                            Enter a template above to see a preview...
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* Legacy fields selection */
+                  <div className="space-y-2">
+                    <Label>Fields to Include</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableFields.map((field) => (
+                        <div
+                          key={field.id}
+                          className="flex items-center space-x-2"
+                        >
+                          <Checkbox
+                            id={field.id}
+                            checked={formData.fields.includes(field.id)}
+                            onCheckedChange={() => toggleField(field.id)}
+                          />
+                          <label htmlFor={field.id} className="text-sm">
+                            {field.label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button onClick={editingTemplate ? handleUpdate : handleCreate}>
@@ -343,65 +565,81 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Size</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>QR Code</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {templates.map((template) => (
-                <TableRow key={template.id}>
-                  <TableCell className="font-medium">{template.name}</TableCell>
-                  <TableCell>
-                    {Number(template.width)}&quot; x {Number(template.height)}&quot;
-                  </TableCell>
-                  <TableCell>
-                    {template.includeQR ? (
-                      <QrCode className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {template.isDefault && (
-                      <Badge variant="default">Default</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      {!template.isDefault && (
+              {templates.map((template) => {
+                const isTemplate =
+                  typeof template.layout === "string" &&
+                  template.layout.includes("{{");
+                return (
+                  <TableRow key={template.id}>
+                    <TableCell className="font-medium">
+                      {template.name}
+                    </TableCell>
+                    <TableCell>
+                      {Number(template.width)}&quot; x {Number(template.height)}
+                      &quot;
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={isTemplate ? "default" : "secondary"}>
+                        {isTemplate ? "Template" : "Fields"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {template.includeQR ? (
+                        <QrCode className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {template.isDefault && (
+                        <Badge variant="default">Default</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {!template.isDefault && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSetDefault(template.id)}
+                          >
+                            Set Default
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleSetDefault(template.id)}
+                          onClick={() => openEditDialog(template)}
                         >
-                          Set Default
+                          <Edit className="h-4 w-4" />
                         </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditDialog(template)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(template.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(template.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {templates.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    <Tag className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">No label templates created yet</p>
-                    <p className="text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center">
+                    <Tag className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
+                    <p className="text-muted-foreground">
+                      No label templates created yet
+                    </p>
+                    <p className="text-muted-foreground text-sm">
                       Create your first template to start printing asset labels
                     </p>
                   </TableCell>
@@ -423,7 +661,7 @@ export default function LabelSettingsTab({ templates: initialTemplates }: LabelS
           <div className="flex items-center gap-4">
             <Button variant="outline" asChild>
               <Link href="/assets?action=print-labels">
-                <Printer className="h-4 w-4 mr-2" />
+                <Printer className="mr-2 h-4 w-4" />
                 Go to Assets to Print Labels
               </Link>
             </Button>

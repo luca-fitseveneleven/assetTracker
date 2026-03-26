@@ -31,6 +31,7 @@ import {
   Package,
   SearchCheck,
   Filter,
+  CalendarDays,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -103,12 +104,18 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Advanced Search", href: "/search", icon: Filter },
       { label: "IT Tickets", href: "/tickets", icon: Ticket },
-      { label: "Maintenance", href: "/maintenance", icon: Wrench },
+      {
+        label: "Maintenance",
+        href: "/maintenance",
+        icon: Wrench,
+        adminOnly: true,
+      },
       { label: "Kits", href: "/kits", icon: Package },
-      { label: "Audits", href: "/audits", icon: SearchCheck },
+      { label: "Audits", href: "/audits", icon: SearchCheck, adminOnly: true },
+      { label: "Reservations", href: "/reservations", icon: CalendarDays },
       { label: "Approvals", href: "/approvals", icon: ClipboardCheck },
       { label: "QR Scanner", href: "/scanner", icon: QrCode },
-      { label: "Import", href: "/import", icon: Upload },
+      { label: "Import", href: "/import", icon: Upload, adminOnly: true },
     ],
   },
   {

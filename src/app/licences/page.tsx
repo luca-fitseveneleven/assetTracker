@@ -7,6 +7,7 @@ import {
   getManufacturers,
   getSuppliers,
 } from "@/lib/data";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 export const metadata = {
   title: "Asset Tracker - Licences",
@@ -18,7 +19,21 @@ export default async function Page() {
     [getLicences(), getLicenceCategories(), getManufacturers(), getSuppliers()],
   );
 
-  const licences = licencesRaw.map((item) => ({
+  // Self-service restriction: non-admin users only see licences assigned to them
+  let ctx;
+  try {
+    ctx = await getOrganizationContext();
+  } catch {}
+  const isAdmin = ctx?.isAdmin ?? true;
+
+  let filteredLicences = licencesRaw;
+  if (!isAdmin && ctx?.userId) {
+    filteredLicences = licencesRaw.filter(
+      (l) => l.licenceduserid === ctx.userId,
+    );
+  }
+
+  const licences = filteredLicences.map((item) => ({
     ...item,
     purchaseprice:
       item.purchaseprice !== null && item.purchaseprice !== undefined

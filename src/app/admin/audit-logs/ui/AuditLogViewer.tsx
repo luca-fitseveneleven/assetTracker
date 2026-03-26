@@ -22,6 +22,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
@@ -31,6 +39,7 @@ import {
   FileSpreadsheet,
   Loader2,
   Search,
+  Undo2,
   X,
 } from "lucide-react";
 
@@ -121,6 +130,7 @@ const ACTION_COLORS: Record<string, string> = {
   APPROVE:
     "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
   REJECT: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200",
+  REVERT: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
 };
 
 // ---------------------------------------------------------------------------
@@ -151,8 +161,14 @@ function formatEntityLabel(entity: string): string {
 // Detail Row Component
 // ---------------------------------------------------------------------------
 
-function DetailPanel({ details }: { details: string | null }) {
-  const parsed = parseDetails(details);
+function DetailPanel({
+  log,
+  onRevert,
+}: {
+  log: AuditLogEntry;
+  onRevert: (log: AuditLogEntry) => void;
+}) {
+  const parsed = parseDetails(log.details);
 
   if (!parsed) {
     return (
@@ -167,9 +183,29 @@ function DetailPanel({ details }: { details: string | null }) {
     | undefined;
   const otherDetails = { ...parsed };
   delete otherDetails.changes;
+  delete otherDetails.before;
+  delete otherDetails.after;
+
+  const canRevert = log.action === "UPDATE" && parsed.before != null;
 
   return (
     <div className="space-y-4 px-6 py-4">
+      {canRevert && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRevert(log);
+            }}
+          >
+            <Undo2 className="mr-2 h-4 w-4" />
+            Revert
+          </Button>
+        </div>
+      )}
+
       {changes && Object.keys(changes).length > 0 && (
         <div>
           <h4 className="mb-2 text-sm font-semibold">Changes</h4>
@@ -321,6 +357,10 @@ export default function AuditLogViewer() {
   // Expandable rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
+  // Revert confirmation
+  const [revertTarget, setRevertTarget] = useState<AuditLogEntry | null>(null);
+  const [reverting, setReverting] = useState(false);
+
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
@@ -331,6 +371,30 @@ export default function AuditLogViewer() {
       }
       return next;
     });
+  };
+
+  const handleRevert = async () => {
+    if (!revertTarget) return;
+    setReverting(true);
+    try {
+      const res = await fetch(
+        `/api/admin/audit-logs/${revertTarget.id}/revert`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to revert change");
+      }
+      toast.success("Change reverted successfully");
+      setRevertTarget(null);
+      fetchLogs();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to revert change",
+      );
+    } finally {
+      setReverting(false);
+    }
   };
 
   const fetchLogs = useCallback(async () => {
@@ -596,7 +660,7 @@ export default function AuditLogViewer() {
                     {expandedRows.has(log.id) && (
                       <TableRow>
                         <TableCell colSpan={7} className="bg-muted/30 p-0">
-                          <DetailPanel details={log.details} />
+                          <DetailPanel log={log} onRevert={setRevertTarget} />
                         </TableCell>
                       </TableRow>
                     )}
@@ -680,6 +744,51 @@ export default function AuditLogViewer() {
           </div>
         )}
       </CardContent>
+
+      {/* Revert Confirmation Dialog */}
+      <Dialog
+        open={revertTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRevertTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Revert</DialogTitle>
+            <DialogDescription>
+              {revertTarget
+                ? `Revert ${formatEntityLabel(revertTarget.entity)} to its state before this ${revertTarget.action.toLowerCase()}?`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-muted-foreground text-sm">
+            This will update the record to match its previous state. A new audit
+            log entry will be created to document the revert.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRevertTarget(null)}
+              disabled={reverting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleRevert} disabled={reverting}>
+              {reverting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Reverting...
+                </>
+              ) : (
+                <>
+                  <Undo2 className="mr-2 h-4 w-4" />
+                  Revert
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

@@ -76,6 +76,7 @@
     "qrcode.react": "^4.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-is": "^19.2.4",
     "react-qr-code": "^2.0.13",
     "recharts": "^3.7.0",
     "sharp": "^0.34.5",

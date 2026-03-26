@@ -82,7 +82,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       getLicenceCategories(),
       getManufacturers(),
       getSuppliers(),
-      getEntityHistory("licence", params.id),
+      getEntityHistory("license", params.id),
     ]);
 
   const categoryName =

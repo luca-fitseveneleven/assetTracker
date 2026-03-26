@@ -9,6 +9,7 @@ import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { checkAssetLimit } from "@/lib/tenant-limits";
 import { logger } from "@/lib/logger";
+import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 
 const assetSchema = createAssetSchema
   .extend({
@@ -99,6 +100,13 @@ export async function POST(req: NextRequest) {
       } as Prisma.assetUncheckedCreateInput,
     });
 
+    createAuditLog({
+      userId: orgContext?.userId ?? null,
+      action: AUDIT_ACTIONS.CREATE,
+      entity: AUDIT_ENTITIES.ASSET,
+      entityId: created.assetid,
+      details: { assetname: created.assetname, assettag: created.assettag },
+    }).catch(() => {});
     triggerWebhook(
       "asset.created",
       {

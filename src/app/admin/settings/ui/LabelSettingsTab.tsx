@@ -552,7 +552,10 @@ export default function LabelSettingsTab({
                 >
                   Cancel
                 </Button>
-                <Button onClick={editingTemplate ? handleUpdate : handleCreate}>
+                <Button
+                  onClick={editingTemplate ? handleUpdate : handleCreate}
+                  disabled={!formData.name.trim()}
+                >
                   {editingTemplate ? "Update" : "Create"}
                 </Button>
               </DialogFooter>

@@ -777,10 +777,26 @@ model sessions {
 }
 
 model statusType {
-  statustypeid   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  statustypename String        @db.VarChar
-  accessories    accessories[]
-  asset          asset[]
+  statustypeid       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  statustypename     String               @db.VarChar
+  accessories        accessories[]
+  asset              asset[]
+  transitionsFrom    status_transitions[] @relation("from_status")
+  transitionsTo      status_transitions[] @relation("to_status")
+  @@schema("assettool")
+}
+
+model status_transitions {
+  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fromStatusId         String     @db.Uuid
+  toStatusId           String     @db.Uuid
+  requiredRole         String?    @db.VarChar(50)
+  notifyOnTransition   Boolean    @default(false)
+  fromStatus           statusType @relation("from_status", fields: [fromStatusId], references: [statustypeid], onDelete: Cascade)
+  toStatus             statusType @relation("to_status", fields: [toStatusId], references: [statustypeid], onDelete: Cascade)
+  createdAt            DateTime   @default(now()) @db.Timestamp(6)
+
+  @@unique([fromStatusId, toStatusId])
   @@schema("assettool")
 }
 

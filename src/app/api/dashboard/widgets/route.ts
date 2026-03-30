@@ -4,6 +4,7 @@ import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import {
   WIDGET_DEFINITIONS,
   DEFAULT_WIDGETS,
+  DEFAULT_USER_WIDGETS,
 } from "@/components/dashboard/WidgetRegistry";
 import { logger } from "@/lib/logger";
 
@@ -18,8 +19,9 @@ export async function GET() {
     });
 
     if (widgets.length === 0) {
-      // Return default widgets with fake IDs when user has none saved
-      const defaults = DEFAULT_WIDGETS.map((w, i) => ({
+      // Return role-appropriate defaults when user has none saved
+      const defaultSet = user.isAdmin ? DEFAULT_WIDGETS : DEFAULT_USER_WIDGETS;
+      const defaults = defaultSet.map((w, i) => ({
         id: `default-${i}`,
         userId: user.id,
         widgetType: w.widgetType,

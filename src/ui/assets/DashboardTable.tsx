@@ -1103,6 +1103,45 @@ export default function App({
                   Change Location
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  onClick={() => {
+                    const selected = assetsData.filter((a) =>
+                      selectedKeys.has(a.assetid),
+                    );
+                    if (selected.length > 0) {
+                      setSelectedAsset(null);
+                      setIsLabelModalOpen(true);
+                    }
+                  }}
+                >
+                  Print Labels
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    const ids = Array.from(selectedKeys);
+                    if (ids.length === 0) return;
+                    try {
+                      const res = await fetch("/api/asset/qrcode/bulk", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ assetIds: ids }),
+                      });
+                      if (!res.ok) throw new Error();
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `qr-codes-${Date.now()}.pdf`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      toast.success("QR sheet downloaded");
+                    } catch {
+                      toast.error("Failed to download QR sheet");
+                    }
+                  }}
+                >
+                  Download QR Sheet
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={() => handleOpenModal(null, "delete-bulk")}
                 >
@@ -1931,7 +1970,11 @@ export default function App({
       <PrintLabelDialog
         open={isLabelModalOpen}
         onOpenChange={setIsLabelModalOpen}
-        assets={selectedAsset ? [selectedAsset] : []}
+        assets={
+          selectedAsset
+            ? [selectedAsset]
+            : assetsData.filter((a) => selectedKeys.has(a.assetid))
+        }
         manufacturers={manufacturers}
         models={models}
         locations={locations}

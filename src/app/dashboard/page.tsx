@@ -30,7 +30,22 @@ export default async function DashboardPage() {
   const isAdmin = ctx?.isAdmin ?? true;
 
   if (!isAdmin && ctx?.userId) {
-    return <UserDashboard userId={ctx.userId} />;
+    return (
+      <main>
+        <Breadcrumb
+          options={[{ label: "Dashboard", href: "/dashboard", current: true }]}
+        />
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          My Dashboard
+        </h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Your assets, requests, and tickets at a glance
+        </p>
+        <div className="mt-6">
+          <DashboardGrid isAdmin={false} />
+        </div>
+      </main>
+    );
   }
 
   const [

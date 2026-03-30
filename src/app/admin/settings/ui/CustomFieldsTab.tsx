@@ -56,8 +56,21 @@ const FIELD_TYPES = [
   { id: "textarea", name: "Text Area", description: "Multi-line text input" },
   { id: "number", name: "Number", description: "Numeric input" },
   { id: "date", name: "Date", description: "Date picker" },
-  { id: "select", name: "Dropdown", description: "Select from predefined options" },
+  {
+    id: "select",
+    name: "Dropdown",
+    description: "Select from predefined options",
+  },
+  {
+    id: "multiselect",
+    name: "Multi-Select",
+    description: "Select multiple options",
+  },
   { id: "checkbox", name: "Checkbox", description: "Yes/No toggle" },
+  { id: "url", name: "URL", description: "Web address with link validation" },
+  { id: "email", name: "Email", description: "Email address with validation" },
+  { id: "currency", name: "Currency", description: "Monetary value" },
+  { id: "color", name: "Color", description: "Color picker" },
 ];
 
 const ENTITY_TYPES = [
@@ -67,7 +80,9 @@ const ENTITY_TYPES = [
   { id: "license", name: "Licenses" },
 ];
 
-export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsTabProps) {
+export default function CustomFieldsTab({
+  fields: initialFields,
+}: CustomFieldsTabProps) {
   const [fields, setFields] = useState(initialFields);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -86,7 +101,10 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          options: formData.fieldType === "select" ? formData.options.split(",").map((o) => o.trim()) : undefined,
+          options:
+            formData.fieldType === "select"
+              ? formData.options.split(",").map((o) => o.trim())
+              : undefined,
         }),
       });
 
@@ -113,7 +131,10 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          options: formData.fieldType === "select" ? formData.options.split(",").map((o) => o.trim()) : undefined,
+          options:
+            formData.fieldType === "select"
+              ? formData.options.split(",").map((o) => o.trim())
+              : undefined,
         }),
       });
 
@@ -133,7 +154,12 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this custom field? All data will be lost.")) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this custom field? All data will be lost.",
+      )
+    )
+      return;
 
     try {
       const response = await fetch(`/api/admin/custom-fields/${id}`, {
@@ -180,7 +206,7 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
     });
   };
 
-  const openEditDialog = (field: typeof fields[0]) => {
+  const openEditDialog = (field: (typeof fields)[0]) => {
     setEditingId(field.id);
     setFormData({
       name: field.name,
@@ -204,13 +230,19 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
           <div>
             <CardTitle>Custom Fields</CardTitle>
             <CardDescription>
-              Add custom fields to capture additional information for your assets
+              Add custom fields to capture additional information for your
+              assets
             </CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => { setEditingId(null); resetForm(); }}>
-                <Plus className="h-4 w-4 mr-2" />
+              <Button
+                onClick={() => {
+                  setEditingId(null);
+                  resetForm();
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
                 Add Field
               </Button>
             </DialogTrigger>
@@ -229,7 +261,9 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
                   <Label>Field Name</Label>
                   <Input
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     placeholder="e.g., Serial Port Count"
                   />
                 </div>
@@ -238,7 +272,9 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
                   <Label>Entity Type</Label>
                   <Select
                     value={formData.entityType}
-                    onValueChange={(value) => setFormData({ ...formData, entityType: value })}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, entityType: value })
+                    }
                     disabled={!!editingId}
                   >
                     <SelectTrigger>
@@ -258,7 +294,9 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
                   <Label>Field Type</Label>
                   <Select
                     value={formData.fieldType}
-                    onValueChange={(value) => setFormData({ ...formData, fieldType: value })}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, fieldType: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -268,7 +306,9 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
                         <SelectItem key={type.id} value={type.id}>
                           <div className="flex flex-col">
                             <span>{type.name}</span>
-                            <span className="text-xs text-muted-foreground">{type.description}</span>
+                            <span className="text-muted-foreground text-xs">
+                              {type.description}
+                            </span>
                           </div>
                         </SelectItem>
                       ))}
@@ -276,12 +316,15 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
                   </Select>
                 </div>
 
-                {formData.fieldType === "select" && (
+                {(formData.fieldType === "select" ||
+                  formData.fieldType === "multiselect") && (
                   <div className="space-y-2">
                     <Label>Options (comma-separated)</Label>
                     <Input
                       value={formData.options}
-                      onChange={(e) => setFormData({ ...formData, options: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, options: e.target.value })
+                      }
                       placeholder="Option 1, Option 2, Option 3"
                     />
                   </div>
@@ -292,7 +335,10 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
                     id="isRequired"
                     checked={formData.isRequired}
                     onCheckedChange={(checked) =>
-                      setFormData({ ...formData, isRequired: checked as boolean })
+                      setFormData({
+                        ...formData,
+                        isRequired: checked as boolean,
+                      })
                     }
                   />
                   <label htmlFor="isRequired" className="text-sm">
@@ -302,7 +348,10 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button onClick={editingId ? handleUpdate : handleCreate}>
@@ -315,9 +364,9 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
         <CardContent className="space-y-6">
           {groupedFields.map((group) => (
             <div key={group.id}>
-              <h4 className="font-medium mb-3">{group.name}</h4>
+              <h4 className="mb-3 font-medium">{group.name}</h4>
               {group.fields.length === 0 ? (
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-muted-foreground mb-4 text-sm">
                   No custom fields for {group.name.toLowerCase()}
                 </p>
               ) : (
@@ -336,21 +385,28 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
                     {group.fields.map((field) => (
                       <TableRow key={field.id}>
                         <TableCell>
-                          <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                          <GripVertical className="text-muted-foreground h-4 w-4 cursor-grab" />
                         </TableCell>
-                        <TableCell className="font-medium">{field.name}</TableCell>
+                        <TableCell className="font-medium">
+                          {field.name}
+                        </TableCell>
                         <TableCell>
-                          {FIELD_TYPES.find((t) => t.id === field.fieldType)?.name || field.fieldType}
+                          {FIELD_TYPES.find((t) => t.id === field.fieldType)
+                            ?.name || field.fieldType}
                         </TableCell>
                         <TableCell>
                           {field.isRequired ? (
                             <Badge variant="secondary">Required</Badge>
                           ) : (
-                            <span className="text-muted-foreground">Optional</span>
+                            <span className="text-muted-foreground">
+                              Optional
+                            </span>
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={field.isActive ? "default" : "outline"}>
+                          <Badge
+                            variant={field.isActive ? "default" : "outline"}
+                          >
                             {field.isActive ? "Active" : "Disabled"}
                           </Badge>
                         </TableCell>
@@ -359,7 +415,9 @@ export default function CustomFieldsTab({ fields: initialFields }: CustomFieldsT
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleToggleActive(field.id, !field.isActive)}
+                              onClick={() =>
+                                handleToggleActive(field.id, !field.isActive)
+                              }
                             >
                               {field.isActive ? "Disable" : "Enable"}
                             </Button>

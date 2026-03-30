@@ -366,6 +366,229 @@ function CostOverviewWidget() {
   );
 }
 
+function FleetValueWidget() {
+  const [data, setData] = useState<{
+    totalPurchaseValue: number;
+    totalCurrentValue: number;
+    totalDepreciation: number;
+    assetCount: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchFleetValue() {
+      try {
+        const res = await fetch("/api/dashboard/fleet-value");
+        if (res.ok) {
+          const json = await res.json();
+          setData(json);
+        }
+      } catch {
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchFleetValue();
+  }, []);
+
+  if (loading) {
+    return (
+      <p className="text-muted-foreground text-sm">Loading fleet value...</p>
+    );
+  }
+
+  if (!data) {
+    return (
+      <p className="text-muted-foreground text-sm">No depreciation data</p>
+    );
+  }
+
+  const depreciationPercent =
+    data.totalPurchaseValue > 0
+      ? (data.totalDepreciation / data.totalPurchaseValue) * 100
+      : 0;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Purchase Value</span>
+        <span className="font-medium">
+          $
+          {data.totalPurchaseValue.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Current Value</span>
+        <span className="font-medium text-green-600">
+          $
+          {data.totalCurrentValue.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Total Depreciation</span>
+        <span className="text-destructive font-medium">
+          -$
+          {data.totalDepreciation.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+      <div className="bg-muted mt-2 h-2 rounded-full">
+        <div
+          className="bg-destructive h-2 rounded-full transition-all"
+          style={{ width: `${Math.min(100, depreciationPercent)}%` }}
+        />
+      </div>
+      <p className="text-muted-foreground text-center text-xs">
+        {depreciationPercent.toFixed(1)}% depreciated across {data.assetCount}{" "}
+        assets
+      </p>
+    </div>
+  );
+}
+
+function MyAssetsWidget() {
+  const [assets, setAssets] = useState<
+    Array<{ id: string; name: string; tag: string; status: string | null }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard/my-assets")
+      .then((r) => r.json())
+      .then((d) => setAssets(Array.isArray(d) ? d : []))
+      .catch(() => setAssets([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="text-muted-foreground text-sm">Loading…</p>;
+  if (assets.length === 0)
+    return (
+      <p className="text-muted-foreground text-sm">No assets assigned to you</p>
+    );
+
+  return (
+    <ul className="divide-y">
+      {assets.map((a) => (
+        <li
+          key={a.id}
+          className="flex items-center justify-between py-2 first:pt-0 last:pb-0"
+        >
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{a.name}</p>
+            <p className="text-muted-foreground text-xs">{a.tag}</p>
+          </div>
+          {a.status && (
+            <span className="bg-secondary text-secondary-foreground shrink-0 rounded-full px-2 py-0.5 text-xs">
+              {a.status}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function MyRequestsWidget() {
+  const [items, setItems] = useState<
+    Array<{
+      id: string;
+      assetName: string;
+      assetTag: string;
+      status: string;
+      createdAt: string;
+    }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard/my-requests")
+      .then((r) => r.json())
+      .then((d) => setItems(Array.isArray(d) ? d : []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="text-muted-foreground text-sm">Loading…</p>;
+  if (items.length === 0)
+    return <p className="text-muted-foreground text-sm">No pending requests</p>;
+
+  return (
+    <ul className="divide-y">
+      {items.map((r) => (
+        <li
+          key={r.id}
+          className="flex items-center justify-between py-2 first:pt-0 last:pb-0"
+        >
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{r.assetName}</p>
+            <p className="text-muted-foreground text-xs">{r.assetTag}</p>
+          </div>
+          <span className="bg-secondary text-secondary-foreground shrink-0 rounded-full px-2 py-0.5 text-xs">
+            {r.status}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function MyTicketsWidget() {
+  const [items, setItems] = useState<
+    Array<{
+      id: string;
+      title: string;
+      status: string;
+      priority: string;
+      createdAt: string;
+    }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard/my-tickets")
+      .then((r) => r.json())
+      .then((d) => setItems(Array.isArray(d) ? d : []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="text-muted-foreground text-sm">Loading…</p>;
+  if (items.length === 0)
+    return <p className="text-muted-foreground text-sm">No tickets</p>;
+
+  return (
+    <ul className="divide-y">
+      {items.map((t) => (
+        <li
+          key={t.id}
+          className="flex items-center justify-between py-2 first:pt-0 last:pb-0"
+        >
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{t.title}</p>
+          </div>
+          <div className="flex shrink-0 gap-1">
+            <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs">
+              {t.status}
+            </span>
+            <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs">
+              {t.priority}
+            </span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function formatRelativeTime(dateString: string): string {
   const now = Date.now();
   const then = new Date(dateString).getTime();
@@ -531,6 +754,14 @@ function WidgetContent({
       return <LastEditedWidget />;
     case "assetMap":
       return <AssetMapWidget />;
+    case "fleetValue":
+      return <FleetValueWidget />;
+    case "myAssets":
+      return <MyAssetsWidget />;
+    case "myRequests":
+      return <MyRequestsWidget />;
+    case "myTickets":
+      return <MyTicketsWidget />;
     default:
       return (
         <p className="text-muted-foreground text-sm">Unknown widget type</p>
@@ -613,8 +844,10 @@ function SortableWidget({
 
 export default function DashboardGrid({
   serverStats,
+  isAdmin = true,
 }: {
   serverStats?: { assets: number; accessories: number; users: number };
+  isAdmin?: boolean;
 } = {}) {
   const [widgets, setWidgets] = useState<DashboardWidgetData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -723,7 +956,7 @@ export default function DashboardGrid({
   // Determine which widget types are already active so we can filter the add dialog
   const activeTypes = new Set(widgets.map((w) => w.widgetType));
   const availableWidgets = WIDGET_DEFINITIONS.filter(
-    (d) => !activeTypes.has(d.type),
+    (d) => !activeTypes.has(d.type) && (isAdmin || !d.adminOnly),
   );
 
   return (

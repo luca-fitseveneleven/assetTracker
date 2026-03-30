@@ -58,7 +58,16 @@ export function loadDymoSdk(): Promise<void> {
     const script = document.createElement("script");
     script.src = "/vendors/dymo.connect.framework.js";
     script.async = true;
-    script.onload = () => resolve();
+    script.onload = () => {
+      // init() connects to the local DYMO Connect service — required before getPrinters()
+      window.dymo?.label?.framework?.init(
+        () => resolve(),
+        (err: string) => {
+          sdkLoadPromise = null;
+          reject(new Error(`DYMO init failed: ${err}`));
+        },
+      );
+    };
     script.onerror = () => {
       sdkLoadPromise = null;
       reject(new Error("Failed to load DYMO SDK"));

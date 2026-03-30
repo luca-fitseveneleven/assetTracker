@@ -3,6 +3,7 @@ export interface WidgetDefinition {
   title: string;
   description: string;
   icon?: string;
+  adminOnly?: boolean;
   defaultConfig?: Record<string, unknown>;
 }
 
@@ -11,6 +12,7 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     type: "stats",
     title: "Stats Overview",
     description: "Key metrics at a glance",
+    adminOnly: true,
   },
   {
     type: "assetsByStatus",
@@ -52,6 +54,22 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     type: "fleetValue",
     title: "Fleet Value",
     description: "Purchase value vs. depreciated current value",
+    adminOnly: true,
+  },
+  {
+    type: "myAssets",
+    title: "My Assets",
+    description: "Assets assigned to you",
+  },
+  {
+    type: "myRequests",
+    title: "My Requests",
+    description: "Your recent reservation requests",
+  },
+  {
+    type: "myTickets",
+    title: "My Tickets",
+    description: "Your recent support tickets",
   },
 ];
 
@@ -59,4 +77,10 @@ export const DEFAULT_WIDGETS = [
   { widgetType: "stats", position: 0 },
   { widgetType: "assetsByStatus", position: 1 },
   { widgetType: "recentActivity", position: 2 },
+];
+
+export const DEFAULT_USER_WIDGETS = [
+  { widgetType: "myAssets", position: 0 },
+  { widgetType: "myRequests", position: 1 },
+  { widgetType: "myTickets", position: 2 },
 ];

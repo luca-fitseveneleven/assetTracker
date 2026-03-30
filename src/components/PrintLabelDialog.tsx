@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +19,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { QRCodeSVG } from "qrcode.react";
-import { Printer } from "lucide-react";
+import { Loader2, Printer } from "lucide-react";
+import { useDymo } from "@/hooks/useDymo";
+import {
+  buildDymoLabelXml,
+  DYMO_LABEL_SIZES,
+  type DymoLabelSize,
+} from "@/lib/dymo-labels";
+import { printDymoLabel } from "@/lib/dymo";
 import { renderLabelTemplate } from "@/lib/label-renderer";
 
 interface LabelTemplate {
@@ -90,6 +98,14 @@ export default function PrintLabelDialog({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const printRef = useRef<HTMLDivElement>(null);
 
+  // DYMO state
+  const dymo = useDymo();
+  const [selectedPrinter, setSelectedPrinter] = useState<string>("");
+  const [selectedDymoSize, setSelectedDymoSize] = useState<string>("30334");
+  const [customWidth, setCustomWidth] = useState<string>("2.25");
+  const [customHeight, setCustomHeight] = useState<string>("1.25");
+  const [isDymoPrinting, setIsDymoPrinting] = useState(false);
+
   const fetchTemplates = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/labels");
@@ -111,6 +127,12 @@ export default function PrintLabelDialog({
   useEffect(() => {
     if (open) fetchTemplates();
   }, [open, fetchTemplates]);
+
+  useEffect(() => {
+    if (dymo.printers.length > 0 && !selectedPrinter) {
+      setSelectedPrinter(dymo.printers[0].name);
+    }
+  }, [dymo.printers, selectedPrinter]);
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
 
@@ -219,6 +241,53 @@ export default function PrintLabelDialog({
     doc.close();
     printWindow.focus();
     printWindow.print();
+  };
+
+  const handleDymoPrint = async () => {
+    if (!selectedPrinter || assets.length === 0) return;
+    setIsDymoPrinting(true);
+    try {
+      const size: DymoLabelSize =
+        selectedDymoSize === "custom"
+          ? {
+              custom: {
+                widthIn: Math.max(
+                  0.5,
+                  Math.min(8, parseFloat(customWidth) || 2.25),
+                ),
+                heightIn: Math.max(
+                  0.5,
+                  Math.min(8, parseFloat(customHeight) || 1.25),
+                ),
+              },
+            }
+          : {
+              preset: selectedDymoSize as "30334" | "30252" | "30336" | "30321",
+            };
+
+      for (const asset of assets) {
+        const data = buildAssetData(asset);
+        const xml = buildDymoLabelXml(
+          {
+            assetId: asset.assetid,
+            assetName: data.assetName,
+            assetTag: data.assetTag,
+            serialNumber: data.serialNumber,
+            manufacturer: data.manufacturer,
+            model: data.model,
+            location: data.location,
+            category: data.category,
+            qrUrl: data.qrCodeUrl,
+          },
+          size,
+        );
+        printDymoLabel(xml, selectedPrinter);
+      }
+    } catch (err) {
+      console.error("DYMO print error:", err);
+    } finally {
+      setIsDymoPrinting(false);
+    }
   };
 
   /** Render a single label using the programmable template layout */
@@ -377,16 +446,139 @@ export default function PrintLabelDialog({
           )}
         </div>
 
+        {/* DYMO direct print section */}
+        <div className="space-y-3 border-t pt-4">
+          <p className="text-sm font-medium">Print directly to DYMO</p>
+
+          {dymo.isLoading ? (
+            <div className="text-muted-foreground flex items-center gap-2 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Detecting DYMO printers…
+            </div>
+          ) : dymo.error || !dymo.isAvailable ? (
+            <p className="text-muted-foreground text-sm">
+              No DYMO printer detected.{" "}
+              <a
+                href="https://www.dymo.com/support/dymo-connect-for-desktop-support.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2"
+              >
+                Install DYMO Connect
+              </a>{" "}
+              to print directly.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Printer
+                  </label>
+                  <Select
+                    value={selectedPrinter}
+                    onValueChange={setSelectedPrinter}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select printer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dymo.printers.map((p) => (
+                        <SelectItem key={p.name} value={p.name}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">
+                    Label size
+                  </label>
+                  <Select
+                    value={selectedDymoSize}
+                    onValueChange={setSelectedDymoSize}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select label size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DYMO_LABEL_SIZES.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">Custom…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {selectedDymoSize === "custom" && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <label className="text-muted-foreground mb-1 block text-xs">
+                      Width (in)
+                    </label>
+                    <Input
+                      type="number"
+                      min="0.5"
+                      max="8"
+                      step="0.125"
+                      value={customWidth}
+                      onChange={(e) => setCustomWidth(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <span className="text-muted-foreground mt-5">×</span>
+                  <div className="flex-1">
+                    <label className="text-muted-foreground mb-1 block text-xs">
+                      Height (in)
+                    </label>
+                    <Input
+                      type="number"
+                      min="0.5"
+                      max="8"
+                      step="0.125"
+                      value={customHeight}
+                      onChange={(e) => setCustomHeight(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
+            variant="outline"
             onClick={handlePrint}
             disabled={!selectedTemplate || assets.length === 0}
           >
             <Printer className="mr-2 h-4 w-4" />
-            Print
+            Browser Print
+          </Button>
+          <Button
+            onClick={handleDymoPrint}
+            disabled={
+              !dymo.isAvailable ||
+              !selectedPrinter ||
+              assets.length === 0 ||
+              isDymoPrinting
+            }
+          >
+            {isDymoPrinting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="mr-2 h-4 w-4" />
+            )}
+            DYMO Print
           </Button>
         </DialogFooter>
       </DialogContent>

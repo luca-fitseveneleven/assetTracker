@@ -380,11 +380,54 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
                   <div key={cf.name} className="flex justify-between">
                     <dt className="text-foreground-500">{cf.name}</dt>
                     <dd className="font-medium">
-                      {cf.fieldType === "checkbox"
-                        ? cf.value === "true"
-                          ? "Yes"
-                          : "No"
-                        : cf.value || "-"}
+                      {(() => {
+                        if (!cf.value) return "-";
+                        switch (cf.fieldType) {
+                          case "checkbox":
+                            return cf.value === "true" ? "Yes" : "No";
+                          case "url":
+                            return (
+                              <a
+                                href={cf.value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary underline underline-offset-2"
+                              >
+                                {cf.value
+                                  .replace(/^https?:\/\//, "")
+                                  .slice(0, 30)}
+                              </a>
+                            );
+                          case "email":
+                            return (
+                              <a
+                                href={`mailto:${cf.value}`}
+                                className="text-primary underline underline-offset-2"
+                              >
+                                {cf.value}
+                              </a>
+                            );
+                          case "currency":
+                            return `$${Number(cf.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                          case "color":
+                            return (
+                              <span className="inline-flex items-center gap-1.5">
+                                <span
+                                  className="inline-block h-4 w-4 rounded border"
+                                  style={{ backgroundColor: cf.value }}
+                                />
+                                {cf.value}
+                              </span>
+                            );
+                          case "multiselect":
+                            return cf.value
+                              .split(",")
+                              .map((v) => v.trim())
+                              .join(", ");
+                          default:
+                            return cf.value;
+                        }
+                      })()}
                     </dd>
                   </div>
                 ))}

@@ -6,47 +6,28 @@ export interface SearchableField {
   isCustom?: boolean;
 }
 
-export type SearchableEntity =
-  | "asset"
-  | "accessory"
-  | "consumable"
-  | "licence"
-  | "component";
+import { getSearchableEntities } from "./entity-registry";
 
-export const ENTITY_LABELS: Record<SearchableEntity, string> = {
-  asset: "Asset",
-  accessory: "Accessory",
-  consumable: "Consumable",
-  licence: "Licence",
-  component: "Component",
-};
+const searchable = getSearchableEntities();
+const searchableKeys = searchable.map((e) => e.key);
 
-/** Primary key column per entity (used for linking to detail pages). */
-export const ENTITY_ID_FIELD: Record<SearchableEntity, string> = {
-  asset: "assetid",
-  accessory: "accessorieid",
-  consumable: "consumableid",
-  licence: "licenceid",
-  component: "id",
-};
+export type SearchableEntity = (typeof searchableKeys)[number];
 
-/** Name column per entity (used for display in results). */
-export const ENTITY_NAME_FIELD: Record<SearchableEntity, string> = {
-  asset: "assetname",
-  accessory: "accessoriename",
-  consumable: "consumablename",
-  licence: "licencekey",
-  component: "name",
-};
+export const ENTITY_LABELS = Object.fromEntries(
+  searchable.map((e) => [e.key, e.label]),
+) as Record<SearchableEntity, string>;
 
-/** Detail page path template. `{id}` is replaced with the entity ID. */
-export const ENTITY_DETAIL_PATH: Record<SearchableEntity, string> = {
-  asset: "/assets/{id}",
-  accessory: "/accessories/{id}",
-  consumable: "/consumables/{id}",
-  licence: "/licences/{id}",
-  component: "/components/{id}",
-};
+export const ENTITY_ID_FIELD = Object.fromEntries(
+  searchable.map((e) => [e.key, e.idField]),
+) as Record<SearchableEntity, string>;
+
+export const ENTITY_NAME_FIELD = Object.fromEntries(
+  searchable.map((e) => [e.key, e.nameField]),
+) as Record<SearchableEntity, string>;
+
+export const ENTITY_DETAIL_PATH = Object.fromEntries(
+  searchable.map((e) => [e.key, e.detailPath]),
+) as Record<SearchableEntity, string>;
 
 export const SEARCHABLE_FIELDS: Record<SearchableEntity, SearchableField[]> = {
   asset: [

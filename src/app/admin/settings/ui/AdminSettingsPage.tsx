@@ -19,6 +19,7 @@ import {
   MessageSquare,
   MapPin,
   Gauge,
+  GitBranch,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ import LDAPSettingsTab from "./LDAPSettingsTab";
 import IntegrationsTab from "./IntegrationsTab";
 import LocationTrackingTab from "./LocationTrackingTab";
 import RateLimitTab from "./RateLimitTab";
+import StatusWorkflowTab from "./StatusWorkflowTab";
 
 interface NavItem {
   value: string;
@@ -80,6 +82,7 @@ const settingsNav: NavGroup[] = [
     items: [
       { value: "depreciation", label: "Depreciation", icon: Calculator },
       { value: "custom-fields", label: "Custom Fields", icon: FileText },
+      { value: "status-workflow", label: "Status Workflow", icon: GitBranch },
     ],
   },
   {
@@ -169,6 +172,10 @@ interface AdminSettingsPageProps {
     fromName: string;
     hasApiKey: boolean;
   } | null;
+  statuses?: Array<{
+    statustypeid: string;
+    statustypename: string;
+  }>;
 }
 
 export default function AdminSettingsPage({
@@ -179,6 +186,7 @@ export default function AdminSettingsPage({
   customFields,
   depreciationSettings,
   envEmailConfig,
+  statuses = [],
 }: AdminSettingsPageProps) {
   const [activeTab, setActiveTab] = useState("general");
 
@@ -283,6 +291,9 @@ export default function AdminSettingsPage({
           {activeTab === "integrations" && <IntegrationsTab />}
           {activeTab === "locationTracking" && <LocationTrackingTab />}
           {activeTab === "rateLimits" && <RateLimitTab />}
+          {activeTab === "status-workflow" && (
+            <StatusWorkflowTab statuses={statuses} />
+          )}
         </div>
       </div>
     </div>

@@ -102,6 +102,7 @@ export default async function Page() {
     labelTemplates,
     customFields,
     depreciationSettings,
+    statuses,
   ] = await Promise.all([
     getSystemSettings(),
     getUsers(),
@@ -109,6 +110,7 @@ export default async function Page() {
     getLabelTemplates(),
     getCustomFields(),
     getDepreciationSettings(),
+    prisma.statusType.findMany({ orderBy: { statustypename: "asc" } }),
   ]);
 
   // Detect if email is configured via environment variables
@@ -142,6 +144,7 @@ export default async function Page() {
         customFields={customFields}
         depreciationSettings={depreciationSettings}
         envEmailConfig={envEmailConfig}
+        statuses={statuses}
       />
     </>
   );

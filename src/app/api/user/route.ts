@@ -21,8 +21,7 @@ const USER_SORT_FIELDS = ["firstname", "lastname", "email", "creation_date"];
 
 const stripPassword = (user) => {
   if (!user) return user;
-  // eslint-disable-next-line no-unused-vars
-  const { password, ...rest } = user;
+  const { password: _password, ...rest } = user;
   return rest;
 };
 

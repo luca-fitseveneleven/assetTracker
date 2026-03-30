@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Trash2, Star, Image } from "lucide-react";
+import { Paperclip, Trash2, Star, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { FileDropZone } from "@/components/FileDropZone";
 import AssetPhotoGallery from "@/components/AssetPhotoGallery";
@@ -220,7 +220,7 @@ export default function AssetAttachments({
                   className="hover:bg-muted/50 flex items-center justify-between gap-2 rounded p-1 px-2 text-sm"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <Image className="h-3.5 w-3.5 flex-shrink-0 text-blue-500" />
+                    <ImageIcon className="h-3.5 w-3.5 flex-shrink-0 text-blue-500" />
                     <span className="text-foreground-500 truncate text-xs">
                       {att.originalName}
                     </span>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,19 +11,18 @@ const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
 
 export default function StatusTypesTable({ items }) {
   const [searchValue, setSearchValue] = useState("");
-  const [rowsPerPage, setRowsPerPage] = useState(Number(ROWS_PER_PAGE_OPTIONS[0]));
+  const [rowsPerPage, setRowsPerPage] = useState(
+    Number(ROWS_PER_PAGE_OPTIONS[0]),
+  );
   const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchValue, rowsPerPage]);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchValue.trim().toLowerCase();
 
     return items.filter((item) => {
       const matchesSearch =
-        !normalizedQuery || (item.statustypename ?? "").toLowerCase().includes(normalizedQuery);
+        !normalizedQuery ||
+        (item.statustypename ?? "").toLowerCase().includes(normalizedQuery);
 
       return matchesSearch;
     });
@@ -35,13 +34,11 @@ export default function StatusTypesTable({ items }) {
     return filteredItems.slice(start, start + rowsPerPage);
   }, [filteredItems, page, rowsPerPage]);
 
-  const columns = [
-    { key: 'statustypename', label: 'Status Type Name' },
-  ];
+  const columns = [{ key: "statustypename", label: "Status Type Name" }];
 
   const renderCell = (item, columnKey) => {
     switch (columnKey) {
-      case 'statustypename':
+      case "statustypename":
         return item.statustypename;
       default:
         return null;
@@ -56,12 +53,15 @@ export default function StatusTypesTable({ items }) {
         </div>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="relative w-full lg:max-w-md">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               className="pl-9"
               placeholder="Search status types"
               value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
+              onChange={(e) => {
+                setSearchValue(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
           <div className="flex flex-wrap gap-3">
@@ -74,8 +74,9 @@ export default function StatusTypesTable({ items }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-muted-foreground">
-            Showing {paginatedItems.length} of {filteredItems.length} status types
+          <span className="text-muted-foreground text-sm">
+            Showing {paginatedItems.length} of {filteredItems.length} status
+            types
           </span>
         </div>
       </div>

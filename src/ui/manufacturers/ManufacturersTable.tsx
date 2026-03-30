@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
-import { PlusIcon, SearchIcon, EditIcon, DeleteIcon, MoreVertical } from "../Icons";
+import {
+  PlusIcon,
+  SearchIcon,
+  EditIcon,
+  DeleteIcon,
+  MoreVertical,
+} from "../Icons";
 import { toast } from "sonner";
 
 const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
@@ -48,7 +54,9 @@ function getYear(value) {
 export default function ManufacturersTable({ items }) {
   const [searchValue, setSearchValue] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
-  const [rowsPerPage, setRowsPerPage] = useState(Number(ROWS_PER_PAGE_OPTIONS[0]));
+  const [rowsPerPage, setRowsPerPage] = useState(
+    Number(ROWS_PER_PAGE_OPTIONS[0]),
+  );
   const [page, setPage] = useState(1);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedManufacturer, setSelectedManufacturer] = useState(null);
@@ -58,24 +66,22 @@ export default function ManufacturersTable({ items }) {
     const unique = new Set<number>(
       manufacturersData
         .map((item) => getYear(item.creation_date))
-        .filter((year): year is number => typeof year === "number")
+        .filter((year): year is number => typeof year === "number"),
     );
     return Array.from(unique).sort((a, b) => b - a);
   }, [manufacturersData]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchValue, yearFilter, rowsPerPage]);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchValue.trim().toLowerCase();
 
     return manufacturersData.filter((item) => {
       const matchesSearch =
-        !normalizedQuery || (item.manufacturername ?? "").toLowerCase().includes(normalizedQuery);
+        !normalizedQuery ||
+        (item.manufacturername ?? "").toLowerCase().includes(normalizedQuery);
 
       const matchesYear =
-        yearFilter === "all" || String(getYear(item.creation_date) ?? "") === yearFilter;
+        yearFilter === "all" ||
+        String(getYear(item.creation_date) ?? "") === yearFilter;
 
       return matchesSearch && matchesYear;
     });
@@ -88,9 +94,9 @@ export default function ManufacturersTable({ items }) {
   }, [filteredItems, page, rowsPerPage]);
 
   const columns = [
-    { key: 'manufacturername', label: 'Name' },
-    { key: 'creation_date', label: 'Created' },
-    { key: 'actions', label: 'Actions' },
+    { key: "manufacturername", label: "Name" },
+    { key: "creation_date", label: "Created" },
+    { key: "actions", label: "Actions" },
   ];
 
   const handleDelete = async (manufacturerId: string) => {
@@ -112,7 +118,9 @@ export default function ManufacturersTable({ items }) {
         description: `${manufacturerId} deleted successfully`,
       });
 
-      setManufacturersData((prevItems) => prevItems.filter((item) => item.manufacturerid !== manufacturerId));
+      setManufacturersData((prevItems) =>
+        prevItems.filter((item) => item.manufacturerid !== manufacturerId),
+      );
       setIsDeleteModalOpen(false);
     } catch (error) {
       console.error("Error deleting manufacturer:", error);
@@ -124,15 +132,15 @@ export default function ManufacturersTable({ items }) {
 
   const renderCell = (item, columnKey) => {
     switch (columnKey) {
-      case 'manufacturername':
+      case "manufacturername":
         return item.manufacturername;
-      case 'creation_date':
+      case "creation_date":
         return formatDate(item.creation_date);
-      case 'actions':
+      case "actions":
         return (
           <div className="flex items-center gap-2">
             <Button
-              className="text-lg text-muted-foreground cursor-pointer hover:opacity-80 h-6 w-6"
+              className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
               size="icon"
               variant="ghost"
               asChild
@@ -144,7 +152,7 @@ export default function ManufacturersTable({ items }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  className="text-lg text-muted-foreground cursor-pointer hover:opacity-80 h-6 w-6"
+                  className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
                   size="icon"
                   variant="ghost"
                 >
@@ -179,23 +187,34 @@ export default function ManufacturersTable({ items }) {
         </div>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="relative w-full lg:max-w-md">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               className="pl-9"
               placeholder="Search manufacturers"
               value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
+              onChange={(e) => {
+                setSearchValue(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
           <div className="flex flex-wrap gap-3">
-            <Select value={yearFilter} onValueChange={setYearFilter}>
+            <Select
+              value={yearFilter}
+              onValueChange={(v) => {
+                setYearFilter(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Created" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All years</SelectItem>
                 {years.map((year) => (
-                  <SelectItem key={String(year)} value={String(year)}>{year}</SelectItem>
+                  <SelectItem key={String(year)} value={String(year)}>
+                    {year}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -208,16 +227,25 @@ export default function ManufacturersTable({ items }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-muted-foreground">
-            Showing {paginatedItems.length} of {filteredItems.length} manufacturers
+          <span className="text-muted-foreground text-sm">
+            Showing {paginatedItems.length} of {filteredItems.length}{" "}
+            manufacturers
           </span>
-          <Select value={String(rowsPerPage)} onValueChange={(value) => setRowsPerPage(Number(value))}>
+          <Select
+            value={String(rowsPerPage)}
+            onValueChange={(value) => {
+              setRowsPerPage(Number(value));
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-24">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {ROWS_PER_PAGE_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>{option}</SelectItem>
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -258,7 +286,9 @@ export default function ManufacturersTable({ items }) {
           <DialogHeader>
             <DialogTitle>Delete Manufacturer</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete manufacturer &quot;{selectedManufacturer?.manufacturername}&quot;? This action cannot be undone.
+              Are you sure you want to delete manufacturer &quot;
+              {selectedManufacturer?.manufacturername}&quot;? This action cannot
+              be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -277,4 +307,3 @@ export default function ManufacturersTable({ items }) {
     </div>
   );
 }
-

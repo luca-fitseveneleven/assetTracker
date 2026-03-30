@@ -102,6 +102,7 @@ export default function ScannerPageClient() {
     setScanning(true);
     setLastDetected(null);
     detectQR();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- detectQR is defined below, circular callback dependency
   }, [requestCamera]);
 
   // Process a detected QR code value (shared between scan methods)
@@ -150,6 +151,7 @@ export default function ScannerPageClient() {
       toast.info(`Detected: ${rawValue}`);
       return false;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stopScanning is defined above, circular callback dependency
     [router],
   );
 

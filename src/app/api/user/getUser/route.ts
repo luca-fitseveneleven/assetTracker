@@ -8,8 +8,7 @@ import {
 
 const stripPassword = (user) => {
   if (!user) return user;
-  // eslint-disable-next-line no-unused-vars
-  const { password, ...rest } = user;
+  const { password: _password, ...rest } = user;
   return rest;
 };
 

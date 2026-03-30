@@ -80,9 +80,10 @@ export function ResponsiveTable<T>({
     defaultVisibleColumns || allColumnKeys,
   );
 
-  const visibleColumnKeys = storageKey
-    ? new Set(persistedColumns)
-    : new Set(allColumnKeys);
+  const visibleColumnKeys = useMemo(
+    () => (storageKey ? new Set(persistedColumns) : new Set(allColumnKeys)),
+    [storageKey, persistedColumns, allColumnKeys],
+  );
 
   const visibleColumns = useMemo(() => {
     if (!storageKey) return columns;

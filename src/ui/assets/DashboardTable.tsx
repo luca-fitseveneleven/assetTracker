@@ -1209,7 +1209,7 @@ export default function App({
     deleteButtonActive,
     columns,
     rowsPerPage,
-    assetsData.length,
+    assetsData,
     selectOptions,
     handleOpenModal,
     isRefreshing,
@@ -1218,6 +1218,12 @@ export default function App({
     now,
     lastUpdated,
     formatRelativeTime,
+    selectedKeys,
+    setFilterValue,
+    setRowsPerPage,
+    setStatusFilter,
+    setVisibleColumns,
+    showAll,
   ]);
 
   const bottomContent = useMemo(() => {
@@ -1265,6 +1271,7 @@ export default function App({
     assetsData.length,
     showAll,
     filteredItems.length,
+    setPage,
   ]);
 
   return (

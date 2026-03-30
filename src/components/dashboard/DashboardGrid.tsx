@@ -366,6 +366,95 @@ function CostOverviewWidget() {
   );
 }
 
+function FleetValueWidget() {
+  const [data, setData] = useState<{
+    totalPurchaseValue: number;
+    totalCurrentValue: number;
+    totalDepreciation: number;
+    assetCount: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchFleetValue() {
+      try {
+        const res = await fetch("/api/dashboard/fleet-value");
+        if (res.ok) {
+          const json = await res.json();
+          setData(json);
+        }
+      } catch {
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchFleetValue();
+  }, []);
+
+  if (loading) {
+    return (
+      <p className="text-muted-foreground text-sm">Loading fleet value...</p>
+    );
+  }
+
+  if (!data) {
+    return (
+      <p className="text-muted-foreground text-sm">No depreciation data</p>
+    );
+  }
+
+  const depreciationPercent =
+    data.totalPurchaseValue > 0
+      ? (data.totalDepreciation / data.totalPurchaseValue) * 100
+      : 0;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Purchase Value</span>
+        <span className="font-medium">
+          $
+          {data.totalPurchaseValue.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Current Value</span>
+        <span className="font-medium text-green-600">
+          $
+          {data.totalCurrentValue.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Total Depreciation</span>
+        <span className="text-destructive font-medium">
+          -$
+          {data.totalDepreciation.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+      <div className="bg-muted mt-2 h-2 rounded-full">
+        <div
+          className="bg-destructive h-2 rounded-full transition-all"
+          style={{ width: `${Math.min(100, depreciationPercent)}%` }}
+        />
+      </div>
+      <p className="text-muted-foreground text-center text-xs">
+        {depreciationPercent.toFixed(1)}% depreciated across {data.assetCount}{" "}
+        assets
+      </p>
+    </div>
+  );
+}
+
 function formatRelativeTime(dateString: string): string {
   const now = Date.now();
   const then = new Date(dateString).getTime();
@@ -531,6 +620,8 @@ function WidgetContent({
       return <LastEditedWidget />;
     case "assetMap":
       return <AssetMapWidget />;
+    case "fleetValue":
+      return <FleetValueWidget />;
     default:
       return (
         <p className="text-muted-foreground text-sm">Unknown widget type</p>

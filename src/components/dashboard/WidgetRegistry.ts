@@ -48,6 +48,11 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     title: "Asset Map",
     description: "Map showing asset locations",
   },
+  {
+    type: "fleetValue",
+    title: "Fleet Value",
+    description: "Purchase value vs. depreciated current value",
+  },
 ];
 
 export const DEFAULT_WIDGETS = [

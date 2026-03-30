@@ -70,9 +70,11 @@ export default withBundleAnalyzer(withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
-  org: "fitseveneleven",
+  org: process.env.SENTRY_ORG,
 
-  project: "javascript-nextjs",
+  project: process.env.SENTRY_PROJECT,
+
+  url: process.env.SENTRY_URL,
 
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,

@@ -97,6 +97,12 @@ if (existsSync(migrationsDir)) {
       `table_schema = '${TARGET}'`,
     );
 
+    // "assettool"."table_name"  →  "public"."table_name" (schema-qualified references)
+    sql = sql.replace(
+      new RegExp(`"${SOURCE}"\\."`, "g"),
+      `"${TARGET}"."`
+    );
+
     if (sql !== original) {
       writeFileSync(sqlPath, sql);
       console.log(`  ✓ migrations/${migration}`);

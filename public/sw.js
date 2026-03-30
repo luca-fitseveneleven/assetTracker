@@ -33,16 +33,73 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// --- IndexedDB helpers for offline mutation queue (raw IDB, no library in SW) ---
+const IDB_NAME = 'asset-tracker-offline';
+const IDB_STORE = 'mutation-queue';
+
+function openQueueDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function storeInQueue(entry) {
+  const db = await openQueueDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(entry, entry.id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 // Fetch event - network first for pages, cache first for static assets
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') return;
-
   // Skip non-http(s) schemes (e.g. chrome-extension)
   if (!url.protocol.startsWith('http')) return;
+
+  // For non-GET API requests: try network, queue on failure
+  if (request.method !== 'GET' && url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(request.clone()).catch(async () => {
+        try {
+          const body = await request.clone().text();
+          const entry = {
+            id: crypto.randomUUID(),
+            url: request.url,
+            method: request.method,
+            headers: Object.fromEntries(request.headers.entries()),
+            body: body || null,
+            timestamp: Date.now(),
+            retryCount: 0,
+          };
+          await storeInQueue(entry);
+          // Notify all clients
+          const clients = await self.clients.matchAll();
+          clients.forEach((c) => c.postMessage({ type: 'MUTATION_QUEUED' }));
+          return new Response(JSON.stringify({ queued: true, id: entry.id }), {
+            status: 202,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } catch {
+          return new Response(JSON.stringify({ error: 'Offline and queue failed' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      })
+    );
+    return;
+  }
+
+  // Skip non-GET requests that aren't API calls
+  if (request.method !== 'GET') return;
 
   // Skip API requests and auth
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/api/auth')) return;

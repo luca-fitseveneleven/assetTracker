@@ -61,7 +61,7 @@ import {
 import { capitalize } from "../../utils/utils";
 import QRCode from "react-qr-code";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import SavedFilters from "@/components/SavedFilters";
 import PrintLabelDialog from "@/components/PrintLabelDialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -2019,8 +2019,6 @@ export default function App({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Toaster position="bottom-right" expand={false} richColors closeButton />
     </div>
   );
 }

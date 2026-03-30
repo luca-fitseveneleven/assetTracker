@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Copy, Check, RefreshCw, Mail, KeyRound, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import Breadcrumb from "@/components/Breadcrumb";
 
 export default function Page() {
@@ -153,7 +153,6 @@ export default function Page() {
           { label: "Create User" },
         ]}
       />
-      <Toaster position="bottom-right" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 sm:gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>

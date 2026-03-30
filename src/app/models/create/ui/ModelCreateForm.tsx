@@ -7,14 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
-export default function ModelCreateForm({ initialData = null, mode = "create" }) {
+export default function ModelCreateForm({
+  initialData = null,
+  mode = "create",
+}) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [modelname, setModelname] = useState(initialData?.modelname ?? "");
-  const [modelnumber, setModelnumber] = useState(initialData?.modelnumber ?? "");
+  const [modelnumber, setModelnumber] = useState(
+    initialData?.modelnumber ?? "",
+  );
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -58,28 +63,33 @@ export default function ModelCreateForm({ initialData = null, mode = "create" })
 
   return (
     <div className="max-w-xl">
-      <Toaster position="bottom-right" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 sm:gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
+            <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">
               {mode === "edit" ? "Edit Model" : "Create Model"}
             </h1>
-            <p className="text-sm text-foreground-500 mt-1">Manage product models.</p>
+            <p className="text-foreground-500 mt-1 text-sm">
+              Manage product models.
+            </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <Button asChild variant="ghost" className="w-full sm:w-auto">
               <Link href="/models">Cancel</Link>
             </Button>
-            <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              disabled={submitting}
+            >
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
+        {error ? <p className="text-danger text-sm">{error}</p> : null}
 
-        <section className="rounded-lg border border-default-200 p-4 space-y-4">
+        <section className="border-default-200 space-y-4 rounded-lg border p-4">
           <div className="space-y-2">
             <Label htmlFor="modelname">
               Model Name <span className="text-destructive">*</span>
@@ -103,11 +113,15 @@ export default function ModelCreateForm({ initialData = null, mode = "create" })
 
         <Separator />
 
-        <div className="flex flex-col sm:flex-row justify-end gap-2">
+        <div className="flex flex-col justify-end gap-2 sm:flex-row">
           <Button asChild variant="ghost" className="w-full sm:w-auto">
             <Link href="/models">Cancel</Link>
           </Button>
-          <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={submitting}
+          >
             {mode === "edit" ? "Save Changes" : "Create Model"}
           </Button>
         </div>

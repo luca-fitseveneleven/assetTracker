@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
 export default function ManufacturerCreateForm({
   initialData = null,
@@ -65,7 +65,6 @@ export default function ManufacturerCreateForm({
 
   return (
     <div className="max-w-xl">
-      <Toaster position="bottom-right" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 sm:gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>

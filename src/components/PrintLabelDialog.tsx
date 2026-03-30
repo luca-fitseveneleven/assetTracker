@@ -210,16 +210,24 @@ export default function PrintLabelDialog({
   const handlePrint = () => {
     if (!printRef.current || !selectedTemplate) return;
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-
     const widthIn = Number(selectedTemplate.width);
     const heightIn = Number(selectedTemplate.height);
 
-    const doc = printWindow.document;
-    doc.open();
+    // Use a hidden iframe to avoid about:blank tab
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.top = "-10000px";
+    iframe.style.left = "-10000px";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    document.body.appendChild(iframe);
 
-    // Build document using DOM methods
+    const doc = iframe.contentDocument;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
     const style = doc.createElement("style");
     style.textContent = [
       `@page { size: ${widthIn}in ${heightIn}in; margin: 0; }`,
@@ -234,15 +242,15 @@ export default function PrintLabelDialog({
       ".template-rendered { font-size: 8pt; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }",
     ].join("\n");
     doc.head.appendChild(style);
-    doc.title = "Print Labels";
 
-    // Clone the preview content into the print window
     const clonedContent = printRef.current.cloneNode(true);
     doc.body.appendChild(clonedContent);
 
-    doc.close();
-    printWindow.focus();
-    printWindow.print();
+    // Wait for content to render before printing
+    setTimeout(() => {
+      iframe.contentWindow?.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 100);
   };
 
   const handleDymoPrint = async () => {

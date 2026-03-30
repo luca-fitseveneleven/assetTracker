@@ -1,17 +1,35 @@
 import type { NextRequest } from "next/server";
 import prisma from "../../../../lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 import { logger } from "@/lib/logger";
 
 // GET /api/userAssets/findByAssetId?assetId=<id>
 export async function GET(req: NextRequest) {
   try {
     const user = await requireApiAuth();
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
     const assetId = req.nextUrl.searchParams.get("assetId");
 
     if (!assetId) {
       return new Response(JSON.stringify({ error: "Asset ID is required" }), {
         status: 400,
+      });
+    }
+
+    // Verify the asset belongs to the user's organization
+    const asset = await prisma.asset.findFirst({
+      where: scopeToOrganization({ assetid: assetId }, orgId),
+      select: { assetid: true },
+    });
+
+    if (!asset) {
+      return new Response(JSON.stringify({ error: "Asset not found" }), {
+        status: 404,
       });
     }
 

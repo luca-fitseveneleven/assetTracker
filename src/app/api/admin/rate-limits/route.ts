@@ -1,0 +1,78 @@
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
+import { logger } from "@/lib/logger";
+
+const S = process.env.DB_SCHEMA || "assettool";
+const RL_TABLE = `"${S}"."rate_limits"`;
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  try {
+    await requireApiAdmin();
+
+    const rows = await prisma.$queryRawUnsafe<
+      Array<{ key: string; count: number; reset_at: Date }>
+    >(
+      `SELECT "key", "count", "reset_at" FROM ${RL_TABLE} ORDER BY "count" DESC LIMIT 200`,
+    );
+
+    const entries = rows.map((r) => ({
+      key: r.key,
+      count: r.count,
+      resetAt:
+        r.reset_at instanceof Date
+          ? r.reset_at.toISOString()
+          : String(r.reset_at),
+      isExpired: new Date(r.reset_at) < new Date(),
+    }));
+
+    return NextResponse.json({
+      entries,
+      total: entries.length,
+      activeCount: entries.filter((e) => !e.isExpired).length,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.includes("Forbidden")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    logger.error("GET /api/admin/rate-limits error", { error });
+    return NextResponse.json(
+      { error: "Failed to fetch rate limits" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+    await requireApiAdmin();
+
+    const { key } = await req.json();
+    if (!key) {
+      return NextResponse.json({ error: "key required" }, { status: 400 });
+    }
+
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM ${RL_TABLE} WHERE "key" = $1`,
+      key,
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    logger.error("DELETE /api/admin/rate-limits error", { error });
+    return NextResponse.json(
+      { error: "Failed to reset rate limit" },
+      { status: 500 },
+    );
+  }
+}

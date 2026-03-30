@@ -18,6 +18,7 @@ import {
   Server,
   MessageSquare,
   MapPin,
+  Gauge,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ import SSOSettingsTab from "./SSOSettingsTab";
 import LDAPSettingsTab from "./LDAPSettingsTab";
 import IntegrationsTab from "./IntegrationsTab";
 import LocationTrackingTab from "./LocationTrackingTab";
+import RateLimitTab from "./RateLimitTab";
 
 interface NavItem {
   value: string;
@@ -87,6 +89,7 @@ const settingsNav: NavGroup[] = [
       { value: "sso", label: "SSO", icon: KeyRound },
       { value: "ldap", label: "LDAP", icon: Server },
       { value: "locationTracking", label: "Location Tracking", icon: MapPin },
+      { value: "rateLimits", label: "Rate Limits", icon: Gauge },
     ],
   },
   {
@@ -279,6 +282,7 @@ export default function AdminSettingsPage({
           {activeTab === "ldap" && <LDAPSettingsTab />}
           {activeTab === "integrations" && <IntegrationsTab />}
           {activeTab === "locationTracking" && <LocationTrackingTab />}
+          {activeTab === "rateLimits" && <RateLimitTab />}
         </div>
       </div>
     </div>

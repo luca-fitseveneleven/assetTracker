@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { QRCodeSVG } from "qrcode.react";
-import { Loader2, Printer } from "lucide-react";
+import { Download, Loader2, Printer } from "lucide-react";
+import { toast } from "sonner";
 import { useDymo } from "@/hooks/useDymo";
 import {
   buildDymoLabelXml,
@@ -105,6 +106,7 @@ export default function PrintLabelDialog({
   const [customWidth, setCustomWidth] = useState<string>("2.25");
   const [customHeight, setCustomHeight] = useState<string>("1.25");
   const [isDymoPrinting, setIsDymoPrinting] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -287,6 +289,34 @@ export default function PrintLabelDialog({
       console.error("DYMO print error:", err);
     } finally {
       setIsDymoPrinting(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!selectedTemplate || assets.length === 0) return;
+    setIsDownloadingPdf(true);
+    try {
+      const res = await fetch("/api/labels/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assetIds: assets.map((a) => a.assetid),
+          templateId: selectedTemplate.id,
+        }),
+      });
+      if (!res.ok) throw new Error("PDF generation failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `labels-${Date.now()}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("PDF downloaded");
+    } catch {
+      toast.error("Failed to download PDF");
+    } finally {
+      setIsDownloadingPdf(false);
     }
   };
 
@@ -555,6 +585,20 @@ export default function PrintLabelDialog({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleDownloadPdf}
+            disabled={
+              !selectedTemplate || assets.length === 0 || isDownloadingPdf
+            }
+          >
+            {isDownloadingPdf ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            PDF
           </Button>
           <Button
             variant="outline"

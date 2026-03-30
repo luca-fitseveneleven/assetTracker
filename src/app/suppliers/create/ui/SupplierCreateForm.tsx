@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
 const SALUTATION_OPTIONS = ["Mr", "Ms", "Mx", "Dr", "Prof"];
 
@@ -88,7 +88,6 @@ export default function SupplierCreateForm({
 
   return (
     <div className="max-w-3xl">
-      <Toaster position="bottom-right" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 sm:gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>

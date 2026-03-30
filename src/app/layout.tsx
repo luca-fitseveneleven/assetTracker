@@ -8,6 +8,7 @@ import OfflineBanner from "../components/OfflineBanner";
 import PWAInstallPrompt from "../components/PWAInstallPrompt";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 import AppShell from "../components/AppShell";
+import { Toaster } from "sonner";
 import { UserPreferencesProvider } from "../contexts/UserPreferencesContext";
 import { cookies } from "next/headers";
 
@@ -61,6 +62,7 @@ export default async function RootLayout({ children }) {
               {children}
             </AppShell>
             <PWAInstallPrompt />
+            <Toaster richColors />
           </Providers>
         </UserPreferencesProvider>
       </body>

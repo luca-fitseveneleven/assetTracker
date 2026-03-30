@@ -7,13 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
-export default function ConsumableCategoriesCreateForm({ initialData = null, mode = "create" }) {
+export default function ConsumableCategoriesCreateForm({
+  initialData = null,
+  mode = "create",
+}) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [consumablecategorytypename, setConsumablecategorytypename] = useState(initialData?.consumablecategorytypename ?? "");
+  const [consumablecategorytypename, setConsumablecategorytypename] = useState(
+    initialData?.consumablecategorytypename ?? "",
+  );
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -42,9 +47,14 @@ export default function ConsumableCategoriesCreateForm({ initialData = null, mod
       }
 
       const created = await res.json();
-      toast.success(mode === "edit" ? "Consumable category updated" : "Consumable category created", {
-        description: created.consumablecategorytypename,
-      });
+      toast.success(
+        mode === "edit"
+          ? "Consumable category updated"
+          : "Consumable category created",
+        {
+          description: created.consumablecategorytypename,
+        },
+      );
       router.push("/consumableCategories");
     } catch (err) {
       setError(err.message);
@@ -56,28 +66,35 @@ export default function ConsumableCategoriesCreateForm({ initialData = null, mod
 
   return (
     <div className="max-w-xl">
-      <Toaster position="bottom-right" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 sm:gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
-              {mode === "edit" ? "Edit Consumable Category" : "Create Consumable Category"}
+            <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">
+              {mode === "edit"
+                ? "Edit Consumable Category"
+                : "Create Consumable Category"}
             </h1>
-            <p className="text-sm text-foreground-500 mt-1">Manage consumable classification types.</p>
+            <p className="text-foreground-500 mt-1 text-sm">
+              Manage consumable classification types.
+            </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <Button asChild variant="ghost" className="w-full sm:w-auto">
               <Link href="/consumableCategories">Cancel</Link>
             </Button>
-            <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              disabled={submitting}
+            >
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
+        {error ? <p className="text-danger text-sm">{error}</p> : null}
 
-        <section className="rounded-lg border border-default-200 p-4 space-y-2">
+        <section className="border-default-200 space-y-2 rounded-lg border p-4">
           <Label htmlFor="consumablecategorytypename">
             Category Name <span className="text-destructive">*</span>
           </Label>
@@ -91,11 +108,15 @@ export default function ConsumableCategoriesCreateForm({ initialData = null, mod
 
         <Separator />
 
-        <div className="flex flex-col sm:flex-row justify-end gap-2">
+        <div className="flex flex-col justify-end gap-2 sm:flex-row">
           <Button asChild variant="ghost" className="w-full sm:w-auto">
             <Link href="/consumableCategories">Cancel</Link>
           </Button>
-          <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={submitting}
+          >
             {mode === "edit" ? "Save Changes" : "Create Consumable Category"}
           </Button>
         </div>

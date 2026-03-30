@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
 interface Asset {
   assetid: string;
@@ -95,9 +95,8 @@ export default function ComponentDetailClient({
   };
 
   return (
-    <div className="rounded-lg border border-default-200 p-4">
-      <Toaster position="bottom-right" />
-      <h2 className="text-sm font-semibold text-foreground-600 mb-3">
+    <div className="border-default-200 rounded-lg border p-4">
+      <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
         Actions & Active Checkouts
       </h2>
 
@@ -112,7 +111,7 @@ export default function ComponentDetailClient({
       )}
 
       {showCheckout && (
-        <div className="space-y-3 mb-4 p-3 bg-muted/50 rounded-md">
+        <div className="bg-muted/50 mb-4 space-y-3 rounded-md p-3">
           <div className="space-y-1">
             <Label>Asset</Label>
             <Select value={checkoutAssetId} onValueChange={setCheckoutAssetId}>
@@ -153,24 +152,30 @@ export default function ComponentDetailClient({
       )}
 
       {checkouts.length === 0 ? (
-        <p className="text-sm text-foreground-500">No active checkouts.</p>
+        <p className="text-foreground-500 text-sm">No active checkouts.</p>
       ) : (
         <div className="space-y-2">
           {checkouts.map((c) => (
             <div
               key={c.id}
-              className="flex items-center justify-between p-2 rounded-md border text-sm"
+              className="flex items-center justify-between rounded-md border p-2 text-sm"
             >
               <div>
                 <Link
                   href={`/assets/${c.asset.assetid}`}
-                  className="text-primary hover:underline font-medium"
+                  className="text-primary font-medium hover:underline"
                 >
                   {c.asset.assetname}
                 </Link>
-                <span className="text-muted-foreground ml-2">x{c.quantity}</span>
+                <span className="text-muted-foreground ml-2">
+                  x{c.quantity}
+                </span>
               </div>
-              <Button size="sm" variant="outline" onClick={() => handleCheckin(c.id)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleCheckin(c.id)}
+              >
                 Return
               </Button>
             </div>

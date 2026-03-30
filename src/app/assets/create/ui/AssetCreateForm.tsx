@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import { Wand2, FileText, Loader2 } from "lucide-react";
 import CustomFieldsSection from "@/components/CustomFieldsSection";
 import SelectWithQuickCreate, {
@@ -273,7 +273,6 @@ export default function AssetCreateForm({
 
   return (
     <div className="max-w-5xl">
-      <Toaster position="bottom-right" />
       <form
         onSubmit={(e) => onSubmit(e, false)}
         className="flex flex-col gap-4 sm:gap-6"

@@ -1,14 +1,14 @@
-import Stripe from 'stripe';
+import Stripe from "stripe";
 
 let _stripe: Stripe | null = null;
 
 export function getStripe(): Stripe {
   if (!_stripe) {
     if (!process.env.STRIPE_SECRET_KEY) {
-      throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+      throw new Error("STRIPE_SECRET_KEY environment variable is not set");
     }
     _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2026-01-28.clover',
+      apiVersion: "2026-03-25.dahlia",
     });
   }
   return _stripe;
@@ -16,21 +16,21 @@ export function getStripe(): Stripe {
 
 export const PLANS = {
   starter: {
-    name: 'Starter',
+    name: "Starter",
     maxAssets: 100,
     maxUsers: 3,
     price: 0,
     priceId: process.env.STRIPE_PRICE_STARTER || null,
   },
   professional: {
-    name: 'Professional',
+    name: "Professional",
     maxAssets: 5000,
     maxUsers: 25,
     price: 2900, // cents
     priceId: process.env.STRIPE_PRICE_PROFESSIONAL || null,
   },
   enterprise: {
-    name: 'Enterprise',
+    name: "Enterprise",
     maxAssets: -1, // unlimited
     maxUsers: -1, // unlimited
     price: 9900, // cents

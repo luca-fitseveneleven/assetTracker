@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
 interface ComponentItem {
   id: string;
@@ -68,7 +68,6 @@ export default function ComponentsTable({
 
   return (
     <div>
-      <Toaster position="bottom-right" />
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Components</h1>

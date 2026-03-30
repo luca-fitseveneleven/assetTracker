@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
 export default function ComponentCreateForm({
   categories,
@@ -56,7 +56,9 @@ export default function ComponentCreateForm({
       totalQuantity: String(initialData.totalQuantity ?? 0),
       minQuantity: String(initialData.minQuantity ?? 0),
       purchasePrice:
-        initialData.purchasePrice == null ? "" : String(initialData.purchasePrice),
+        initialData.purchasePrice == null
+          ? ""
+          : String(initialData.purchasePrice),
       purchaseDate: initialData.purchaseDate
         ? initialData.purchaseDate.slice(0, 10)
         : "",
@@ -82,9 +84,11 @@ export default function ComponentCreateForm({
         name: form.name,
         serialNumber: form.serialNumber || null,
         categoryId: form.categoryId,
-        totalQuantity: form.totalQuantity === "" ? 0 : Number(form.totalQuantity),
+        totalQuantity:
+          form.totalQuantity === "" ? 0 : Number(form.totalQuantity),
         minQuantity: form.minQuantity === "" ? 0 : Number(form.minQuantity),
-        purchasePrice: form.purchasePrice === "" ? null : Number(form.purchasePrice),
+        purchasePrice:
+          form.purchasePrice === "" ? null : Number(form.purchasePrice),
         purchaseDate: form.purchaseDate || null,
         manufacturerId: form.manufacturerId || null,
         supplierId: form.supplierId || null,
@@ -108,9 +112,12 @@ export default function ComponentCreateForm({
       }
 
       const created = await res.json();
-      toast.success(mode === "edit" ? "Component updated" : "Component created", {
-        description: created.name,
-      });
+      toast.success(
+        mode === "edit" ? "Component updated" : "Component created",
+        {
+          description: created.name,
+        },
+      );
       router.push("/components");
     } catch (err: any) {
       setError(err.message);
@@ -122,36 +129,45 @@ export default function ComponentCreateForm({
 
   return (
     <div className="max-w-3xl">
-      <Toaster position="bottom-right" />
       <form onSubmit={onSubmit} className="flex flex-col gap-4 sm:gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold">
+            <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">
               {mode === "edit" ? "Edit Component" : "Create Component"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-sm">
               Track hardware parts like RAM, SSDs, cables, and adapters.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <Button asChild variant="ghost" className="w-full sm:w-auto">
               <Link href="/components">Cancel</Link>
             </Button>
-            <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              disabled={submitting}
+            >
               {mode === "edit" ? "Save" : "Create"}
             </Button>
           </div>
         </div>
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? <p className="text-destructive text-sm">{error}</p> : null}
 
         <section className="rounded-lg border p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">
                 Component Name <span className="text-destructive">*</span>
               </Label>
-              <Input id="name" name="name" value={form.name} onChange={onChange} required />
+              <Input
+                id="name"
+                name="name"
+                value={form.name}
+                onChange={onChange}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="serialNumber">Serial Number</Label>
@@ -257,7 +273,9 @@ export default function ComponentCreateForm({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="minQuantity">Min. Quantity (Alert Threshold)</Label>
+              <Label htmlFor="minQuantity">
+                Min. Quantity (Alert Threshold)
+              </Label>
               <Input
                 id="minQuantity"
                 name="minQuantity"
@@ -294,11 +312,15 @@ export default function ComponentCreateForm({
 
         <Separator />
 
-        <div className="flex flex-col sm:flex-row justify-end gap-2">
+        <div className="flex flex-col justify-end gap-2 sm:flex-row">
           <Button asChild variant="ghost" className="w-full sm:w-auto">
             <Link href="/components">Cancel</Link>
           </Button>
-          <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={submitting}
+          >
             {mode === "edit" ? "Save Changes" : "Create Component"}
           </Button>
         </div>

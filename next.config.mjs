@@ -70,9 +70,11 @@ export default withBundleAnalyzer(withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
-  org: "fitseveneleven",
+  org: process.env.SENTRY_ORG,
 
-  project: "javascript-nextjs",
+  project: process.env.SENTRY_PROJECT,
+
+  url: process.env.SENTRY_URL,
 
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,
@@ -80,8 +82,10 @@ export default withBundleAnalyzer(withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
 
-  // Upload a larger set of source maps for prettier stack traces (increases build time)
-  widenClientFileUpload: true,
+  // GlitchTip does not support sentry-cli source map uploads
+  sourcemaps: {
+    disable: true,
+  },
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
   // This can increase your server load as well as your hosting bill.

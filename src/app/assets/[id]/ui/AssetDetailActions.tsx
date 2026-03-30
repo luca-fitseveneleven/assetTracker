@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { QRCodeCanvas } from "qrcode.react";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Copy } from "lucide-react";
 
@@ -89,7 +89,6 @@ export default function AssetDetailActions({
 
   return (
     <div className="flex gap-2">
-      <Toaster position="bottom-right" />
       <Button
         variant="outline"
         onClick={() => setAssignOpen(true)}

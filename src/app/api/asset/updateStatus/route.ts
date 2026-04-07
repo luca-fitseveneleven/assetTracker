@@ -67,6 +67,31 @@ export async function PUT(req: NextRequest) {
       });
     }
 
+    // Enforce status workflow transitions (if any are defined)
+    if (existingAsset.statustypeid && existingAsset.statustypeid !== statusId) {
+      const transitionCount = await prisma.status_transitions.count();
+      if (transitionCount > 0) {
+        const allowed = await prisma.status_transitions.findUnique({
+          where: {
+            fromStatusId_toStatusId: {
+              fromStatusId: existingAsset.statustypeid,
+              toStatusId: statusId,
+            },
+          },
+        });
+        if (!allowed) {
+          return new Response(
+            JSON.stringify({
+              error: "This status transition is not allowed",
+              fromStatusId: existingAsset.statustypeid,
+              toStatusId: statusId,
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } },
+          );
+        }
+      }
+    }
+
     const updated = await prisma.asset.update({
       where: { assetid: assetId },
       data: { statustypeid: statusId, change_date: new Date() },

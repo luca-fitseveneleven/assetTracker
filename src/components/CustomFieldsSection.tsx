@@ -80,8 +80,10 @@ export default function CustomFieldsSection({
   }
 
   return (
-    <section className="rounded-lg border border-default-200 p-4">
-      <h2 className="text-sm font-semibold text-foreground-600 mb-3">Custom Fields</h2>
+    <section className="border-default-200 rounded-lg border p-4">
+      <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
+        Custom Fields
+      </h2>
       <div className="grid grid-cols-1 gap-3">
         {fields.map((field) => {
           const fieldValue = values[field.id] ?? "";
@@ -92,7 +94,9 @@ export default function CustomFieldsSection({
                 <span className="text-foreground-500">{field.name}</span>
                 <span className="font-medium">
                   {field.fieldType === "checkbox"
-                    ? fieldValue === "true" ? "Yes" : "No"
+                    ? fieldValue === "true"
+                      ? "Yes"
+                      : "No"
                     : fieldValue || "-"}
                 </span>
               </div>
@@ -103,7 +107,9 @@ export default function CustomFieldsSection({
             <div key={field.id}>
               <Label htmlFor={`cf-${field.id}`}>
                 {field.name}
-                {field.isRequired && <span className="text-destructive"> *</span>}
+                {field.isRequired && (
+                  <span className="text-destructive"> *</span>
+                )}
               </Label>
               {renderFieldInput(field, fieldValue, handleChange)}
             </div>
@@ -117,7 +123,7 @@ export default function CustomFieldsSection({
 function renderFieldInput(
   field: CustomField,
   value: string,
-  handleChange: (fieldId: string, value: string | null) => void
+  handleChange: (fieldId: string, value: string | null) => void,
 ) {
   switch (field.fieldType) {
     case "text":
@@ -164,13 +170,12 @@ function renderFieldInput(
       try {
         options = field.options ? JSON.parse(field.options) : [];
       } catch {
-        options = field.options ? field.options.split(",").map((o) => o.trim()) : [];
+        options = field.options
+          ? field.options.split(",").map((o) => o.trim())
+          : [];
       }
       return (
-        <Select
-          value={value}
-          onValueChange={(v) => handleChange(field.id, v)}
-        >
+        <Select value={value} onValueChange={(v) => handleChange(field.id, v)}>
           <SelectTrigger id={`cf-${field.id}`}>
             <SelectValue placeholder={`Select ${field.name}`} />
           </SelectTrigger>
@@ -184,9 +189,47 @@ function renderFieldInput(
         </Select>
       );
     }
+    case "multiselect": {
+      let options: string[] = [];
+      try {
+        options = field.options ? JSON.parse(field.options) : [];
+      } catch {
+        options = field.options
+          ? field.options.split(",").map((o) => o.trim())
+          : [];
+      }
+      const selectedValues = value ? value.split(",").map((v) => v.trim()) : [];
+      return (
+        <div className="mt-1 space-y-1.5">
+          {options.map((opt) => (
+            <div key={opt} className="flex items-center space-x-2">
+              <Checkbox
+                id={`cf-${field.id}-${opt}`}
+                checked={selectedValues.includes(opt)}
+                onCheckedChange={(checked) => {
+                  const next = checked
+                    ? [...selectedValues, opt]
+                    : selectedValues.filter((v) => v !== opt);
+                  handleChange(
+                    field.id,
+                    next.length > 0 ? next.join(", ") : null,
+                  );
+                }}
+              />
+              <Label
+                htmlFor={`cf-${field.id}-${opt}`}
+                className="text-sm font-normal"
+              >
+                {opt}
+              </Label>
+            </div>
+          ))}
+        </div>
+      );
+    }
     case "checkbox":
       return (
-        <div className="flex items-center space-x-2 mt-1">
+        <div className="mt-1 flex items-center space-x-2">
           <Checkbox
             id={`cf-${field.id}`}
             checked={value === "true"}
@@ -197,6 +240,60 @@ function renderFieldInput(
           <Label htmlFor={`cf-${field.id}`} className="text-sm font-normal">
             {field.name}
           </Label>
+        </div>
+      );
+    case "url":
+      return (
+        <Input
+          id={`cf-${field.id}`}
+          type="url"
+          placeholder="https://..."
+          value={value}
+          onChange={(e) => handleChange(field.id, e.target.value)}
+          required={field.isRequired}
+        />
+      );
+    case "email":
+      return (
+        <Input
+          id={`cf-${field.id}`}
+          type="email"
+          value={value}
+          onChange={(e) => handleChange(field.id, e.target.value)}
+          required={field.isRequired}
+        />
+      );
+    case "currency":
+      return (
+        <div className="relative">
+          <span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 text-sm">
+            $
+          </span>
+          <Input
+            id={`cf-${field.id}`}
+            type="number"
+            step="0.01"
+            className="pl-7"
+            value={value}
+            onChange={(e) => handleChange(field.id, e.target.value)}
+            required={field.isRequired}
+          />
+        </div>
+      );
+    case "color":
+      return (
+        <div className="flex items-center gap-2">
+          <Input
+            id={`cf-${field.id}`}
+            type="color"
+            className="h-9 w-12 cursor-pointer p-1"
+            value={value || "#000000"}
+            onChange={(e) => handleChange(field.id, e.target.value)}
+            required={field.isRequired}
+          />
+          <span className="text-muted-foreground text-sm">
+            {value || "#000000"}
+          </span>
         </div>
       );
     default:

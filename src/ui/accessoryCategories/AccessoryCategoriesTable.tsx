@@ -2,6 +2,9 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
@@ -10,6 +13,7 @@ import { PlusIcon, SearchIcon } from "../Icons";
 const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
 
 export default function AccessoryCategoriesTable({ items }) {
+  const router = useRouter();
   const [searchValue, setSearchValue] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(
     Number(ROWS_PER_PAGE_OPTIONS[0]),
@@ -36,14 +40,50 @@ export default function AccessoryCategoriesTable({ items }) {
     return filteredItems.slice(start, start + rowsPerPage);
   }, [filteredItems, page, rowsPerPage]);
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this item?")) return;
+    try {
+      const res = await fetch("/api/accessoryCategory", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessoriecategorytypeid: id }),
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      toast.success("Deleted successfully");
+      router.refresh();
+    } catch {
+      toast.error("Failed to delete");
+    }
+  };
+
   const columns = [
     { key: "accessoriecategorytypename", label: "Category Name" },
+    { key: "actions", label: "" },
   ];
 
   const renderCell = (item, columnKey) => {
     switch (columnKey) {
       case "accessoriecategorytypename":
         return item.accessoriecategorytypename;
+      case "actions":
+        return (
+          <div className="flex justify-end gap-1">
+            <Link
+              href={`/accessoryCategories/${item.accessoriecategorytypeid}/edit`}
+            >
+              <Button variant="ghost" size="sm">
+                <Edit className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(item.accessoriecategorytypeid)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        );
       default:
         return null;
     }

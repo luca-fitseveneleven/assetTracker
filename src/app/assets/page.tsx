@@ -121,6 +121,8 @@ export default async function Page() {
         columns={columns}
         selectOptions={selectOptions}
         userAssets={userAssets}
+        isAdmin={isAdmin}
+        currentUserId={ctx?.userId ?? null}
       ></AssetsTableClient>
     </div>
   );

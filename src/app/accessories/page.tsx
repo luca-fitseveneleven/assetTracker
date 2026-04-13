@@ -103,6 +103,9 @@ export default async function Page() {
           categories={categories}
           locations={locations}
           suppliers={suppliers}
+          isAdmin={isAdmin}
+          currentUserId={ctx?.userId ?? null}
+          userAccessoires={userAccessoires}
         />
       </Suspense>
     </div>

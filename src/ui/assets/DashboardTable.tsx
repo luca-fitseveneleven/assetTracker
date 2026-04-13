@@ -57,6 +57,7 @@ import {
   Status,
   MoreVertical,
   ChevronDownIcon,
+  CalendarPlusIcon,
 } from "../Icons";
 import { capitalize } from "../../utils/utils";
 import QRCode from "react-qr-code";
@@ -108,6 +109,8 @@ export default function App({
   columns,
   selectOptions,
   userAssets,
+  isAdmin = true,
+  currentUserId = null,
 }) {
   // -- URL-synced state for shareable filter / pagination / sort URLs --
   const allStatusUids = statusOptions.map((s) => s.uid).join(",");
@@ -822,7 +825,20 @@ export default function App({
               </p>
             </div>
           );
-        case "actions":
+        case "actions": {
+          const assetAvailableStatusIds = new Set(
+            status
+              .filter((s) =>
+                String(s.statustypename ?? "")
+                  .toLowerCase()
+                  .includes("available"),
+              )
+              .map((s) => s.statustypeid),
+          );
+          const isAvailable =
+            asset.statustypeid &&
+            assetAvailableStatusIds.has(asset.statustypeid);
+          const canRequest = asset.requestable || isAvailable;
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -837,26 +853,40 @@ export default function App({
                     View Details
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href={`/assets/${asset.assetid}/edit`}>
-                    <EditIcon className="mr-2 h-4 w-4" />
-                    Edit
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleOpenModal(asset, "assign")}
-                  disabled={!asset.requestable}
-                >
-                  <AssignIcon className="mr-2 h-4 w-4" />
-                  Assign User
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => handleOpenModal(asset, "status")}
-                >
-                  <Status className="mr-2 h-4 w-4" />
-                  Change Status
-                </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/assets/${asset.assetid}/edit`}>
+                      <EditIcon className="mr-2 h-4 w-4" />
+                      Edit
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem
+                    onClick={() => handleOpenModal(asset, "assign")}
+                    disabled={!asset.requestable}
+                  >
+                    <AssignIcon className="mr-2 h-4 w-4" />
+                    Assign User
+                  </DropdownMenuItem>
+                )}
+                {!isAdmin && canRequest && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/assets/${asset.assetid}?action=request`}>
+                      <CalendarPlusIcon className="mr-2 h-4 w-4" />
+                      Request
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && <DropdownMenuSeparator />}
+                {isAdmin && (
+                  <DropdownMenuItem
+                    onClick={() => handleOpenModal(asset, "status")}
+                  >
+                    <Status className="mr-2 h-4 w-4" />
+                    Change Status
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={() => handleOpenModal(asset, "qrcode")}
                 >
@@ -869,17 +899,22 @@ export default function App({
                   <Label className="mr-2 h-4 w-4" />
                   Print Label
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => handleOpenModal(asset, "delete")}
-                >
-                  <DeleteIcon className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => handleOpenModal(asset, "delete")}
+                    >
+                      <DeleteIcon className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           );
+        }
         default:
           return cellValue;
       }
@@ -893,6 +928,7 @@ export default function App({
       user,
       userAssetsData,
       handleOpenModal,
+      isAdmin,
     ],
   );
 
@@ -914,32 +950,62 @@ export default function App({
     setFilterValue("");
   }, [setFilterValue]);
 
-  const refreshData = useCallback(async (auto = false) => {
-    try {
-      setIsRefreshing(true);
-      const [assetsRes, userAssetsRes] = await Promise.all([
-        fetch("/api/asset"),
-        fetch("/api/userAssets"),
-      ]);
-      if (!assetsRes.ok) throw new Error("Failed to refresh assets");
-      if (!userAssetsRes.ok) throw new Error("Failed to refresh assignments");
-      const [assetsJson, userAssetsJson] = await Promise.all([
-        assetsRes.json(),
-        userAssetsRes.json(),
-      ]);
-      setAssetsData(assetsJson || []);
-      setUserAssetsData(userAssetsJson || []);
-      setLastUpdated(new Date());
-      if (auto) {
-        toast("Table refreshed");
+  const refreshData = useCallback(
+    async (auto = false) => {
+      try {
+        setIsRefreshing(true);
+        const [assetsRes, userAssetsRes] = await Promise.all([
+          fetch("/api/asset"),
+          fetch("/api/userAssets"),
+        ]);
+        if (!assetsRes.ok) throw new Error("Failed to refresh assets");
+        if (!userAssetsRes.ok) throw new Error("Failed to refresh assignments");
+        const [assetsJson, userAssetsJson] = await Promise.all([
+          assetsRes.json(),
+          userAssetsRes.json(),
+        ]);
+
+        let refreshedAssets = assetsJson || [];
+        const refreshedUserAssets = userAssetsJson || [];
+
+        // Non-admin self-service filter: only show assigned + available assets
+        if (!isAdmin && currentUserId) {
+          const assignedAssetIds = new Set(
+            refreshedUserAssets
+              .filter((ua) => ua.userid === currentUserId)
+              .map((ua) => ua.assetid),
+          );
+          const availableStatusIds = new Set(
+            status
+              .filter((s) =>
+                String(s.statustypename ?? "")
+                  .toLowerCase()
+                  .includes("available"),
+              )
+              .map((s) => s.statustypeid),
+          );
+          refreshedAssets = refreshedAssets.filter(
+            (a) =>
+              assignedAssetIds.has(a.assetid) ||
+              (a.statustypeid && availableStatusIds.has(a.statustypeid)),
+          );
+        }
+
+        setAssetsData(refreshedAssets);
+        setUserAssetsData(refreshedUserAssets);
+        setLastUpdated(new Date());
+        if (auto) {
+          toast("Table refreshed");
+        }
+      } catch (e) {
+        console.error(e);
+        toast.error("Refresh failed", { description: (e as Error).message });
+      } finally {
+        setIsRefreshing(false);
       }
-    } catch (e) {
-      console.error(e);
-      toast.error("Refresh failed", { description: e.message });
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, []);
+    },
+    [isAdmin, currentUserId, status],
+  );
 
   // Auto refresh when returning to tab or when page becomes visible
   useEffect(() => {
@@ -1108,71 +1174,73 @@ export default function App({
                 }}
               />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild className="hidden sm:flex">
-                <Button variant="outline" disabled={!deleteButtonActive}>
-                  Bulk Edit
-                  <ChevronDownIcon className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => setIsBulkStatusModalOpen(true)}
-                >
-                  Change Status
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setIsBulkLocationModalOpen(true)}
-                >
-                  Change Location
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    const selected = assetsData.filter((a) =>
-                      selectedKeys.has(a.assetid),
-                    );
-                    if (selected.length > 0) {
-                      setSelectedAsset(null);
-                      setIsLabelModalOpen(true);
-                    }
-                  }}
-                >
-                  Print Labels
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={async () => {
-                    const ids = Array.from(selectedKeys);
-                    if (ids.length === 0) return;
-                    try {
-                      const res = await fetch("/api/asset/qrcode/bulk", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ assetIds: ids }),
-                      });
-                      if (!res.ok) throw new Error();
-                      const blob = await res.blob();
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `qr-codes-${Date.now()}.pdf`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                      toast.success("QR sheet downloaded");
-                    } catch {
-                      toast.error("Failed to download QR sheet");
-                    }
-                  }}
-                >
-                  Download QR Sheet
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => handleOpenModal(null, "delete-bulk")}
-                >
-                  Delete Entries
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {isAdmin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild className="hidden sm:flex">
+                  <Button variant="outline" disabled={!deleteButtonActive}>
+                    Bulk Edit
+                    <ChevronDownIcon className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => setIsBulkStatusModalOpen(true)}
+                  >
+                    Change Status
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setIsBulkLocationModalOpen(true)}
+                  >
+                    Change Location
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const selected = assetsData.filter((a) =>
+                        selectedKeys.has(a.assetid),
+                      );
+                      if (selected.length > 0) {
+                        setSelectedAsset(null);
+                        setIsLabelModalOpen(true);
+                      }
+                    }}
+                  >
+                    Print Labels
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      const ids = Array.from(selectedKeys);
+                      if (ids.length === 0) return;
+                      try {
+                        const res = await fetch("/api/asset/qrcode/bulk", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ assetIds: ids }),
+                        });
+                        if (!res.ok) throw new Error();
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `qr-codes-${Date.now()}.pdf`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success("QR sheet downloaded");
+                      } catch {
+                        toast.error("Failed to download QR sheet");
+                      }
+                    }}
+                  >
+                    Download QR Sheet
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => handleOpenModal(null, "delete-bulk")}
+                  >
+                    Delete Entries
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <Button
               variant="outline"
               className="hidden sm:inline-flex"
@@ -1181,12 +1249,14 @@ export default function App({
             >
               {isRefreshing ? "Refreshing..." : "Refresh"}
             </Button>
-            <Button asChild>
-              <Link href="assets/create/">
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Add New
-              </Link>
-            </Button>
+            {isAdmin && (
+              <Button asChild>
+                <Link href="assets/create/">
+                  <PlusIcon className="mr-2 h-4 w-4" />
+                  Add New
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
         <div className="flex items-center justify-between">
@@ -1248,6 +1318,7 @@ export default function App({
     setStatusFilter,
     setVisibleColumns,
     showAll,
+    isAdmin,
   ]);
 
   const bottomContent = useMemo(() => {
@@ -1327,6 +1398,19 @@ export default function App({
               : null;
             const badgeVariant =
               statusColorMap[stat?.statustypename] || "default";
+            const mobileAvailableStatusIds = new Set(
+              status
+                .filter((s: Record<string, unknown>) =>
+                  String(s.statustypename ?? "")
+                    .toLowerCase()
+                    .includes("available"),
+                )
+                .map((s: Record<string, unknown>) => s.statustypeid),
+            );
+            const mobileIsAvailable =
+              item.statustypeid &&
+              mobileAvailableStatusIds.has(item.statustypeid);
+            const mobileCanRequest = item.requestable || mobileIsAvailable;
 
             return (
               <Card key={item.assetid} className="overflow-hidden">
@@ -1414,26 +1498,42 @@ export default function App({
                             View Details
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/assets/${item.assetid}/edit`}>
-                            <EditIcon className="mr-2 h-4 w-4" />
-                            Edit
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleOpenModal(item, "assign")}
-                          disabled={!item.requestable}
-                        >
-                          <AssignIcon className="mr-2 h-4 w-4" />
-                          Assign User
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleOpenModal(item, "status")}
-                        >
-                          <Status className="mr-2 h-4 w-4" />
-                          Change Status
-                        </DropdownMenuItem>
+                        {isAdmin && (
+                          <DropdownMenuItem asChild>
+                            <Link href={`/assets/${item.assetid}/edit`}>
+                              <EditIcon className="mr-2 h-4 w-4" />
+                              Edit
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
+                        {isAdmin && (
+                          <DropdownMenuItem
+                            onClick={() => handleOpenModal(item, "assign")}
+                            disabled={!item.requestable}
+                          >
+                            <AssignIcon className="mr-2 h-4 w-4" />
+                            Assign User
+                          </DropdownMenuItem>
+                        )}
+                        {!isAdmin && mobileCanRequest && (
+                          <DropdownMenuItem asChild>
+                            <Link
+                              href={`/assets/${item.assetid}?action=request`}
+                            >
+                              <CalendarPlusIcon className="mr-2 h-4 w-4" />
+                              Request
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
+                        {isAdmin && <DropdownMenuSeparator />}
+                        {isAdmin && (
+                          <DropdownMenuItem
+                            onClick={() => handleOpenModal(item, "status")}
+                          >
+                            <Status className="mr-2 h-4 w-4" />
+                            Change Status
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           onClick={() => handleOpenModal(item, "qrcode")}
                         >
@@ -1446,14 +1546,18 @@ export default function App({
                           <Label className="mr-2 h-4 w-4" />
                           Print Label
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleOpenModal(item, "delete")}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <DeleteIcon className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
+                        {isAdmin && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleOpenModal(item, "delete")}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <DeleteIcon className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

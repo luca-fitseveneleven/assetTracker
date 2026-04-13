@@ -33,7 +33,9 @@ import {
   SearchIcon,
   EditIcon,
   DeleteIcon,
+  EyeIcon,
   MoreVertical,
+  CalendarPlusIcon,
 } from "../Icons";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -54,6 +56,9 @@ export default function AccessoriesTable({
   categories,
   locations,
   suppliers,
+  isAdmin = true,
+  currentUserId = null,
+  userAccessoires = [],
 }) {
   // -- URL-synced state for shareable filter / pagination URLs --
   const [urlState, setUrlState] = useUrlState({
@@ -297,19 +302,33 @@ export default function AccessoriesTable({
             {item.requestable ? "Yes" : "No"}
           </Badge>
         );
-      case "actions":
+      case "actions": {
+        const accAvailableStatusIds = new Set(
+          statuses
+            .filter((s) =>
+              String(s.statustypename ?? "")
+                .toLowerCase()
+                .includes("available"),
+            )
+            .map((s) => s.statustypeid),
+        );
+        const accIsAvailable =
+          item.statustypeid && accAvailableStatusIds.has(item.statustypeid);
+        const accCanRequest = item.requestable || accIsAvailable;
         return (
           <div className="flex items-center gap-2">
-            <Button
-              className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
-              size="icon"
-              variant="ghost"
-              asChild
-            >
-              <Link href={`/accessories/${item.accessorieid}/edit`}>
-                <EditIcon />
-              </Link>
-            </Button>
+            {isAdmin && (
+              <Button
+                className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
+                size="icon"
+                variant="ghost"
+                asChild
+              >
+                <Link href={`/accessories/${item.accessorieid}/edit`}>
+                  <EditIcon />
+                </Link>
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -321,20 +340,47 @@ export default function AccessoriesTable({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => {
-                    setSelectedAccessory(item);
-                    setIsDeleteModalOpen(true);
-                  }}
-                >
-                  <DeleteIcon className="mr-2 h-4 w-4" />
-                  Delete Item
+                <DropdownMenuItem asChild>
+                  <Link href={`/accessories/${item.accessorieid}`}>
+                    <EyeIcon className="mr-2 h-4 w-4" />
+                    View Details
+                  </Link>
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/accessories/${item.accessorieid}/edit`}>
+                      <EditIcon className="mr-2 h-4 w-4" />
+                      Edit
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {!isAdmin && accCanRequest && (
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={`/accessories/${item.accessorieid}?action=request`}
+                    >
+                      <CalendarPlusIcon className="mr-2 h-4 w-4" />
+                      Request
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => {
+                      setSelectedAccessory(item);
+                      setIsDeleteModalOpen(true);
+                    }}
+                  >
+                    <DeleteIcon className="mr-2 h-4 w-4" />
+                    Delete Item
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         );
+      }
       default:
         return null;
     }
@@ -345,12 +391,14 @@ export default function AccessoriesTable({
       {/* Header: title + create button */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Accessories</h1>
-        <Button asChild>
-          <Link href="/accessories/create">
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Create
-          </Link>
-        </Button>
+        {isAdmin && (
+          <Button asChild>
+            <Link href="/accessories/create">
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Create
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Search + filters row */}
@@ -462,17 +510,19 @@ export default function AccessoriesTable({
         emptyMessage="No accessories found"
         mobileCardView={true}
         storageKey="columns:accessories"
-        selectable
+        selectable={isAdmin}
         selectedKeys={selectedKeys}
         onSelectionChange={setSelectedKeys}
         bulkActions={
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setShowBulkDelete(true)}
-          >
-            Delete ({selectedKeys.size})
-          </Button>
+          isAdmin ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowBulkDelete(true)}
+            >
+              Delete ({selectedKeys.size})
+            </Button>
+          ) : undefined
         }
       />
       <div className="flex items-center justify-center gap-2">

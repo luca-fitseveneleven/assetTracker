@@ -29,7 +29,8 @@ export default async function Page() {
   let filteredLicences = licencesRaw;
   if (!isAdmin && ctx?.userId) {
     filteredLicences = licencesRaw.filter(
-      (l) => l.licenceduserid === ctx.userId,
+      (l) =>
+        l.licenceduserid === ctx.userId || (l.requestable && !l.licenceduserid),
     );
   }
 

@@ -39,7 +39,7 @@ export default async function Page() {
     getUserAccessoires(),
   ]);
 
-  // Self-service restriction: non-admin users only see accessories assigned to them
+  // Self-service: non-admins see their assigned accessories + all available
   let ctx;
   try {
     ctx = await getOrganizationContext();
@@ -53,8 +53,15 @@ export default async function Page() {
         .filter((ua) => ua.userid === ctx.userId)
         .map((ua) => ua.accessorieid),
     );
-    filteredAccessories = accessoriesRaw.filter((a) =>
-      assignedAccessoryIds.has(a.accessorieid),
+    const availableStatusIds = new Set(
+      statuses
+        .filter((s) => s.statustypename.toLowerCase().includes("available"))
+        .map((s) => s.statustypeid),
+    );
+    filteredAccessories = accessoriesRaw.filter(
+      (a) =>
+        assignedAccessoryIds.has(a.accessorieid) ||
+        (a.statustypeid && availableStatusIds.has(a.statustypeid)),
     );
   }
 

@@ -539,27 +539,33 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
               assetName={asset.assetname}
             />
           </section>
-          <section className="border-default-200 overflow-hidden rounded-lg border p-4">
-            <AssetTransfers
-              assetId={asset.assetid}
-              currentUserId={userByAsset?.userid}
-              currentLocationId={asset.locationid ?? undefined}
-              currentOrgId={asset.organizationId ?? undefined}
-            />
-          </section>
-          <section className="border-default-200 overflow-hidden rounded-lg border p-4 md:col-span-2">
-            <AssetCheckoutHistory
-              assetId={asset.assetid}
-              assetName={asset.assetname}
-            />
-          </section>
+          {isAdmin && (
+            <section className="border-default-200 overflow-hidden rounded-lg border p-4">
+              <AssetTransfers
+                assetId={asset.assetid}
+                currentUserId={userByAsset?.userid}
+                currentLocationId={asset.locationid ?? undefined}
+                currentOrgId={asset.organizationId ?? undefined}
+              />
+            </section>
+          )}
+          {isAdmin && (
+            <section className="border-default-200 overflow-hidden rounded-lg border p-4 md:col-span-2">
+              <AssetCheckoutHistory
+                assetId={asset.assetid}
+                assetName={asset.assetname}
+              />
+            </section>
+          )}
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-          <div className="col-span-1 md:col-span-2">
-            <AssetAttachments assetId={asset.assetid} />
+        {isAdmin && (
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="col-span-1 md:col-span-2">
+              <AssetAttachments assetId={asset.assetid} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-10">
           <h2 className="text-lg font-semibold">Asset History</h2>

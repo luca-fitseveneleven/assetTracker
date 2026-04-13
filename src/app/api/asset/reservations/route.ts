@@ -9,7 +9,7 @@ import {
   notifyReservationDecision,
 } from "@/lib/notifications";
 
-// GET: List reservations, optionally filtered by assetId
+// GET: List reservations, optionally filtered by assetId and/or status
 export async function GET(req: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
@@ -18,10 +18,14 @@ export async function GET(req: NextRequest) {
     }
 
     const assetId = req.nextUrl.searchParams.get("assetId");
+    const status = req.nextUrl.searchParams.get("status");
 
-    const where: { assetId?: string } = {};
+    const where: { assetId?: string; status?: string } = {};
     if (assetId) {
       where.assetId = assetId;
+    }
+    if (status) {
+      where.status = status;
     }
 
     const reservations = await prisma.assetReservation.findMany({
@@ -259,6 +263,54 @@ export async function PUT(req: NextRequest) {
         },
       },
     });
+
+    // Auto-assign the asset to the requesting user on approval
+    if (status === "approved") {
+      try {
+        const existingAssignment = await prisma.userAssets.findFirst({
+          where: { assetid: reservation.asset.assetid },
+        });
+
+        if (!existingAssignment) {
+          await prisma.userAssets.create({
+            data: {
+              assetid: reservation.asset.assetid,
+              userid: reservation.user.userid,
+              creation_date: new Date(),
+            },
+          });
+
+          // Update asset status to "Active"
+          const activeStatus = await prisma.statusType.findFirst({
+            where: { statustypename: "Active" },
+          });
+
+          if (activeStatus) {
+            await prisma.asset.update({
+              where: { assetid: reservation.asset.assetid },
+              data: { statustypeid: activeStatus.statustypeid },
+            });
+          }
+
+          logger.info("Auto-assigned asset to user on reservation approval", {
+            assetId: reservation.asset.assetid,
+            userId: reservation.user.userid,
+          });
+        } else {
+          logger.info("Skipped auto-assign: asset already assigned to a user", {
+            assetId: reservation.asset.assetid,
+            existingAssignmentId: existingAssignment.userassetsid,
+          });
+        }
+      } catch (assignError) {
+        logger.error("Failed to auto-assign asset on reservation approval", {
+          error: assignError,
+          assetId: reservation.asset.assetid,
+          userId: reservation.user.userid,
+        });
+        // Don't fail the whole request -- the reservation was already approved
+      }
+    }
 
     // Notify the requester about approval/rejection (fire-and-forget)
     if (status === "approved" || status === "rejected") {

@@ -24,7 +24,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, CheckCircle, XCircle, ClipboardList } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle,
+  XCircle,
+  ClipboardList,
+  CalendarClock,
+} from "lucide-react";
 
 interface ApprovalUser {
   userid: string;
@@ -48,6 +54,34 @@ interface ApprovalRequest {
   approver: ApprovalUser | null;
 }
 
+interface ReservationAsset {
+  assetid: string;
+  assetname: string;
+  assettag: string;
+}
+
+interface ReservationUser {
+  userid: string;
+  firstname: string;
+  lastname: string;
+}
+
+interface Reservation {
+  id: string;
+  assetId: string;
+  userId: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  notes: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  asset: ReservationAsset;
+  user: ReservationUser;
+}
+
 interface ApprovalsPageClientProps {
   isAdmin: boolean;
 }
@@ -57,7 +91,9 @@ export default function ApprovalsPageClient({
 }: ApprovalsPageClientProps) {
   const { data: session } = useSession();
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingReservations, setIsLoadingReservations] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogAction, setDialogAction] = useState<"approve" | "reject">(
@@ -65,8 +101,16 @@ export default function ApprovalsPageClient({
   );
   const [selectedApproval, setSelectedApproval] =
     useState<ApprovalRequest | null>(null);
+  const [selectedReservation, setSelectedReservation] =
+    useState<Reservation | null>(null);
+  const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
+  const [reservationDialogAction, setReservationDialogAction] = useState<
+    "approve" | "reject"
+  >("approve");
   const [actionNotes, setActionNotes] = useState("");
+  const [reservationActionNotes, setReservationActionNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingReservation, setIsSubmittingReservation] = useState(false);
 
   const user = session?.user as SessionUser | undefined;
   const userIsAdmin = user?.isadmin || isAdmin;
@@ -95,9 +139,36 @@ export default function ApprovalsPageClient({
     }
   }, []);
 
+  const fetchReservations = useCallback(async (status?: string) => {
+    setIsLoadingReservations(true);
+    try {
+      const params = new URLSearchParams();
+      if (status && status !== "all") {
+        params.set("status", status);
+      }
+      const response = await fetch(
+        `/api/asset/reservations?${params.toString()}`,
+      );
+      if (!response.ok) {
+        const data = await response.json();
+        toast.error(data.error || "Failed to fetch reservations");
+        setReservations([]);
+        return;
+      }
+      const data = await response.json();
+      setReservations(data);
+    } catch {
+      toast.error("Failed to connect to the server");
+      setReservations([]);
+    } finally {
+      setIsLoadingReservations(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchApprovals(activeTab);
-  }, [fetchApprovals, activeTab]);
+    fetchReservations(activeTab);
+  }, [fetchApprovals, fetchReservations, activeTab]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -148,6 +219,56 @@ export default function ApprovalsPageClient({
     }
   };
 
+  const openReservationConfirmDialog = (
+    reservation: Reservation,
+    action: "approve" | "reject",
+  ) => {
+    setSelectedReservation(reservation);
+    setReservationDialogAction(action);
+    setReservationActionNotes("");
+    setReservationDialogOpen(true);
+  };
+
+  const handleConfirmReservationAction = async () => {
+    if (!selectedReservation) return;
+
+    setIsSubmittingReservation(true);
+    try {
+      const newStatus =
+        reservationDialogAction === "approve" ? "approved" : "rejected";
+      const response = await fetch("/api/asset/reservations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedReservation.id,
+          status: newStatus,
+          notes: reservationActionNotes || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        toast.error(
+          data.error || `Failed to ${reservationDialogAction} reservation`,
+        );
+        return;
+      }
+
+      toast.success(
+        reservationDialogAction === "approve"
+          ? "Reservation approved and asset assigned"
+          : "Reservation rejected",
+      );
+
+      setReservationDialogOpen(false);
+      fetchReservations(activeTab);
+    } catch {
+      toast.error(`Failed to ${reservationDialogAction} reservation`);
+    } finally {
+      setIsSubmittingReservation(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
@@ -166,6 +287,12 @@ export default function ApprovalsPageClient({
         return (
           <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
             Rejected
+          </Badge>
+        );
+      case "cancelled":
+        return (
+          <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
+            Cancelled
           </Badge>
         );
       default:
@@ -292,6 +419,109 @@ export default function ApprovalsPageClient({
         </TabsContent>
       </Tabs>
 
+      {/* Reservations Section */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-xl font-semibold">
+            <CalendarClock className="h-5 w-5" />
+            Asset Reservations
+          </h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Review and manage asset reservation requests
+          </p>
+        </div>
+
+        {isLoadingReservations ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+          </div>
+        ) : reservations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <CalendarClock className="text-muted-foreground mb-4 h-12 w-12" />
+            <h3 className="text-lg font-medium">No reservations found</h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {activeTab === "all"
+                ? "There are no asset reservations yet"
+                : `There are no ${activeTab} reservations`}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Asset Name</TableHead>
+                  <TableHead>Asset Tag</TableHead>
+                  <TableHead>Requester</TableHead>
+                  <TableHead>Dates</TableHead>
+                  <TableHead>Notes</TableHead>
+                  <TableHead>Status</TableHead>
+                  {userIsAdmin && <TableHead>Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {reservations.map((reservation) => (
+                  <TableRow key={reservation.id}>
+                    <TableCell className="font-medium">
+                      {reservation.asset.assetname}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {reservation.asset.assettag}
+                    </TableCell>
+                    <TableCell>
+                      {reservation.user.firstname} {reservation.user.lastname}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {new Date(reservation.startDate).toLocaleDateString()} -{" "}
+                      {new Date(reservation.endDate).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      {reservation.notes || "-"}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(reservation.status)}</TableCell>
+                    {userIsAdmin && (
+                      <TableCell>
+                        {reservation.status === "pending" && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() =>
+                                openReservationConfirmDialog(
+                                  reservation,
+                                  "approve",
+                                )
+                              }
+                            >
+                              <CheckCircle className="mr-1 h-4 w-4" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() =>
+                                openReservationConfirmDialog(
+                                  reservation,
+                                  "reject",
+                                )
+                              }
+                            >
+                              <XCircle className="mr-1 h-4 w-4" />
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
       {/* Confirmation Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -352,6 +582,82 @@ export default function ApprovalsPageClient({
                 <XCircle className="mr-2 h-4 w-4" />
               )}
               {dialogAction === "approve" ? "Approve" : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reservation Confirmation Dialog */}
+      <Dialog
+        open={reservationDialogOpen}
+        onOpenChange={setReservationDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {reservationDialogAction === "approve"
+                ? "Approve Reservation"
+                : "Reject Reservation"}
+            </DialogTitle>
+            <DialogDescription>
+              {reservationDialogAction === "approve"
+                ? "Are you sure you want to approve this reservation? The asset will be automatically assigned to the requester."
+                : "Are you sure you want to reject this reservation?"}
+              {selectedReservation && (
+                <span className="mt-2 block">
+                  <strong>Asset:</strong> {selectedReservation.asset.assetname}{" "}
+                  ({selectedReservation.asset.assettag}){" | "}
+                  <strong>Requester:</strong>{" "}
+                  {selectedReservation.user.firstname}{" "}
+                  {selectedReservation.user.lastname}
+                  {" | "}
+                  <strong>Dates:</strong>{" "}
+                  {new Date(selectedReservation.startDate).toLocaleDateString()}{" "}
+                  - {new Date(selectedReservation.endDate).toLocaleDateString()}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="reservation-action-notes">Notes (optional)</Label>
+            <Textarea
+              id="reservation-action-notes"
+              placeholder="Add any notes about this decision..."
+              value={reservationActionNotes}
+              onChange={(e) => setReservationActionNotes(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReservationDialogOpen(false)}
+              disabled={isSubmittingReservation}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={
+                reservationDialogAction === "approve"
+                  ? "default"
+                  : "destructive"
+              }
+              className={
+                reservationDialogAction === "approve"
+                  ? "bg-green-600 hover:bg-green-700"
+                  : ""
+              }
+              onClick={handleConfirmReservationAction}
+              disabled={isSubmittingReservation}
+            >
+              {isSubmittingReservation ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : reservationDialogAction === "approve" ? (
+                <CheckCircle className="mr-2 h-4 w-4" />
+              ) : (
+                <XCircle className="mr-2 h-4 w-4" />
+              )}
+              {reservationDialogAction === "approve" ? "Approve" : "Reject"}
             </Button>
           </DialogFooter>
         </DialogContent>

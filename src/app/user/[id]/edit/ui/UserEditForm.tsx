@@ -1,19 +1,34 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 
 export default function UserEditForm({
   initial,
   isAdmin = false,
+  initialRoles = [],
+  initialUserRoles = [],
+  initialDepartments = [],
 }: {
   initial: any;
   isAdmin?: boolean;
+  initialRoles?: Array<{ id: string; name: string }>;
+  initialUserRoles?: Array<{ id: string; name: string }>;
+  initialDepartments?: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -29,9 +44,59 @@ export default function UserEditForm({
     lan: initial.lan ?? "",
     isadmin: Boolean(initial.isadmin),
     canrequest: Boolean(initial.canrequest),
+    departmentId: initial.departmentId ?? "",
     password: "",
   });
   const [isDirty, setIsDirty] = useState(false);
+  const [allRoles, setAllRoles] = useState(initialRoles);
+  const [userRoles, setUserRoles] = useState(initialUserRoles);
+  const departments = initialDepartments;
+
+  const refreshRoles = useCallback(async () => {
+    try {
+      const [rolesRes, userRolesRes] = await Promise.all([
+        fetch("/api/roles"),
+        fetch(`/api/admin/users/${initial.userid}/roles`),
+      ]);
+      if (rolesRes.ok) setAllRoles(await rolesRes.json());
+      if (userRolesRes.ok) setUserRoles(await userRolesRes.json());
+    } catch {}
+  }, [initial.userid]);
+
+  const assignRole = async (roleId: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${initial.userid}/roles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roleId }),
+      });
+      if (res.ok) {
+        toast.success("Role assigned");
+        refreshRoles();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || "Failed to assign role");
+      }
+    } catch {
+      toast.error("Failed to assign role");
+    }
+  };
+
+  const removeRole = async (roleId: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${initial.userid}/roles`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roleId }),
+      });
+      if (res.ok) {
+        toast.success("Role removed");
+        refreshRoles();
+      }
+    } catch {
+      toast.error("Failed to remove role");
+    }
+  };
   const initialSnapshot = useMemo(
     () =>
       JSON.stringify({
@@ -42,6 +107,7 @@ export default function UserEditForm({
         lan: initial.lan ?? "",
         isadmin: Boolean(initial.isadmin),
         canrequest: Boolean(initial.canrequest),
+        departmentId: initial.departmentId ?? "",
         password: "",
       }),
     [initial],
@@ -111,11 +177,15 @@ export default function UserEditForm({
     setSaving(true);
     setError("");
     try {
-      const body = { ...form };
+      const body: Record<string, unknown> = { ...form };
       if (!body.password) delete body.password;
       if (!isAdmin) {
         delete body.isadmin;
         delete body.canrequest;
+        delete body.departmentId;
+      } else {
+        // Convert empty string to null for optional UUID field
+        if (body.departmentId === "") body.departmentId = null;
       }
       const res = await fetch("/api/user", {
         method: "PUT",
@@ -355,6 +425,85 @@ export default function UserEditForm({
                     />
                     <Label htmlFor="canrequest">Can Request</Label>
                   </div>
+                </div>
+
+                <Separator className="my-3" />
+
+                <div>
+                  <Label className="mb-2 block">Roles</Label>
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {userRoles.length === 0 ? (
+                      <p className="text-muted-foreground text-xs">
+                        No roles — default view permissions apply
+                      </p>
+                    ) : (
+                      userRoles.map((role) => (
+                        <Badge
+                          key={role.id}
+                          variant="secondary"
+                          className="gap-1 pr-1"
+                        >
+                          {role.name}
+                          <button
+                            type="button"
+                            onClick={() => removeRole(role.id)}
+                            className="hover:bg-muted rounded-full p-0.5"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                  {allRoles.filter(
+                    (r) => !userRoles.some((ur) => ur.id === r.id),
+                  ).length > 0 && (
+                    <Select onValueChange={assignRole}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Assign role…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allRoles
+                          .filter(
+                            (r) => !userRoles.some((ur) => ur.id === r.id),
+                          )
+                          .map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <Separator className="my-3" />
+
+                <div>
+                  <Label htmlFor="departmentId" className="mb-2 block">
+                    Department
+                  </Label>
+                  <Select
+                    value={form.departmentId || "none"}
+                    onValueChange={(v) =>
+                      setForm((f) => ({
+                        ...f,
+                        departmentId: v === "none" ? "" : v,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="departmentId" className="h-8 text-xs">
+                      <SelectValue placeholder="Select department…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No department</SelectItem>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </section>

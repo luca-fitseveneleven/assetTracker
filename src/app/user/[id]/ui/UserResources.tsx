@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -119,41 +119,46 @@ export default function UserResources({
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const refreshData = async (auto = false) => {
-    try {
-      setIsRefreshing(true);
-      const [accRowsRes, allAccRes, licRes] = await Promise.all([
-        fetch(`/api/userAccessoires?userId=${encodeURIComponent(user.userid)}`),
-        fetch(`/api/accessories`),
-        fetch(`/api/licence`),
-      ]);
-      if (!accRowsRes.ok || !allAccRes.ok || !licRes.ok)
-        throw new Error("Refresh failed");
-      const [accRows, allAcc, allLic] = await Promise.all([
-        accRowsRes.json(),
-        allAccRes.json(),
-        licRes.json(),
-      ]);
-      const assignedAccIds = new Set(
-        accRows
-          .filter((r) => r.userid === user.userid)
-          .map((r) => r.accessorieid),
-      );
-      const newAccList = allAcc.filter((a) =>
-        assignedAccIds.has(a.accessorieid),
-      );
-      const newLicList = (allLic || []).filter(
-        (l) => l.licenceduserid === user.userid,
-      );
-      setAccList(newAccList);
-      setLicList(newLicList);
-      if (auto) toast("User resources refreshed");
-    } catch (e) {
-      // Silent fail
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+  const refreshData = useCallback(
+    async (auto = false) => {
+      try {
+        setIsRefreshing(true);
+        const [accRowsRes, allAccRes, licRes] = await Promise.all([
+          fetch(
+            `/api/userAccessoires?userId=${encodeURIComponent(user.userid)}`,
+          ),
+          fetch(`/api/accessories`),
+          fetch(`/api/licence`),
+        ]);
+        if (!accRowsRes.ok || !allAccRes.ok || !licRes.ok)
+          throw new Error("Refresh failed");
+        const [accRows, allAcc, allLic] = await Promise.all([
+          accRowsRes.json(),
+          allAccRes.json(),
+          licRes.json(),
+        ]);
+        const assignedAccIds = new Set(
+          accRows
+            .filter((r) => r.userid === user.userid)
+            .map((r) => r.accessorieid),
+        );
+        const newAccList = allAcc.filter((a) =>
+          assignedAccIds.has(a.accessorieid),
+        );
+        const newLicList = (allLic || []).filter(
+          (l) => l.licenceduserid === user.userid,
+        );
+        setAccList(newAccList);
+        setLicList(newLicList);
+        if (auto) toast("User resources refreshed");
+      } catch (e) {
+        // Silent fail
+      } finally {
+        setIsRefreshing(false);
+      }
+    },
+    [user.userid],
+  );
 
   React.useEffect(() => {
     const onFocus = () => refreshData(true);
@@ -166,7 +171,7 @@ export default function UserResources({
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [refreshData]);
 
   return (
     <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">

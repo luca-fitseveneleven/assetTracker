@@ -91,6 +91,7 @@ export const updateUserSchema = z.object({
   isadmin: z.boolean().optional(),
   canrequest: z.boolean().optional(),
   lan: z.string().max(50).optional().nullable(),
+  departmentId: z.string().uuid().optional().nullable(),
 });
 
 // ---------------------------------------------------------------------------
@@ -160,8 +161,8 @@ export const updateAssetSchema = z.object({
 export const createAccessorySchema = z.object({
   accessoriename: z.string().min(1).max(255),
   accessorietag: z.string().min(1).max(50),
-  purchaseprice: z.number().positive().nullable().optional(),
-  purchasedate: z.string().datetime().nullable().optional(),
+  purchaseprice: z.coerce.number().nonnegative().nullable().optional(),
+  purchasedate: z.string().nullable().optional(),
   requestable: z.boolean().nullable().optional(),
   manufacturerid: z.string().uuid(),
   statustypeid: z.string().uuid(),
@@ -181,9 +182,9 @@ export const createLicenseSchema = z.object({
   licencekey: z.string().max(255).nullable().optional(),
   licenceduserid: z.string().uuid().nullable().optional(),
   licensedtoemail: z.string().email().nullable().optional(),
-  purchaseprice: z.number().positive().nullable().optional(),
-  purchasedate: z.string().datetime().nullable().optional(),
-  expirationdate: z.string().datetime().nullable().optional(),
+  purchaseprice: z.coerce.number().nonnegative().nullable().optional(),
+  purchasedate: z.string().nullable().optional(),
+  expirationdate: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   requestable: z.boolean().nullable().optional(),
   licencecategorytypeid: z.string().uuid(),
@@ -202,8 +203,8 @@ export const createConsumableSchema = z.object({
   consumablecategorytypeid: z.string().uuid(),
   manufacturerid: z.string().uuid(),
   supplierid: z.string().uuid(),
-  purchaseprice: z.number().positive().nullable().optional(),
-  purchasedate: z.string().datetime().nullable().optional(),
+  purchaseprice: z.coerce.number().nonnegative().nullable().optional(),
+  purchasedate: z.string().nullable().optional(),
   minQuantity: z.number().int().nonnegative().nullable().optional(),
   quantity: z.number().int().nonnegative().nullable().optional(),
 });

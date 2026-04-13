@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/api-auth";
 import { getStripe } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
+import { getBaseUrl } from "@/lib/url";
 import { logger } from "@/lib/logger";
 
 export async function POST() {
@@ -25,7 +26,7 @@ export async function POST() {
 
     const session = await getStripe().billingPortal.sessions.create({
       customer: org.stripeCustomerId,
-      return_url: `${process.env.NEXTAUTH_URL}/admin/settings`,
+      return_url: `${getBaseUrl()}/admin/settings`,
     });
 
     return NextResponse.json({ url: session.url });

@@ -15,7 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *   user is typing.
  */
 export function useUrlState<T extends Record<string, string>>(
-  defaults: T
+  defaults: T,
 ): [T, (updates: Partial<T>) => void] {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -41,23 +41,25 @@ export function useUrlState<T extends Record<string, string>>(
     const currentParams = searchParams.toString();
     if (currentParams !== prevParamsRef.current) {
       prevParamsRef.current = currentParams;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing state from external URL params
       setState(buildStateFromParams());
     }
   }, [searchParams, buildStateFromParams]);
 
   // Debounce timer ref for URL updates.
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Keep a ref to the latest state so the debounced callback always sees it.
+  // Keep refs to the latest values so the debounced callback always sees them.
   const stateRef = useRef(state);
-  stateRef.current = state;
-
-  // Refs for stable values inside the debounced flush.
   const pathnameRef = useRef(pathname);
-  pathnameRef.current = pathname;
   const defaultsRef = useRef(defaults);
-  defaultsRef.current = defaults;
   const routerRef = useRef(router);
-  routerRef.current = router;
+
+  useEffect(() => {
+    stateRef.current = state;
+    pathnameRef.current = pathname;
+    defaultsRef.current = defaults;
+    routerRef.current = router;
+  });
 
   const flushToUrl = useCallback(() => {
     const params = new URLSearchParams();
@@ -94,7 +96,7 @@ export function useUrlState<T extends Record<string, string>>(
         flushToUrl();
       }, 300);
     },
-    [flushToUrl]
+    [flushToUrl],
   );
 
   // Clean up pending timer on unmount.

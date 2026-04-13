@@ -23,12 +23,13 @@ import {
   ChevronDown as LucideChevronDown,
   MoreVertical as LucideMoreVertical,
   Scale as LucideScale,
+  CalendarPlus as LucideCalendarPlus,
   LucideProps,
 } from "lucide-react";
 
 const DEFAULT_COLOR = "currentColor";
 
-interface IconProps extends Omit<LucideProps, 'ref'> {
+interface IconProps extends Omit<LucideProps, "ref"> {
   fill?: string;
   color?: string;
 }
@@ -57,7 +58,12 @@ export const Status = withDefaultIconColor(LucideBadgeCheck);
 
 export const ChevronDown = withDefaultIconColor(LucideChevronDown);
 
-export const ChevronDownIcon = ({ strokeWidth = 1.5, fill, color, ...props }: IconProps & { strokeWidth?: number }) => (
+export const ChevronDownIcon = ({
+  strokeWidth = 1.5,
+  fill,
+  color,
+  ...props
+}: IconProps & { strokeWidth?: number }) => (
   <LucideChevronDown
     strokeWidth={strokeWidth}
     color={color ?? fill ?? DEFAULT_COLOR}
@@ -94,3 +100,5 @@ export const QrCode = withDefaultIconColor(LucideQrCode);
 export const MoreVertical = withDefaultIconColor(LucideMoreVertical);
 
 export const Label = withDefaultIconColor(LucideTag);
+
+export const CalendarPlusIcon = withDefaultIconColor(LucideCalendarPlus);

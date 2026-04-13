@@ -255,61 +255,63 @@ const Sidebar = ({ initialCollapsed = false }) => {
           })}
         </div>
 
-        {/* ─── Quick create dropdown ─── */}
-        <div className="px-3 pb-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="sm"
-                className={cn("w-full", collapsed && "w-10 p-0")}
-              >
-                <SidebarPlusIcon
-                  className={collapsed ? "h-4 w-4" : "mr-2 h-4 w-4"}
-                />
-                {!collapsed && "Quick Create"}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" side="top" className="w-48">
-              <DropdownMenuItem asChild>
-                <Link href="/assets/create">
-                  <Boxes className="mr-2 h-4 w-4" />
-                  New Asset
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/accessories/create">
-                  <Puzzle className="mr-2 h-4 w-4" />
-                  New Accessory
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/consumables/create">
-                  <ClipboardList className="mr-2 h-4 w-4" />
-                  New Consumable
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/licences/create">
-                  <BadgeCheck className="mr-2 h-4 w-4" />
-                  New Licence
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/user/create">
-                  <User className="mr-2 h-4 w-4" />
-                  New User
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/locations/create">
-                  <MapPin className="mr-2 h-4 w-4" />
-                  New Location
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {/* ─── Quick create dropdown (admin only) ─── */}
+        {isAdmin && (
+          <div className="px-3 pb-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  className={cn("w-full", collapsed && "w-10 p-0")}
+                >
+                  <SidebarPlusIcon
+                    className={collapsed ? "h-4 w-4" : "mr-2 h-4 w-4"}
+                  />
+                  {!collapsed && "Quick Create"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href="/assets/create">
+                    <Boxes className="mr-2 h-4 w-4" />
+                    New Asset
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/accessories/create">
+                    <Puzzle className="mr-2 h-4 w-4" />
+                    New Accessory
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/consumables/create">
+                    <ClipboardList className="mr-2 h-4 w-4" />
+                    New Consumable
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/licences/create">
+                    <BadgeCheck className="mr-2 h-4 w-4" />
+                    New Licence
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/user/create">
+                    <User className="mr-2 h-4 w-4" />
+                    New User
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/locations/create">
+                    <MapPin className="mr-2 h-4 w-4" />
+                    New Location
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
 
         <Separator className="mx-3 w-auto" />
 

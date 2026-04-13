@@ -99,10 +99,22 @@ export async function POST(req: NextRequest) {
     }
 
     const { statustypename } = validationResult.data;
+    const color = body.color || null;
+    const isDefault = body.isDefault ?? false;
+
+    // If setting as default, unset others
+    if (isDefault) {
+      await prisma.statusType.updateMany({
+        where: { isDefault: true },
+        data: { isDefault: false },
+      });
+    }
 
     const created = await prisma.statusType.create({
       data: {
         statustypename,
+        color,
+        isDefault,
       },
     });
 
@@ -169,11 +181,23 @@ export async function PUT(req: NextRequest) {
     }
 
     const { statustypeid, statustypename } = body;
+    const color = body.color ?? undefined;
+    const isDefault = body.isDefault ?? undefined;
+
+    // If setting as default, unset others
+    if (isDefault) {
+      await prisma.statusType.updateMany({
+        where: { isDefault: true, statustypeid: { not: statustypeid } },
+        data: { isDefault: false },
+      });
+    }
 
     const updated = await prisma.statusType.update({
       where: { statustypeid },
       data: {
         statustypename,
+        ...(color !== undefined ? { color } : {}),
+        ...(isDefault !== undefined ? { isDefault } : {}),
       },
     });
 

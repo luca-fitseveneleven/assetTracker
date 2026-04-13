@@ -177,7 +177,7 @@ export default function AssetCreateForm({
         setForm((f) => ({ ...f, statustypeid: available.id }));
       }
     }
-  }, [statusOptions]);
+  }, [statusOptions, form.statustypeid]);
 
   const onChange = (e) => {
     const { name, value } = e.target;

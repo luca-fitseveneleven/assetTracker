@@ -10,7 +10,10 @@ export default function PageTransition({ children }: PageTransitionProps) {
   const pathname = usePathname();
 
   return (
-    <div key={pathname} className="animate-in fade-in-0 duration-200">
+    <div
+      key={pathname}
+      className="animate-in fade-in fill-mode-both duration-100"
+    >
       {children}
     </div>
   );

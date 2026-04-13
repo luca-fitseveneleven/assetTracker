@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,10 +76,6 @@ export default function SuppliersTable({ items }) {
     );
     return Array.from(unique).sort((a, b) => b - a);
   }, [suppliersData]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchValue, contactFilter, yearFilter, rowsPerPage]);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchValue.trim().toLowerCase();
@@ -236,11 +232,20 @@ export default function SuppliersTable({ items }) {
               className="pl-9"
               placeholder="Search suppliers and contacts"
               value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
+              onChange={(e) => {
+                setSearchValue(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
           <div className="flex flex-wrap gap-3">
-            <Select value={contactFilter} onValueChange={setContactFilter}>
+            <Select
+              value={contactFilter}
+              onValueChange={(v) => {
+                setContactFilter(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Contact" />
               </SelectTrigger>
@@ -252,7 +257,13 @@ export default function SuppliersTable({ items }) {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={yearFilter} onValueChange={setYearFilter}>
+            <Select
+              value={yearFilter}
+              onValueChange={(v) => {
+                setYearFilter(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Created" />
               </SelectTrigger>
@@ -279,7 +290,10 @@ export default function SuppliersTable({ items }) {
           </span>
           <Select
             value={String(rowsPerPage)}
-            onValueChange={(value) => setRowsPerPage(Number(value))}
+            onValueChange={(value) => {
+              setRowsPerPage(Number(value));
+              setPage(1);
+            }}
           >
             <SelectTrigger className="w-24">
               <SelectValue />

@@ -17,7 +17,12 @@ export default async function ReservationsPage() {
     redirect("/login");
   }
 
+  // Self-service restriction: non-admins only see their own reservations
+  const isAdmin = session.user.isadmin;
+  const whereClause = isAdmin ? {} : { userId: session.user.id };
+
   const reservations = await prisma.assetReservation.findMany({
+    where: whereClause,
     include: {
       asset: {
         select: { assetid: true, assetname: true, assettag: true },

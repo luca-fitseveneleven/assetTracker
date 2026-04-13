@@ -23,12 +23,14 @@ import {
   getMethodDisplayName,
   type DepreciationMethod,
 } from "@/lib/depreciation";
+import { getOrganizationContext } from "@/lib/organization-context";
 import AssetDetailHeader from "./ui/AssetDetailHeader";
 import AssetAttachments from "@/components/AssetAttachments";
 import AssetLifecycle from "./ui/AssetLifecycle";
 import AssetReservations from "./ui/AssetReservations";
 import AssetTransfers from "./ui/AssetTransfers";
 import AssetCheckoutHistory from "./ui/AssetCheckoutHistory";
+import { CustomFieldValue } from "@/components/CustomFieldValue";
 
 export const metadata = {
   title: "Asset Tracker - Asset Details",
@@ -57,6 +59,11 @@ function booleanPill(val) {
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
+  let isAdmin = true;
+  try {
+    const ctx = await getOrganizationContext();
+    isAdmin = ctx?.isAdmin ?? true;
+  } catch {}
   // First: fetch the asset (needed by subsequent queries)
   let assetRaw;
   try {
@@ -210,6 +217,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
           statuses={status}
           users={users}
           userAssets={userAssets}
+          isAdmin={isAdmin}
         />
         <Separator className="my-4" />
 
@@ -377,59 +385,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
               </h2>
               <dl className="grid grid-cols-1 gap-2 text-sm">
                 {customFields.map((cf) => (
-                  <div key={cf.name} className="flex justify-between">
-                    <dt className="text-foreground-500">{cf.name}</dt>
-                    <dd className="font-medium">
-                      {(() => {
-                        if (!cf.value) return "-";
-                        switch (cf.fieldType) {
-                          case "checkbox":
-                            return cf.value === "true" ? "Yes" : "No";
-                          case "url":
-                            return (
-                              <a
-                                href={cf.value}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary underline underline-offset-2"
-                              >
-                                {cf.value
-                                  .replace(/^https?:\/\//, "")
-                                  .slice(0, 30)}
-                              </a>
-                            );
-                          case "email":
-                            return (
-                              <a
-                                href={`mailto:${cf.value}`}
-                                className="text-primary underline underline-offset-2"
-                              >
-                                {cf.value}
-                              </a>
-                            );
-                          case "currency":
-                            return `$${Number(cf.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                          case "color":
-                            return (
-                              <span className="inline-flex items-center gap-1.5">
-                                <span
-                                  className="inline-block h-4 w-4 rounded border"
-                                  style={{ backgroundColor: cf.value }}
-                                />
-                                {cf.value}
-                              </span>
-                            );
-                          case "multiselect":
-                            return cf.value
-                              .split(",")
-                              .map((v) => v.trim())
-                              .join(", ");
-                          default:
-                            return cf.value;
-                        }
-                      })()}
-                    </dd>
-                  </div>
+                  <CustomFieldValue
+                    key={cf.name}
+                    name={cf.name}
+                    fieldType={cf.fieldType}
+                    value={cf.value}
+                  />
                 ))}
               </dl>
             </section>
@@ -566,6 +527,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
               currentStatus={statusName}
               isAssigned={!!assignedUser}
               statuses={status}
+              isAdmin={isAdmin}
             />
           </section>
         </div>
@@ -577,27 +539,33 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
               assetName={asset.assetname}
             />
           </section>
-          <section className="border-default-200 overflow-hidden rounded-lg border p-4">
-            <AssetTransfers
-              assetId={asset.assetid}
-              currentUserId={userByAsset?.userid}
-              currentLocationId={asset.locationid ?? undefined}
-              currentOrgId={asset.organizationId ?? undefined}
-            />
-          </section>
-          <section className="border-default-200 overflow-hidden rounded-lg border p-4 md:col-span-2">
-            <AssetCheckoutHistory
-              assetId={asset.assetid}
-              assetName={asset.assetname}
-            />
-          </section>
+          {isAdmin && (
+            <section className="border-default-200 overflow-hidden rounded-lg border p-4">
+              <AssetTransfers
+                assetId={asset.assetid}
+                currentUserId={userByAsset?.userid}
+                currentLocationId={asset.locationid ?? undefined}
+                currentOrgId={asset.organizationId ?? undefined}
+              />
+            </section>
+          )}
+          {isAdmin && (
+            <section className="border-default-200 overflow-hidden rounded-lg border p-4 md:col-span-2">
+              <AssetCheckoutHistory
+                assetId={asset.assetid}
+                assetName={asset.assetname}
+              />
+            </section>
+          )}
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-          <div className="col-span-1 md:col-span-2">
-            <AssetAttachments assetId={asset.assetid} />
+        {isAdmin && (
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="col-span-1 md:col-span-2">
+              <AssetAttachments assetId={asset.assetid} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-10">
           <h2 className="text-lg font-semibold">Asset History</h2>

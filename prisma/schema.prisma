@@ -779,6 +779,8 @@ model sessions {
 model statusType {
   statustypeid       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   statustypename     String               @db.VarChar
+  color              String?              @db.VarChar(7)
+  isDefault          Boolean              @default(false)
   accessories        accessories[]
   asset              asset[]
   transitionsFrom    status_transitions[] @relation("from_status")

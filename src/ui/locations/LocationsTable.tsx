@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,10 +80,6 @@ export default function LocationsTable({ items }) {
     );
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
   }, [locationsData]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchValue, countryFilter, rowsPerPage]);
 
   // Build parent → children map
   const childrenMap = useMemo(() => {
@@ -271,10 +267,19 @@ export default function LocationsTable({ items }) {
             className="pl-9"
             placeholder="Search by name or address details"
             value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
+            onChange={(e) => {
+              setSearchValue(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
-        <Select value={countryFilter} onValueChange={setCountryFilter}>
+        <Select
+          value={countryFilter}
+          onValueChange={(v) => {
+            setCountryFilter(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="h-9 w-[160px]">
             <SelectValue placeholder="Country" />
           </SelectTrigger>
@@ -296,7 +301,10 @@ export default function LocationsTable({ items }) {
         </span>
         <Select
           value={String(rowsPerPage)}
-          onValueChange={(value) => setRowsPerPage(Number(value))}
+          onValueChange={(value) => {
+            setRowsPerPage(Number(value));
+            setPage(1);
+          }}
         >
           <SelectTrigger className="h-9 w-20">
             <SelectValue />

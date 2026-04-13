@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -82,12 +82,11 @@ export default function App({
 }) {
   const [filterValue, setFilterValue] = useState("");
   const [selectedKeys, setSelectedKeys] = useState(new Set([]));
-  const [deleteButtonActive, setDeleteButtonActive] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    new Set(INITIAL_VISIBLE_COLUMNS)
+    new Set(INITIAL_VISIBLE_COLUMNS),
   );
   const [statusFilter, setStatusFilter] = useState<Set<string>>(
-    new Set(statusOptions.map(s => s.uid))
+    new Set(statusOptions.map((s) => s.uid)),
   );
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [sortDescriptor, setSortDescriptor] = useState({
@@ -97,20 +96,13 @@ export default function App({
   const [page, setPage] = useState(1);
 
   const hasSearchFilter = Boolean(filterValue);
-
-  useEffect(() => {
-    if (selectedKeys.size > 0) {
-      setDeleteButtonActive(true);
-    } else {
-      setDeleteButtonActive(false);
-    }
-  }, [selectedKeys]);
+  const deleteButtonActive = selectedKeys.size > 0;
 
   const headerColumns = useMemo(() => {
     if (visibleColumns.size === columns?.length) return columns;
 
     return columns?.filter((column) =>
-      Array.from(visibleColumns).includes(column.uid)
+      Array.from(visibleColumns).includes(column.uid),
     );
   }, [visibleColumns, columns]);
 
@@ -122,14 +114,14 @@ export default function App({
         (data) =>
           data.assetname.toLowerCase().includes(filterValue.toLowerCase()) ||
           data.assettag.toLowerCase().includes(filterValue.toLowerCase()) ||
-          data.serialnumber.toLowerCase().includes(filterValue.toLowerCase())
+          data.serialnumber.toLowerCase().includes(filterValue.toLowerCase()),
       );
     }
     if (statusFilter.size !== statusOptions.length) {
       filteredAssets = filteredAssets.filter((asset) => {
         // Assuming 'statustypename' is the field that contains the status name in the 'status' array
         const assetStatus = status.find(
-          (stat) => stat.statustypeid === asset.statustypeid
+          (stat) => stat.statustypeid === asset.statustypeid,
         );
         return (
           assetStatus &&
@@ -155,20 +147,20 @@ export default function App({
       switch (sortDescriptor.column) {
         case "locationid":
           const locationA = locations.find(
-            (loc) => loc.locationid === a.locationid
+            (loc) => loc.locationid === a.locationid,
           );
           const locationB = locations.find(
-            (loc) => loc.locationid === b.locationid
+            (loc) => loc.locationid === b.locationid,
           );
           first = locationA ? locationA.locationname : "";
           second = locationB ? locationB.locationname : "";
           break;
         case "manufacturerid":
           const manufacturerA = manufacturers.find(
-            (manu) => manu.manufacturerid === a.manufacturerid
+            (manu) => manu.manufacturerid === a.manufacturerid,
           );
           const manufacturerB = manufacturers.find(
-            (manu) => manu.manufacturerid === b.manufacturerid
+            (manu) => manu.manufacturerid === b.manufacturerid,
           );
           first = manufacturerA ? manufacturerA.manufacturername : "";
           second = manufacturerB ? manufacturerB.manufacturername : "";
@@ -181,20 +173,20 @@ export default function App({
           break;
         case "assetcategorytypeid":
           const categoryA = categories.find(
-            (cat) => cat.assetcategorytypeid === a.assetcategorytypeid
+            (cat) => cat.assetcategorytypeid === a.assetcategorytypeid,
           );
           const categoryB = categories.find(
-            (cat) => cat.assetcategorytypeid === b.assetcategorytypeid
+            (cat) => cat.assetcategorytypeid === b.assetcategorytypeid,
           );
           first = categoryA ? categoryA.assetcategorytypename : "";
           second = categoryB ? categoryB.assetcategorytypename : "";
           break;
         case "statustypeid":
           const statusA = status.find(
-            (st) => st.statustypeid === a.statustypeid
+            (st) => st.statustypeid === a.statustypeid,
           );
           const statusB = status.find(
-            (st) => st.statustypeid === b.statustypeid
+            (st) => st.statustypeid === b.statustypeid,
           );
           first = statusA ? statusA.statustypename : "";
           second = statusB ? statusB.statustypename : "";
@@ -258,14 +250,14 @@ export default function App({
         case "serialnumber":
           return (
             <div className="flex flex-col">
-              <p className="text-bold  text-small capitalize ">
+              <p className="text-bold text-small capitalize">
                 {asset.serialnumber}
               </p>
             </div>
           );
         case "belongsto":
           const userAssetEntry = userAssets.find(
-            (ua) => ua.assetid === asset.assetid
+            (ua) => ua.assetid === asset.assetid,
           );
           if (!userAssetEntry) {
             return (
@@ -275,7 +267,7 @@ export default function App({
             );
           }
           const belongingUser = user.find(
-            (user) => user.userid === userAssetEntry.userid
+            (user) => user.userid === userAssetEntry.userid,
           );
           const userName = belongingUser
             ? belongingUser.firstname + " " + belongingUser.lastname
@@ -288,7 +280,7 @@ export default function App({
           );
         case "manufacturerid":
           const manu = manufacturers.find(
-            (manu) => manu.manufacturerid === asset.manufacturerid
+            (manu) => manu.manufacturerid === asset.manufacturerid,
           );
           return (
             <div className="flex flex-col">
@@ -322,16 +314,19 @@ export default function App({
           );
         case "statustypeid":
           const stat = status.find(
-            (stat) => stat.statustypeid === asset.statustypeid
+            (stat) => stat.statustypeid === asset.statustypeid,
           );
           return (
-            <Badge className="capitalize" variant={statusColorMap[stat.statustypename]}>
+            <Badge
+              className="capitalize"
+              variant={statusColorMap[stat.statustypename]}
+            >
               {stat ? stat.statustypename : "Unknown"}
             </Badge>
           );
         case "assetcategorytypeid":
           const cat = categories.find(
-            (cat) => cat.assetcategorytypeid === asset.assetcategorytypeid
+            (cat) => cat.assetcategorytypeid === asset.assetcategorytypeid,
           );
 
           return (
@@ -352,7 +347,7 @@ export default function App({
         case "locationid":
           // Find the matching location object based on the asset's locationid
           const location = locations.find(
-            (loc) => loc.locationid === asset.locationid
+            (loc) => loc.locationid === asset.locationid,
           );
           return (
             <div className="flex flex-col">
@@ -391,20 +386,20 @@ export default function App({
             // </div>
             <div className="relative flex items-center gap-2">
               <Link href={`assets/${asset.assetid}/`}>
-                <span className="text-lg text-default-400 cursor-pointer active:opacity-50">
+                <span className="text-default-400 cursor-pointer text-lg active:opacity-50">
                   <EyeIcon />
                 </span>
               </Link>
               <Link href={`assets/${asset.assetid}/edit`}>
-                <span className="text-lg text-default-400 cursor-pointer active:opacity-50">
+                <span className="text-default-400 cursor-pointer text-lg active:opacity-50">
                   <EditIcon />
                 </span>
               </Link>
-              <span className="text-lg text-danger cursor-pointer active:opacity-50">
+              <span className="text-danger cursor-pointer text-lg active:opacity-50">
                 <DeleteIcon />
               </span>
               <Link href={`assets/${asset.assetid}/edit`}>
-                <span className="text-lg text-default-400 cursor-pointer active:opacity-50">
+                <span className="text-default-400 cursor-pointer text-lg active:opacity-50">
                   <AssignIcon />
                 </span>
               </Link>
@@ -414,7 +409,7 @@ export default function App({
           return cellValue;
       }
     },
-    [locations, status, manufacturers, models, categories, user, userAssets]
+    [locations, status, manufacturers, models, categories, user, userAssets],
   );
 
   const onNextPage = useCallback(() => {
@@ -470,9 +465,9 @@ export default function App({
 
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex justify-between gap-3 items-end">
+        <div className="flex items-end justify-between gap-3">
           <div className="relative w-full sm:max-w-[44%]">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               className="pl-9"
               placeholder="Search for an Item..."
@@ -555,11 +550,14 @@ export default function App({
             </Button>
           </div>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground text-sm">
             Total: {data.length} Entries
           </span>
-          <Select value={String(rowsPerPage)} onValueChange={onRowsPerPageChange}>
+          <Select
+            value={String(rowsPerPage)}
+            onValueChange={onRowsPerPageChange}
+          >
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Rows per page" />
             </SelectTrigger>
@@ -590,8 +588,9 @@ export default function App({
   const bottomContent = useMemo(() => {
     return (
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-muted-foreground">
-          {selectedKeys.size === filteredItems.length && filteredItems.length > 0
+        <span className="text-muted-foreground text-sm">
+          {selectedKeys.size === filteredItems.length &&
+          filteredItems.length > 0
             ? "All items selected"
             : `${selectedKeys.size} of ${filteredItems.length} selected`}
         </span>
@@ -641,7 +640,10 @@ export default function App({
           <TableBody>
             {sortedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={headerColumns.length} className="text-center">
+                <TableCell
+                  colSpan={headerColumns.length}
+                  className="text-center"
+                >
                   No accessories found
                 </TableCell>
               </TableRow>

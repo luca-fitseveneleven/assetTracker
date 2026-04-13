@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Plus, Trash2, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -212,22 +212,24 @@ export default function AdvancedSearchClient() {
   );
 
   /** All available fields: standard + custom */
-  const allFields: (SearchableField & { isCustom?: boolean })[] = [
-    ...SEARCHABLE_FIELDS[entity],
-    ...customFields.map((cf) => ({
-      key: cf.id,
-      label: `${cf.name} (custom)`,
-      type: customFieldTypeToSearchType(cf.fieldType),
-      isCustom: true,
-    })),
-  ];
+  const allFields = useMemo<(SearchableField & { isCustom?: boolean })[]>(
+    () => [
+      ...SEARCHABLE_FIELDS[entity],
+      ...customFields.map((cf) => ({
+        key: cf.id,
+        label: `${cf.name} (custom)`,
+        type: customFieldTypeToSearchType(cf.fieldType),
+        isCustom: true,
+      })),
+    ],
+    [entity, customFields],
+  );
 
   const getFieldDef = useCallback(
     (fieldKey: string): SearchableField | undefined => {
       return allFields.find((f) => f.key === fieldKey);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entity, customFields],
+    [allFields],
   );
 
   const handleSearch = useCallback(

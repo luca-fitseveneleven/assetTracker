@@ -5,20 +5,36 @@ import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, consumableCheckoutSchema } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 import { logger } from "@/lib/logger";
 
 // GET /api/consumable/checkout?consumableId=...
 export async function GET(req: Request) {
   try {
     await requirePermission("consumable:view");
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const { searchParams } = new URL(req.url);
     const consumableId = searchParams.get("consumableId");
 
-    const where = consumableId ? { consumableId } : {};
+    const baseWhere = consumableId ? { consumableId } : {};
+
+    // Scope checkouts to consumables owned by the user's organization
+    const orgConsumables = await prisma.consumable.findMany({
+      where: scopeToOrganization({}, orgId),
+      select: { consumableid: true },
+    });
+    const orgConsumableIds = new Set(orgConsumables.map((c) => c.consumableid));
 
     const checkouts = await prisma.consumable_checkouts.findMany({
-      where,
+      where: {
+        ...baseWhere,
+        consumableId: { in: Array.from(orgConsumableIds) },
+      },
       orderBy: { checkedOutAt: "desc" },
       include: {
         user: {
@@ -61,10 +77,12 @@ export async function POST(req: Request) {
     if (validated instanceof NextResponse) return validated;
 
     const { consumableId, userId, quantity, notes } = validated;
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
-    // Verify the consumable exists and has sufficient stock
-    const consumable = await prisma.consumable.findUnique({
-      where: { consumableid: consumableId },
+    // Verify the consumable exists, belongs to org, and has sufficient stock
+    const consumable = await prisma.consumable.findFirst({
+      where: scopeToOrganization({ consumableid: consumableId }, orgId),
     });
 
     if (!consumable) {

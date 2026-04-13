@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import Image from "next/image";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Star, X } from "lucide-react";
@@ -70,11 +71,14 @@ export default function AssetPhotoGallery({
             className="border-default-200 hover:border-primary group bg-muted relative aspect-square h-auto cursor-pointer overflow-hidden rounded-lg border p-0 transition-colors"
             onClick={() => openLightbox(index)}
           >
-            <img
+            <Image
               src={`${img.path}?thumb=gallery`}
               alt={img.originalName}
+              width={200}
+              height={200}
               className="h-full w-full object-cover"
               loading="lazy"
+              unoptimized
             />
             {img.isPrimary && (
               <div className="absolute top-1 left-1 rounded-full bg-yellow-500 p-0.5 text-white">
@@ -140,11 +144,15 @@ export default function AssetPhotoGallery({
             )}
 
             {currentImage && (
-              <img
-                src={currentImage.path}
-                alt={currentImage.originalName}
-                className="max-h-full max-w-full object-contain"
-              />
+              <div className="relative h-full w-full">
+                <Image
+                  src={currentImage.path}
+                  alt={currentImage.originalName}
+                  fill
+                  className="object-contain"
+                  unoptimized
+                />
+              </div>
             )}
           </div>
 

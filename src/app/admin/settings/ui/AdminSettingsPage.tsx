@@ -20,6 +20,9 @@ import {
   MapPin,
   Gauge,
   GitBranch,
+  FileKey,
+  ScrollText,
+  LayoutTemplate,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,6 +52,9 @@ import IntegrationsTab from "./IntegrationsTab";
 import LocationTrackingTab from "./LocationTrackingTab";
 import RateLimitTab from "./RateLimitTab";
 import StatusWorkflowTab from "./StatusWorkflowTab";
+import ApiKeysTab from "./ApiKeysTab";
+import EulaTab from "./EulaTab";
+import AssetTemplatesTab from "./AssetTemplatesTab";
 
 interface NavItem {
   value: string;
@@ -83,12 +89,19 @@ const settingsNav: NavGroup[] = [
       { value: "depreciation", label: "Depreciation", icon: Calculator },
       { value: "custom-fields", label: "Custom Fields", icon: FileText },
       { value: "status-workflow", label: "Status Workflow", icon: GitBranch },
+      {
+        value: "asset-templates",
+        label: "Asset Templates",
+        icon: LayoutTemplate,
+      },
+      { value: "eula", label: "EULA Templates", icon: ScrollText },
     ],
   },
   {
     title: "Access & Security",
     items: [
       { value: "roles", label: "Roles", icon: Shield },
+      { value: "api-keys", label: "API Keys", icon: FileKey },
       { value: "sso", label: "SSO", icon: KeyRound },
       { value: "ldap", label: "LDAP", icon: Server },
       { value: "locationTracking", label: "Location Tracking", icon: MapPin },
@@ -294,6 +307,9 @@ export default function AdminSettingsPage({
           {activeTab === "status-workflow" && (
             <StatusWorkflowTab statuses={statuses} />
           )}
+          {activeTab === "api-keys" && <ApiKeysTab />}
+          {activeTab === "eula" && <EulaTab />}
+          {activeTab === "asset-templates" && <AssetTemplatesTab />}
         </div>
       </div>
     </div>

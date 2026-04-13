@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { getStripe, PLANS, PlanKey } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
+import { getBaseUrl } from "@/lib/url";
 import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
@@ -50,8 +51,8 @@ export async function POST(req: Request) {
       customer: customerId,
       mode: "subscription",
       line_items: [{ price: PLANS[plan].priceId!, quantity: 1 }],
-      success_url: `${process.env.NEXTAUTH_URL}/dashboard?billing=success`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/dashboard?billing=cancelled`,
+      success_url: `${getBaseUrl()}/dashboard?billing=success`,
+      cancel_url: `${getBaseUrl()}/dashboard?billing=cancelled`,
       metadata: { organizationId: org.id, plan },
     });
 

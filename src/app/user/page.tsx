@@ -1,6 +1,8 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import Breadcrumb from "@/components/Breadcrumb";
 import { getUsers } from "@/lib/data";
+import { getOrganizationContext } from "@/lib/organization-context";
 import UsersTableClient from "./ui/UsersTableClient";
 
 export const metadata = {
@@ -9,6 +11,16 @@ export const metadata = {
 };
 
 export default async function Page() {
+  const ctx = await getOrganizationContext();
+
+  if (!ctx) {
+    redirect("/login");
+  }
+
+  if (!ctx.isAdmin && !ctx.permissions.has("user:view")) {
+    redirect("/dashboard");
+  }
+
   const columnName = [
     { uid: "firstName", name: "First Name", sort: true },
     { uid: "lastName", name: "Last Name" },
@@ -19,7 +31,13 @@ export default async function Page() {
     { uid: "actions", name: "Actions" },
   ];
 
-  const databaseUsers = await getUsers();
+  const allUsers = await getUsers();
+
+  // Scope users to the current organization
+  const orgId = ctx.organization?.id;
+  const databaseUsers = orgId
+    ? allUsers.filter((u) => u.organizationId === orgId)
+    : allUsers;
 
   return (
     <div>

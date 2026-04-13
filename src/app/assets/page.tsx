@@ -76,7 +76,7 @@ export default async function Page() {
         : null,
   }));
 
-  // Self-service restriction: non-admin users only see assets assigned to them
+  // Self-service: non-admins see their assigned assets + all available assets
   let ctx;
   try {
     ctx = await getOrganizationContext();
@@ -90,8 +90,15 @@ export default async function Page() {
         .filter((ua) => ua.userid === ctx.userId)
         .map((ua) => ua.assetid),
     );
-    displayAssets = databaseAssets.filter((a) =>
-      assignedAssetIds.has(a.assetid),
+    const availableStatusIds = new Set(
+      status
+        .filter((s) => s.statustypename.toLowerCase().includes("available"))
+        .map((s) => s.statustypeid),
+    );
+    displayAssets = databaseAssets.filter(
+      (a) =>
+        assignedAssetIds.has(a.assetid) ||
+        (a.statustypeid && availableStatusIds.has(a.statustypeid)),
     );
   }
 
@@ -114,6 +121,8 @@ export default async function Page() {
         columns={columns}
         selectOptions={selectOptions}
         userAssets={userAssets}
+        isAdmin={isAdmin}
+        currentUserId={ctx?.userId ?? null}
       ></AssetsTableClient>
     </div>
   );

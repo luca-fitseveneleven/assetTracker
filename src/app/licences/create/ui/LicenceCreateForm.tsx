@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import SelectWithQuickCreate, {
   type QuickCreateOption,
 } from "@/components/SelectWithQuickCreate";
+import CustomFieldsSection from "@/components/CustomFieldsSection";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 
 export default function LicenceCreateForm({
@@ -55,6 +56,9 @@ export default function LicenceCreateForm({
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [customFieldValues, setCustomFieldValues] = useState<
+    Record<string, string | null>
+  >({});
   const [form, setForm] = useState(() => {
     if (!initialData) {
       return {
@@ -74,7 +78,7 @@ export default function LicenceCreateForm({
 
     return {
       licencekey: initialData.licencekey ?? "",
-      licenceduserid: initialData.licenceduserid ?? "",
+      licenceduserid: initialData.licenceduserid ?? "__none__",
       licensedtoemail: initialData.licensedtoemail ?? "",
       licencecategorytypeid: initialData.licencecategorytypeid ?? "",
       manufacturerid: initialData.manufacturerid ?? "",
@@ -112,7 +116,10 @@ export default function LicenceCreateForm({
     try {
       const payload: Record<string, unknown> = {
         ...form,
-        licenceduserid: form.licenceduserid || null,
+        licenceduserid:
+          form.licenceduserid === "__none__"
+            ? null
+            : form.licenceduserid || null,
         purchasedate: form.purchasedate || null,
         expirationdate: form.expirationdate || null,
         purchaseprice: form.purchaseprice === "" ? null : form.purchaseprice,
@@ -137,6 +144,18 @@ export default function LicenceCreateForm({
       }
 
       const created = await res.json();
+      // Save custom field values
+      if (mode === "create" && Object.keys(customFieldValues).length > 0) {
+        await fetch("/api/custom-fields/values", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            entityId: created.licenceid,
+            entityType: "licence",
+            values: customFieldValues,
+          }),
+        });
+      }
       toast.success(mode === "edit" ? "Licence updated" : "Licence created", {
         description: created.licencekey || created.licenceid,
       });
@@ -205,7 +224,7 @@ export default function LicenceCreateForm({
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="__none__">Unassigned</SelectItem>
                     {users.map((user) => (
                       <SelectItem key={user.userid} value={user.userid}>
                         {user.firstname} {user.lastname}
@@ -364,6 +383,12 @@ export default function LicenceCreateForm({
             />
           </div>
         </section>
+
+        <CustomFieldsSection
+          entityType="licence"
+          entityId={mode === "edit" ? initialData?.licenceid : null}
+          onChange={setCustomFieldValues}
+        />
 
         <Separator />
 

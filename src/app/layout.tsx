@@ -10,7 +10,7 @@ import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 import AppShell from "../components/AppShell";
 import { Toaster } from "sonner";
 import { UserPreferencesProvider } from "../contexts/UserPreferencesContext";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 export const metadata = {
   title: "Asset Tracker",
@@ -33,10 +33,16 @@ export const viewport = {
 };
 
 export default async function RootLayout({ children }) {
-  const cookieStore = await cookies();
+  const [cookieStore, headersList] = await Promise.all([cookies(), headers()]);
   const sidebarPref = cookieStore.get("sidebar_collapsed");
   const initialSidebarCollapsed = sidebarPref?.value === "true";
   const isDemo = process.env.DEMO_MODE === "true";
+
+  // Pass initial pathname so AppShell can render correctly on first frame
+  const pathname = new URL(
+    headersList.get("x-url") || headersList.get("x-invoke-path") || "/",
+    "http://localhost",
+  ).pathname;
 
   return (
     <html
@@ -58,6 +64,7 @@ export default async function RootLayout({ children }) {
             <AppShell
               initialSidebarCollapsed={initialSidebarCollapsed}
               isDemo={isDemo}
+              initialPathname={pathname}
             >
               {children}
             </AppShell>

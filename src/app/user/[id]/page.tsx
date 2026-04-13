@@ -39,6 +39,8 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     allAccessoriesRaw,
     userAccLinks,
     licencesRaw,
+    userRoles,
+    userDepartment,
     checkoutHistory,
   ] = await Promise.all([
     getAssets(),
@@ -47,6 +49,16 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     getAccessories(),
     getUserAccessoires(),
     getLicences(),
+    prisma.userRole.findMany({
+      where: { userId: params.id },
+      include: { role: { select: { name: true } } },
+    }),
+    user.departmentId
+      ? prisma.department.findUnique({
+          where: { id: user.departmentId },
+          select: { name: true },
+        })
+      : null,
     prisma.assetCheckout.findMany({
       where: {
         OR: [{ checkedOutTo: params.id }, { checkedOutBy: params.id }],
@@ -148,6 +160,14 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
                 Can Request
               </span>
             ) : null}
+            {userRoles.map((ur) => (
+              <Badge key={ur.roleId} variant="secondary">
+                {ur.role.name}
+              </Badge>
+            ))}
+            {userDepartment && (
+              <Badge variant="outline">{userDepartment.name}</Badge>
+            )}
             <Link
               href={`/user/${user.userid}/settings`}
               className="border-default-200 hover:bg-muted rounded-md border px-3 py-1.5 text-sm font-medium"
@@ -185,6 +205,18 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
               <div className="flex justify-between">
                 <dt className="text-foreground-500">Username</dt>
                 <dd className="font-medium">{user.username || "-"}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-foreground-500">Department</dt>
+                <dd className="font-medium">{userDepartment?.name || "-"}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-foreground-500">Roles</dt>
+                <dd className="font-medium">
+                  {userRoles.length > 0
+                    ? userRoles.map((ur) => ur.role.name).join(", ")
+                    : "Default"}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-foreground-500">Language</dt>

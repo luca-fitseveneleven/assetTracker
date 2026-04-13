@@ -74,6 +74,7 @@ export default function OnboardingWizard() {
     const forceShow = searchParams.get("onboarding") === "1";
 
     if (forceShow) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional one-time initialization
       setOpen(true);
       setStep(0);
       setLoaded(true);

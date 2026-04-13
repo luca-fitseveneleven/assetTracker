@@ -70,12 +70,12 @@ const FIELD_TYPES = [
   { id: "textarea", name: "Textarea" },
 ];
 
-const ENTITY_TYPES = [
-  { id: "asset", name: "Asset" },
-  { id: "consumable", name: "Consumable" },
-  { id: "licence", name: "Licence" },
-  { id: "accessory", name: "Accessory" },
-];
+import { getEntitiesWithCustomFields } from "@/lib/entity-registry";
+
+const ENTITY_TYPES = getEntitiesWithCustomFields().map((e) => ({
+  id: e.key,
+  name: e.label,
+}));
 
 const DEFAULT_FORM: FormData = {
   name: "",
@@ -91,7 +91,8 @@ export default function CustomFieldsAdminTab() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingField, setDeletingField] = useState<CustomFieldDefinition | null>(null);
+  const [deletingField, setDeletingField] =
+    useState<CustomFieldDefinition | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
@@ -179,7 +180,7 @@ export default function CustomFieldsAdminTab() {
 
         const updated = await response.json();
         setFields((prev) =>
-          prev.map((f) => (f.id === editingId ? updated : f))
+          prev.map((f) => (f.id === editingId ? updated : f)),
         );
         toast.success("Custom field updated successfully");
       } else {
@@ -202,9 +203,7 @@ export default function CustomFieldsAdminTab() {
       setDialogOpen(false);
       resetForm();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Operation failed"
-      );
+      toast.error(error instanceof Error ? error.message : "Operation failed");
     } finally {
       setSubmitting(false);
     }
@@ -216,7 +215,7 @@ export default function CustomFieldsAdminTab() {
     try {
       const response = await fetch(
         `/api/admin/custom-fields/${deletingField.id}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
       );
 
       if (!response.ok) {
@@ -228,7 +227,9 @@ export default function CustomFieldsAdminTab() {
       toast.success("Custom field deleted successfully");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete custom field"
+        error instanceof Error
+          ? error.message
+          : "Failed to delete custom field",
       );
     } finally {
       setDeleteDialogOpen(false);
@@ -254,21 +255,21 @@ export default function CustomFieldsAdminTab() {
             </CardDescription>
           </div>
           <Button onClick={openCreateDialog}>
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="mr-2 h-4 w-4" />
             Create Field
           </Button>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">
+              <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+              <span className="text-muted-foreground ml-2 text-sm">
                 Loading custom fields...
               </span>
             </div>
           ) : fields.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-sm text-muted-foreground">
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground text-sm">
                 No custom fields defined. Create one to get started.
               </p>
             </div>
@@ -421,7 +422,7 @@ export default function CustomFieldsAdminTab() {
                   placeholder="Option 1, Option 2, Option 3"
                   rows={3}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   Enter comma-separated values for the dropdown options
                 </p>
               </div>
@@ -467,9 +468,7 @@ export default function CustomFieldsAdminTab() {
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingId ? "Update" : "Create"}
             </Button>
           </DialogFooter>
@@ -482,9 +481,9 @@ export default function CustomFieldsAdminTab() {
           <DialogHeader>
             <DialogTitle>Delete Custom Field</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground py-4">
+          <p className="text-muted-foreground py-4 text-sm">
             Are you sure you want to delete the custom field{" "}
-            <span className="font-semibold text-foreground">
+            <span className="text-foreground font-semibold">
               &quot;{deletingField?.name}&quot;
             </span>
             ? This action cannot be undone and all associated data will be lost.

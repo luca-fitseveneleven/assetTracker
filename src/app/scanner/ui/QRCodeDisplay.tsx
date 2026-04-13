@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Printer } from "lucide-react";
@@ -39,7 +40,7 @@ export default function QRCodeDisplay({
       } catch (err) {
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : "Failed to load QR code"
+            err instanceof Error ? err.message : "Failed to load QR code",
           );
         }
       } finally {
@@ -116,41 +117,43 @@ export default function QRCodeDisplay({
   };
 
   return (
-    <Card className="w-full max-w-sm mx-auto">
+    <Card className="mx-auto w-full max-w-sm">
       <CardContent className="flex flex-col items-center gap-4 p-6">
         {loading && (
-          <div className="flex items-center justify-center w-[300px] h-[300px] bg-muted rounded animate-pulse">
-            <span className="text-sm text-muted-foreground">Loading...</span>
+          <div className="bg-muted flex h-[300px] w-[300px] animate-pulse items-center justify-center rounded">
+            <span className="text-muted-foreground text-sm">Loading...</span>
           </div>
         )}
 
         {error && (
-          <div className="flex items-center justify-center w-[300px] h-[300px] bg-muted rounded">
-            <span className="text-sm text-destructive">{error}</span>
+          <div className="bg-muted flex h-[300px] w-[300px] items-center justify-center rounded">
+            <span className="text-destructive text-sm">{error}</span>
           </div>
         )}
 
         {imageSrc && !loading && (
-          <img
+          <Image
             src={imageSrc}
             alt={`QR Code for ${assetTag}`}
-            className="w-[300px] h-[300px]"
+            width={300}
+            height={300}
+            unoptimized
           />
         )}
 
         <div className="text-center">
-          <p className="font-semibold text-sm">{assetTag}</p>
-          <p className="text-sm text-muted-foreground">{assetName}</p>
+          <p className="text-sm font-semibold">{assetTag}</p>
+          <p className="text-muted-foreground text-sm">{assetName}</p>
         </div>
 
-        <div className="flex gap-2 w-full">
+        <div className="flex w-full gap-2">
           <Button
             variant="outline"
             className="flex-1"
             onClick={handleDownload}
             disabled={!imageSrc}
           >
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="mr-2 h-4 w-4" />
             Download
           </Button>
           <Button
@@ -159,7 +162,7 @@ export default function QRCodeDisplay({
             onClick={handlePrint}
             disabled={!imageSrc}
           >
-            <Printer className="h-4 w-4 mr-2" />
+            <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>
         </div>

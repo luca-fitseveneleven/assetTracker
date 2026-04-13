@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import SelectWithQuickCreate, {
   type QuickCreateOption,
 } from "@/components/SelectWithQuickCreate";
+import CustomFieldsSection from "@/components/CustomFieldsSection";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 
 const statusSort = (a, b) => a.statustypename.localeCompare(b.statustypename);
@@ -74,6 +75,9 @@ export default function AccessoryCreateForm({
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [customFieldValues, setCustomFieldValues] = useState<
+    Record<string, string | null>
+  >({});
   const [form, setForm] = useState(() => {
     if (!initialData) {
       return {
@@ -158,6 +162,18 @@ export default function AccessoryCreateForm({
       }
 
       const created = await res.json();
+      // Save custom field values
+      if (mode === "create" && Object.keys(customFieldValues).length > 0) {
+        await fetch("/api/custom-fields/values", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            entityId: created.accessorieid,
+            entityType: "accessory",
+            values: customFieldValues,
+          }),
+        });
+      }
       toast.success(
         mode === "edit" ? "Accessory updated" : "Accessory created",
         { description: created.accessorietag },
@@ -411,6 +427,12 @@ export default function AccessoryCreateForm({
             </div>
           </div>
         </section>
+
+        <CustomFieldsSection
+          entityType="accessory"
+          entityId={mode === "edit" ? initialData?.accessorieid : null}
+          onChange={setCustomFieldValues}
+        />
 
         <Separator />
 

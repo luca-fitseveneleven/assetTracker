@@ -1,9 +1,5 @@
-import TableSkeleton from "@/components/skeletons/TableSkeleton";
+import PageSkeleton from "@/components/PageSkeleton";
 
-export default function AccessoriesLoading() {
-  return (
-    <div>
-      <TableSkeleton rows={8} columns={6} />
-    </div>
-  );
+export default function Loading() {
+  return <PageSkeleton />;
 }

@@ -6,6 +6,7 @@ import Breadcrumb from "@/components/Breadcrumb";
 import prisma from "@/lib/prisma";
 import UserSettingsClient from "./ui/UserSettingsClient";
 import MfaSettings from "./ui/MfaSettings";
+import NotificationPreferences from "./ui/NotificationPreferences";
 import SessionManagement from "./SessionManagement";
 
 export const metadata = {
@@ -74,6 +75,9 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     <>
       <Breadcrumb options={breadcrumbOptions} />
       <UserSettingsClient user={user} preferences={preferences} />
+      <div className="mt-6 max-w-2xl">
+        <NotificationPreferences />
+      </div>
       <div className="mt-6 max-w-2xl">
         <MfaSettings userId={user.userid} mfaEnabled={user.mfaEnabled} />
       </div>

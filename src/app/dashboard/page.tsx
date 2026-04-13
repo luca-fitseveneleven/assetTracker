@@ -10,7 +10,7 @@ import Breadcrumb from "@/components/Breadcrumb";
 import AssetStatusChart from "@/components/charts/AssetStatusChart";
 import DismissibleHelpTip from "@/components/DismissibleHelpTip";
 import DashboardGrid from "@/components/dashboard/DashboardGrid";
-import UserDashboard from "@/components/dashboard/UserDashboard";
+
 import { getOrganizationContext } from "@/lib/organization-context";
 import prisma from "@/lib/prisma";
 import { Suspense } from "react";

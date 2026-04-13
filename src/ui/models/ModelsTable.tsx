@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
@@ -10,20 +13,19 @@ import { PlusIcon, SearchIcon } from "../Icons";
 const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
 
 export default function ModelsTable({ items }) {
+  const router = useRouter();
   const [searchValue, setSearchValue] = useState("");
-  const [rowsPerPage, setRowsPerPage] = useState(Number(ROWS_PER_PAGE_OPTIONS[0]));
+  const [rowsPerPage, setRowsPerPage] = useState(
+    Number(ROWS_PER_PAGE_OPTIONS[0]),
+  );
   const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchValue, rowsPerPage]);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = searchValue.trim().toLowerCase();
 
     return items.filter((item) => {
       const matchesSearch =
-        !normalizedQuery || 
+        !normalizedQuery ||
         (item.modelname ?? "").toLowerCase().includes(normalizedQuery) ||
         (item.modelnumber ?? "").toLowerCase().includes(normalizedQuery);
 
@@ -37,17 +39,51 @@ export default function ModelsTable({ items }) {
     return filteredItems.slice(start, start + rowsPerPage);
   }, [filteredItems, page, rowsPerPage]);
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this item?")) return;
+    try {
+      const res = await fetch("/api/model", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modelid: id }),
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      toast.success("Deleted successfully");
+      router.refresh();
+    } catch {
+      toast.error("Failed to delete");
+    }
+  };
+
   const columns = [
-    { key: 'modelname', label: 'Model Name' },
-    { key: 'modelnumber', label: 'Model Number' },
+    { key: "modelname", label: "Model Name" },
+    { key: "modelnumber", label: "Model Number" },
+    { key: "actions", label: "" },
   ];
 
   const renderCell = (item, columnKey) => {
     switch (columnKey) {
-      case 'modelname':
+      case "modelname":
         return item.modelname;
-      case 'modelnumber':
-        return item.modelnumber || '-';
+      case "modelnumber":
+        return item.modelnumber || "-";
+      case "actions":
+        return (
+          <div className="flex justify-end gap-1">
+            <Link href={`/models/${item.modelid}/edit`}>
+              <Button variant="ghost" size="sm">
+                <Edit className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(item.modelid)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        );
       default:
         return null;
     }
@@ -61,12 +97,15 @@ export default function ModelsTable({ items }) {
         </div>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="relative w-full lg:max-w-md">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <SearchIcon className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               className="pl-9"
               placeholder="Search models"
               value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
+              onChange={(e) => {
+                setSearchValue(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
           <div className="flex flex-wrap gap-3">
@@ -79,7 +118,7 @@ export default function ModelsTable({ items }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-muted-foreground text-sm">
             Showing {paginatedItems.length} of {filteredItems.length} models
           </span>
         </div>

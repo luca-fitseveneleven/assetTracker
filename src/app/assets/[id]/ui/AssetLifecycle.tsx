@@ -125,6 +125,7 @@ interface AssetLifecycleProps {
   isAssigned: boolean;
   statuses: Array<{ statustypeid: string; statustypename: string }>;
   onStatusChange?: () => void;
+  isAdmin?: boolean;
 }
 
 export default function AssetLifecycle({
@@ -133,6 +134,7 @@ export default function AssetLifecycle({
   isAssigned,
   statuses,
   onStatusChange,
+  isAdmin = true,
 }: AssetLifecycleProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("");
@@ -183,9 +185,15 @@ export default function AssetLifecycle({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-foreground-600 text-sm font-semibold">Lifecycle</h3>
-        <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
-          Update Status
-        </Button>
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDialogOpen(true)}
+          >
+            Update Status
+          </Button>
+        )}
       </div>
 
       {/* Lifecycle Stepper */}

@@ -522,6 +522,22 @@ export async function getComponentCategories() {
   );
 }
 
+export async function getComponentCategoryById(id: string) {
+  if (!id) {
+    throw new Error("Invalid ID parameter");
+  }
+
+  const category = await prisma.componentCategory.findUnique({
+    where: { id },
+  });
+
+  if (!category) {
+    throw new Error(`Component category with ID ${id} not found`);
+  }
+
+  return category;
+}
+
 // EULA Templates
 export async function getEulaTemplates() {
   return cached(

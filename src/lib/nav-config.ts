@@ -113,6 +113,12 @@ export const navSections: NavSection[] = [
         adminOnly: true,
       },
       {
+        label: "Component Categories",
+        href: "/componentCategories",
+        icon: Cpu,
+        adminOnly: true,
+      },
+      {
         label: "Licence Categories",
         href: "/licenceCategories",
         icon: FolderKey,

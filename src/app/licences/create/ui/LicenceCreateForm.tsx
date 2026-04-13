@@ -78,7 +78,7 @@ export default function LicenceCreateForm({
 
     return {
       licencekey: initialData.licencekey ?? "",
-      licenceduserid: initialData.licenceduserid ?? "",
+      licenceduserid: initialData.licenceduserid ?? "__none__",
       licensedtoemail: initialData.licensedtoemail ?? "",
       licencecategorytypeid: initialData.licencecategorytypeid ?? "",
       manufacturerid: initialData.manufacturerid ?? "",
@@ -116,7 +116,10 @@ export default function LicenceCreateForm({
     try {
       const payload: Record<string, unknown> = {
         ...form,
-        licenceduserid: form.licenceduserid || null,
+        licenceduserid:
+          form.licenceduserid === "__none__"
+            ? null
+            : form.licenceduserid || null,
         purchasedate: form.purchasedate || null,
         expirationdate: form.expirationdate || null,
         purchaseprice: form.purchaseprice === "" ? null : form.purchaseprice,
@@ -221,7 +224,7 @@ export default function LicenceCreateForm({
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="__none__">Unassigned</SelectItem>
                     {users.map((user) => (
                       <SelectItem key={user.userid} value={user.userid}>
                         {user.firstname} {user.lastname}

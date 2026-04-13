@@ -197,6 +197,30 @@ export default function App({
   const [deleteMode, setDeleteMode] = useState("single");
   const [confirmAssigned, setConfirmAssigned] = useState(false);
 
+  // Status workflow transitions for filtering allowed status changes
+  const [statusTransitions, setStatusTransitions] = useState<
+    Array<{ fromStatusId: string; toStatusId: string }>
+  >([]);
+  const [hasTransitions, setHasTransitions] = useState(false);
+
+  useEffect(() => {
+    const fetchTransitions = async () => {
+      try {
+        const res = await fetch("/api/status-transitions");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setStatusTransitions(data);
+            setHasTransitions(true);
+          }
+        }
+      } catch {
+        // Transitions not available — fall back to showing all statuses
+      }
+    };
+    fetchTransitions();
+  }, []);
+
   // Virtual scrolling setup for "All" mode
   const virtualScrollRef = useRef<HTMLDivElement>(null);
 
@@ -1886,6 +1910,22 @@ export default function App({
               (ua) => ua.assetid === selectedAsset?.assetid,
             );
 
+            // Build the list of statuses allowed for this transition
+            const currentStatusId = selectedAsset?.statustypeid;
+            let allowedStatuses = status;
+
+            if (hasTransitions && currentStatusId) {
+              // Only show statuses that are valid transitions from the current status
+              const allowedIds = new Set(
+                statusTransitions
+                  .filter((t) => t.fromStatusId === currentStatusId)
+                  .map((t) => t.toStatusId),
+              );
+              allowedStatuses = status.filter((s) =>
+                allowedIds.has(s.statustypeid),
+              );
+            }
+
             const disabledKeys = new Set(
               assignedStatus ? [assignedStatus.statustypeid] : [],
             );
@@ -1929,7 +1969,7 @@ export default function App({
                       <SelectValue placeholder="Select a status" />
                     </SelectTrigger>
                     <SelectContent>
-                      {status.map((s) => (
+                      {allowedStatuses.map((s) => (
                         <SelectItem
                           key={s.statustypeid}
                           value={String(s.statustypeid)}
@@ -1942,10 +1982,16 @@ export default function App({
                   </Select>
                   <p className="text-muted-foreground text-sm">
                     <Info className="mr-1 inline" />
-                    Note: The current status and &quot;Available&quot; status
-                    cannot be selected again. If the asset is not assigned to
-                    any user, it cannot be set to &quot;Active.&quot;
+                    {hasTransitions
+                      ? "Only statuses allowed by the configured workflow are shown."
+                      : 'Note: The current status and "Available" status cannot be selected again. If the asset is not assigned to any user, it cannot be set to "Active."'}
                   </p>
+                  {hasTransitions && allowedStatuses.length === 0 && (
+                    <p className="text-destructive text-sm">
+                      No status transitions are configured from the current
+                      status. Contact an administrator.
+                    </p>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button
@@ -1955,7 +2001,10 @@ export default function App({
                     Close
                   </Button>
                   <Button
-                    disabled={!selectedUser}
+                    disabled={
+                      !selectedUser ||
+                      (hasTransitions && allowedStatuses.length === 0)
+                    }
                     onClick={async () => {
                       await handleStatusUpdate(
                         selectedAsset?.assetid,

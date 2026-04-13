@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import SelectWithQuickCreate, {
   type QuickCreateOption,
 } from "@/components/SelectWithQuickCreate";
+import CustomFieldsSection from "@/components/CustomFieldsSection";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 
 export default function ConsumableCreateForm({
@@ -45,6 +46,9 @@ export default function ConsumableCreateForm({
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [customFieldValues, setCustomFieldValues] = useState<
+    Record<string, string | null>
+  >({});
   const [form, setForm] = useState(() => {
     if (!initialData) {
       return {
@@ -116,6 +120,18 @@ export default function ConsumableCreateForm({
       }
 
       const created = await res.json();
+      // Save custom field values
+      if (mode === "create" && Object.keys(customFieldValues).length > 0) {
+        await fetch("/api/custom-fields/values", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            entityId: created.consumableid,
+            entityType: "consumable",
+            values: customFieldValues,
+          }),
+        });
+      }
       toast.success(
         mode === "edit" ? "Consumable updated" : "Consumable created",
         {
@@ -295,6 +311,12 @@ export default function ConsumableCreateForm({
             </div>
           </div>
         </section>
+
+        <CustomFieldsSection
+          entityType="consumable"
+          entityId={mode === "edit" ? initialData?.consumableid : null}
+          onChange={setCustomFieldValues}
+        />
 
         <Separator />
 

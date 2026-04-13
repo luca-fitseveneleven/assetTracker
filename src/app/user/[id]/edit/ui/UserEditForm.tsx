@@ -38,6 +38,7 @@ export default function UserEditForm({
     lan: initial.lan ?? "",
     isadmin: Boolean(initial.isadmin),
     canrequest: Boolean(initial.canrequest),
+    departmentId: initial.departmentId ?? "",
     password: "",
   });
   const [isDirty, setIsDirty] = useState(false);
@@ -47,15 +48,25 @@ export default function UserEditForm({
   const [userRoles, setUserRoles] = useState<
     Array<{ id: string; name: string }>
   >([]);
+  const [departments, setDepartments] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
 
   const fetchRoles = useCallback(async () => {
     try {
-      const [rolesRes, userRolesRes] = await Promise.all([
+      const [rolesRes, userRolesRes, deptsRes] = await Promise.all([
         fetch("/api/roles"),
         fetch(`/api/admin/users/${initial.userid}/roles`),
+        fetch("/api/departments"),
       ]);
       if (rolesRes.ok) setAllRoles(await rolesRes.json());
       if (userRolesRes.ok) setUserRoles(await userRolesRes.json());
+      if (deptsRes.ok) {
+        const deptsData = await deptsRes.json();
+        setDepartments(
+          Array.isArray(deptsData) ? deptsData : (deptsData.data ?? []),
+        );
+      }
     } catch {}
   }, [initial.userid]);
 
@@ -107,6 +118,7 @@ export default function UserEditForm({
         lan: initial.lan ?? "",
         isadmin: Boolean(initial.isadmin),
         canrequest: Boolean(initial.canrequest),
+        departmentId: initial.departmentId ?? "",
         password: "",
       }),
     [initial],
@@ -176,11 +188,15 @@ export default function UserEditForm({
     setSaving(true);
     setError("");
     try {
-      const body = { ...form };
+      const body: Record<string, unknown> = { ...form };
       if (!body.password) delete body.password;
       if (!isAdmin) {
         delete body.isadmin;
         delete body.canrequest;
+        delete body.departmentId;
+      } else {
+        // Convert empty string to null for optional UUID field
+        if (body.departmentId === "") body.departmentId = null;
       }
       const res = await fetch("/api/user", {
         method: "PUT",
@@ -470,6 +486,35 @@ export default function UserEditForm({
                       </SelectContent>
                     </Select>
                   )}
+                </div>
+
+                <Separator className="my-3" />
+
+                <div>
+                  <Label htmlFor="departmentId" className="mb-2 block">
+                    Department
+                  </Label>
+                  <Select
+                    value={form.departmentId || "none"}
+                    onValueChange={(v) =>
+                      setForm((f) => ({
+                        ...f,
+                        departmentId: v === "none" ? "" : v,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="departmentId" className="h-8 text-xs">
+                      <SelectValue placeholder="Select department…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No department</SelectItem>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </section>

@@ -15,6 +15,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import CustomFieldsSection from "@/components/CustomFieldsSection";
 
 export default function ComponentCreateForm({
   categories,
@@ -34,6 +35,9 @@ export default function ComponentCreateForm({
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [customFieldValues, setCustomFieldValues] = useState<
+    Record<string, string | null>
+  >({});
   const [form, setForm] = useState(() => {
     if (!initialData) {
       return {
@@ -112,6 +116,18 @@ export default function ComponentCreateForm({
       }
 
       const created = await res.json();
+      // Save custom field values
+      if (mode === "create" && Object.keys(customFieldValues).length > 0) {
+        await fetch("/api/custom-fields/values", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            entityId: created.id,
+            entityType: "component",
+            values: customFieldValues,
+          }),
+        });
+      }
       toast.success(
         mode === "edit" ? "Component updated" : "Component created",
         {
@@ -309,6 +325,12 @@ export default function ComponentCreateForm({
             </div>
           </div>
         </section>
+
+        <CustomFieldsSection
+          entityType="component"
+          entityId={mode === "edit" ? initialData?.id : null}
+          onChange={setCustomFieldValues}
+        />
 
         <Separator />
 

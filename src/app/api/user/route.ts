@@ -151,7 +151,11 @@ export async function PUT(req: NextRequest) {
 
     const schema = authUser.isAdmin
       ? updateUserSchema
-      : updateUserSchema.omit({ isadmin: true, canrequest: true });
+      : updateUserSchema.omit({
+          isadmin: true,
+          canrequest: true,
+          departmentId: true,
+        });
 
     // Convert empty strings to undefined so optional fields pass validation
     const cleanedData: Record<string, unknown> = {};

@@ -91,6 +91,7 @@ export const updateUserSchema = z.object({
   isadmin: z.boolean().optional(),
   canrequest: z.boolean().optional(),
   lan: z.string().max(50).optional().nullable(),
+  departmentId: z.string().uuid().optional().nullable(),
 });
 
 // ---------------------------------------------------------------------------

@@ -1,12 +1,21 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 
 export default function UserEditForm({
   initial,
@@ -32,6 +41,62 @@ export default function UserEditForm({
     password: "",
   });
   const [isDirty, setIsDirty] = useState(false);
+  const [allRoles, setAllRoles] = useState<Array<{ id: string; name: string }>>(
+    [],
+  );
+  const [userRoles, setUserRoles] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      const [rolesRes, userRolesRes] = await Promise.all([
+        fetch("/api/roles"),
+        fetch(`/api/admin/users/${initial.userid}/roles`),
+      ]);
+      if (rolesRes.ok) setAllRoles(await rolesRes.json());
+      if (userRolesRes.ok) setUserRoles(await userRolesRes.json());
+    } catch {}
+  }, [initial.userid]);
+
+  useEffect(() => {
+    if (isAdmin) fetchRoles();
+  }, [isAdmin, fetchRoles]);
+
+  const assignRole = async (roleId: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${initial.userid}/roles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roleId }),
+      });
+      if (res.ok) {
+        toast.success("Role assigned");
+        fetchRoles();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || "Failed to assign role");
+      }
+    } catch {
+      toast.error("Failed to assign role");
+    }
+  };
+
+  const removeRole = async (roleId: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${initial.userid}/roles`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roleId }),
+      });
+      if (res.ok) {
+        toast.success("Role removed");
+        fetchRoles();
+      }
+    } catch {
+      toast.error("Failed to remove role");
+    }
+  };
   const initialSnapshot = useMemo(
     () =>
       JSON.stringify({
@@ -355,6 +420,56 @@ export default function UserEditForm({
                     />
                     <Label htmlFor="canrequest">Can Request</Label>
                   </div>
+                </div>
+
+                <Separator className="my-3" />
+
+                <div>
+                  <Label className="mb-2 block">Roles</Label>
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {userRoles.length === 0 ? (
+                      <p className="text-muted-foreground text-xs">
+                        No roles — default view permissions apply
+                      </p>
+                    ) : (
+                      userRoles.map((role) => (
+                        <Badge
+                          key={role.id}
+                          variant="secondary"
+                          className="gap-1 pr-1"
+                        >
+                          {role.name}
+                          <button
+                            type="button"
+                            onClick={() => removeRole(role.id)}
+                            className="hover:bg-muted rounded-full p-0.5"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                  {allRoles.filter(
+                    (r) => !userRoles.some((ur) => ur.id === r.id),
+                  ).length > 0 && (
+                    <Select onValueChange={assignRole}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Assign role…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allRoles
+                          .filter(
+                            (r) => !userRoles.some((ur) => ur.id === r.id),
+                          )
+                          .map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
             </section>

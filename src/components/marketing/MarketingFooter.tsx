@@ -1,58 +1,35 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Box } from "lucide-react";
 
 export default function MarketingFooter() {
-  const footerRef = useRef<HTMLElement>(null);
-  const [footerHeight, setFooterHeight] = useState(0);
-
-  useEffect(() => {
-    const measure = () => {
-      if (footerRef.current) {
-        setFooterHeight(footerRef.current.offsetHeight);
-      }
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, []);
-
   return (
     <>
-      {/* Spacer so content doesn't overlap the fixed footer */}
-      <div style={{ height: footerHeight }} />
-
-      <footer
-        ref={footerRef}
-        className="fixed inset-x-0 bottom-0 z-0 border-t border-border/40 bg-muted/30"
-      >
+      <footer className="border-border/40 bg-muted/30 border-t">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-12 md:grid-cols-4">
             {/* Brand */}
             <div className="md:col-span-1">
               <div className="flex items-center gap-2.5">
-                <Box className="h-5 w-5 text-foreground" />
-                <span className="text-base font-semibold tracking-tight text-foreground">
+                <Box className="text-foreground h-5 w-5" />
+                <span className="text-foreground text-base font-semibold tracking-tight">
                   Asset Tracker
                 </span>
               </div>
-              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              <p className="text-muted-foreground mt-4 text-sm leading-relaxed">
                 Modern asset management platform for teams of all sizes.
               </p>
             </div>
 
             {/* Product */}
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+              <h3 className="text-foreground text-xs font-semibold tracking-wider uppercase">
                 Product
               </h3>
               <ul className="mt-4 space-y-3">
                 <li>
                   <Link
                     href="/#features"
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     Features
                   </Link>
@@ -60,7 +37,7 @@ export default function MarketingFooter() {
                 <li>
                   <Link
                     href="/pricing"
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     Pricing
                   </Link>
@@ -68,7 +45,7 @@ export default function MarketingFooter() {
                 <li>
                   <Link
                     href="/#how-it-works"
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     How it works
                   </Link>
@@ -78,14 +55,14 @@ export default function MarketingFooter() {
 
             {/* Company */}
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+              <h3 className="text-foreground text-xs font-semibold tracking-wider uppercase">
                 Company
               </h3>
               <ul className="mt-4 space-y-3">
                 <li>
                   <Link
                     href="/terms"
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     Terms of Service
                   </Link>
@@ -93,7 +70,7 @@ export default function MarketingFooter() {
                 <li>
                   <Link
                     href="/privacy"
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     Privacy Policy
                   </Link>
@@ -103,14 +80,14 @@ export default function MarketingFooter() {
 
             {/* Get started */}
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+              <h3 className="text-foreground text-xs font-semibold tracking-wider uppercase">
                 Get Started
               </h3>
               <ul className="mt-4 space-y-3">
                 <li>
                   <Link
                     href="/register"
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     Create Account
                   </Link>
@@ -118,7 +95,7 @@ export default function MarketingFooter() {
                 <li>
                   <Link
                     href="/login"
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
                     Sign In
                   </Link>
@@ -127,8 +104,8 @@ export default function MarketingFooter() {
             </div>
           </div>
 
-          <div className="mt-12 border-t border-border/40 pt-8">
-            <p className="text-center text-xs text-muted-foreground">
+          <div className="border-border/40 mt-12 border-t pt-8">
+            <p className="text-muted-foreground text-center text-xs">
               &copy; {new Date().getFullYear()} Asset Tracker. All rights
               reserved.
             </p>

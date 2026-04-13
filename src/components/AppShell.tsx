@@ -28,14 +28,17 @@ interface AppShellProps {
   children: React.ReactNode;
   initialSidebarCollapsed: boolean;
   isDemo: boolean;
+  initialPathname?: string;
 }
 
 export default function AppShell({
   children,
   initialSidebarCollapsed,
   isDemo,
+  initialPathname,
 }: AppShellProps) {
-  const pathname = usePathname();
+  const clientPathname = usePathname();
+  const pathname = clientPathname || initialPathname || "/";
 
   const isPublicRoute =
     pathname === "/" ||

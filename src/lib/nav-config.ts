@@ -59,7 +59,7 @@ export const navSections: NavSection[] = [
         icon: LayoutDashboard,
         exact: true,
       },
-      { label: "Users", href: "/user", icon: Users },
+      { label: "Users", href: "/user", icon: Users, adminOnly: true },
       { label: "Assets", href: "/assets", icon: Boxes },
       { label: "Accessories", href: "/accessories", icon: Puzzle },
     ],

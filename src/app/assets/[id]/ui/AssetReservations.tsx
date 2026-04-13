@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession, type SessionUser } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,8 +101,16 @@ export default function AssetReservations({
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Auto-open reservation dialog when ?action=request
+  useEffect(() => {
+    if (searchParams.get("action") === "request") {
+      setDialogOpen(true);
+    }
+  }, [searchParams]);
 
   // Form state
   const [startDate, setStartDate] = useState("");

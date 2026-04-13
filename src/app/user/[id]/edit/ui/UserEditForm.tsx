@@ -20,9 +20,15 @@ import { X } from "lucide-react";
 export default function UserEditForm({
   initial,
   isAdmin = false,
+  initialRoles = [],
+  initialUserRoles = [],
+  initialDepartments = [],
 }: {
   initial: any;
   isAdmin?: boolean;
+  initialRoles?: Array<{ id: string; name: string }>;
+  initialUserRoles?: Array<{ id: string; name: string }>;
+  initialDepartments?: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -42,37 +48,20 @@ export default function UserEditForm({
     password: "",
   });
   const [isDirty, setIsDirty] = useState(false);
-  const [allRoles, setAllRoles] = useState<Array<{ id: string; name: string }>>(
-    [],
-  );
-  const [userRoles, setUserRoles] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
-  const [departments, setDepartments] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
+  const [allRoles, setAllRoles] = useState(initialRoles);
+  const [userRoles, setUserRoles] = useState(initialUserRoles);
+  const departments = initialDepartments;
 
-  const fetchRoles = useCallback(async () => {
+  const refreshRoles = useCallback(async () => {
     try {
-      const [rolesRes, userRolesRes, deptsRes] = await Promise.all([
+      const [rolesRes, userRolesRes] = await Promise.all([
         fetch("/api/roles"),
         fetch(`/api/admin/users/${initial.userid}/roles`),
-        fetch("/api/departments"),
       ]);
       if (rolesRes.ok) setAllRoles(await rolesRes.json());
       if (userRolesRes.ok) setUserRoles(await userRolesRes.json());
-      if (deptsRes.ok) {
-        const deptsData = await deptsRes.json();
-        setDepartments(
-          Array.isArray(deptsData) ? deptsData : (deptsData.data ?? []),
-        );
-      }
     } catch {}
   }, [initial.userid]);
-
-  useEffect(() => {
-    if (isAdmin) fetchRoles();
-  }, [isAdmin, fetchRoles]);
 
   const assignRole = async (roleId: string) => {
     try {
@@ -83,7 +72,7 @@ export default function UserEditForm({
       });
       if (res.ok) {
         toast.success("Role assigned");
-        fetchRoles();
+        refreshRoles();
       } else {
         const err = await res.json();
         toast.error(err.error || "Failed to assign role");
@@ -102,7 +91,7 @@ export default function UserEditForm({
       });
       if (res.ok) {
         toast.success("Role removed");
-        fetchRoles();
+        refreshRoles();
       }
     } catch {
       toast.error("Failed to remove role");

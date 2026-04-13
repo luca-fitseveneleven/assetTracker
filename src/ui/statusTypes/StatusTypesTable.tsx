@@ -34,12 +34,40 @@ export default function StatusTypesTable({ items }) {
     return filteredItems.slice(start, start + rowsPerPage);
   }, [filteredItems, page, rowsPerPage]);
 
-  const columns = [{ key: "statustypename", label: "Status Type Name" }];
+  const columns = [
+    { key: "statustypename", label: "Status Type Name" },
+    { key: "color", label: "Color" },
+    { key: "isDefault", label: "Default" },
+  ];
 
   const renderCell = (item, columnKey) => {
     switch (columnKey) {
       case "statustypename":
-        return item.statustypename;
+        return (
+          <span className="flex items-center gap-2">
+            {item.color && (
+              <span
+                className="inline-block h-3 w-3 rounded-full border"
+                style={{ backgroundColor: item.color }}
+              />
+            )}
+            {item.statustypename}
+          </span>
+        );
+      case "color":
+        return item.color ? (
+          <span className="text-muted-foreground font-mono text-xs">
+            {item.color}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        );
+      case "isDefault":
+        return item.isDefault ? (
+          <span className="bg-primary/10 text-primary inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium">
+            Default
+          </span>
+        ) : null;
       default:
         return null;
     }

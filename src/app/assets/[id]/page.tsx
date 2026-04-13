@@ -23,6 +23,7 @@ import {
   getMethodDisplayName,
   type DepreciationMethod,
 } from "@/lib/depreciation";
+import { getOrganizationContext } from "@/lib/organization-context";
 import AssetDetailHeader from "./ui/AssetDetailHeader";
 import AssetAttachments from "@/components/AssetAttachments";
 import AssetLifecycle from "./ui/AssetLifecycle";
@@ -58,6 +59,11 @@ function booleanPill(val) {
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
+  let isAdmin = true;
+  try {
+    const ctx = await getOrganizationContext();
+    isAdmin = ctx?.isAdmin ?? true;
+  } catch {}
   // First: fetch the asset (needed by subsequent queries)
   let assetRaw;
   try {
@@ -211,6 +217,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
           statuses={status}
           users={users}
           userAssets={userAssets}
+          isAdmin={isAdmin}
         />
         <Separator className="my-4" />
 
@@ -520,6 +527,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
               currentStatus={statusName}
               isAssigned={!!assignedUser}
               statuses={status}
+              isAdmin={isAdmin}
             />
           </section>
         </div>

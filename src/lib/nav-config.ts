@@ -68,7 +68,7 @@ export const navSections: NavSection[] = [
     title: "Inventory",
     items: [
       { label: "Consumables", href: "/consumables", icon: ClipboardList },
-      { label: "Components", href: "/components", icon: Cpu },
+      { label: "Components", href: "/components", icon: Cpu, adminOnly: true },
       { label: "Licences", href: "/licences", icon: BadgeCheck },
       {
         label: "Manufacturers",
@@ -144,7 +144,7 @@ export const navSections: NavSection[] = [
         icon: Wrench,
         adminOnly: true,
       },
-      { label: "Kits", href: "/kits", icon: Package },
+      { label: "Kits", href: "/kits", icon: Package, adminOnly: true },
       { label: "Audits", href: "/audits", icon: SearchCheck, adminOnly: true },
       { label: "Reservations", href: "/reservations", icon: CalendarDays },
       {

@@ -7,6 +7,7 @@ import {
   getManufacturers,
   getSuppliers,
 } from "@/lib/data";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 export const metadata = {
   title: "Asset Tracker - Consumables",
@@ -20,6 +21,12 @@ export default async function Page() {
     getManufacturers(),
     getSuppliers(),
   ]);
+
+  let ctx;
+  try {
+    ctx = await getOrganizationContext();
+  } catch {}
+  const isAdmin = ctx?.isAdmin ?? true;
 
   const items = itemsRaw.map((item) => ({
     ...item,
@@ -58,6 +65,7 @@ export default async function Page() {
           categories={categories}
           manufacturers={manufacturers}
           suppliers={suppliers}
+          isAdmin={isAdmin}
         />
       </Suspense>
     </div>

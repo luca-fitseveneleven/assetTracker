@@ -51,12 +51,25 @@ function formatDate(value) {
   return date.toLocaleDateString();
 }
 
+interface LicencesTableProps {
+   
+  items: any[];
+   
+  categories: any[];
+   
+  manufacturers: any[];
+   
+  suppliers: any[];
+  isAdmin?: boolean;
+}
+
 export default function LicencesTable({
   items,
   categories,
   manufacturers,
   suppliers,
-}) {
+  isAdmin = true,
+}: LicencesTableProps) {
   // -- URL-synced state for shareable filter / pagination URLs --
   const [urlState, setUrlState] = useUrlState({
     search: "",
@@ -278,6 +291,9 @@ export default function LicencesTable({
       case "expirationdate":
         return formatDate(item.expirationdate);
       case "actions":
+        if (!isAdmin) {
+          return <span className="text-muted-foreground text-xs">-</span>;
+        }
         return (
           <div className="flex items-center gap-2">
             <Button
@@ -325,12 +341,14 @@ export default function LicencesTable({
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Licences</h1>
-          <Button asChild>
-            <Link href="/licences/create">
-              <PlusIcon className="mr-2 h-4 w-4" />
-              Create
-            </Link>
-          </Button>
+          {isAdmin && (
+            <Button asChild>
+              <Link href="/licences/create">
+                <PlusIcon className="mr-2 h-4 w-4" />
+                Create
+              </Link>
+            </Button>
+          )}
         </div>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="relative w-full lg:max-w-md">
@@ -460,17 +478,19 @@ export default function LicencesTable({
         emptyMessage="No licences found"
         mobileCardView={true}
         storageKey="columns:licences"
-        selectable
+        selectable={isAdmin}
         selectedKeys={selectedKeys}
         onSelectionChange={setSelectedKeys}
         bulkActions={
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setShowBulkDelete(true)}
-          >
-            Delete ({selectedKeys.size})
-          </Button>
+          isAdmin ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowBulkDelete(true)}
+            >
+              Delete ({selectedKeys.size})
+            </Button>
+          ) : undefined
         }
       />
       <div className="flex items-center justify-center gap-2">

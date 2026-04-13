@@ -1,4 +1,7 @@
 import React from "react";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import ComponentCreateForm from "./ui/ComponentCreateForm";
 import {
   getComponentCategories,
@@ -13,6 +16,14 @@ export const metadata = {
 };
 
 export default async function Page() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    redirect("/login");
+  }
+  if (!session.user.isadmin) {
+    redirect("/dashboard");
+  }
+
   const [categories, manufacturers, suppliers, locations] = await Promise.all([
     getComponentCategories(),
     getManufacturers(),

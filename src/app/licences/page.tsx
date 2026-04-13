@@ -76,6 +76,7 @@ export default async function Page() {
           categories={categories}
           manufacturers={manufacturers}
           suppliers={suppliers}
+          isAdmin={isAdmin}
         />
       </Suspense>
     </div>

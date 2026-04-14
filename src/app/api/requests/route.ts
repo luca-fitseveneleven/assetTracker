@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
           entityType,
           entityId,
           userId: user.id,
-          status: { in: ["pending", "approved", "return_pending"] },
+          status: { in: ["pending", "return_pending"] },
         },
       });
       if (existingRequest) {
@@ -171,6 +171,19 @@ export async function POST(req: NextRequest) {
           { error: "You already have an active request for this item" },
           { status: 409 },
         );
+      }
+
+      // Check if user actually has the item assigned (approved but maybe stale)
+      if (entityType === "asset") {
+        const isAssigned = await prisma.userAssets.findFirst({
+          where: { assetid: entityId, userid: user.id },
+        });
+        if (isAssigned) {
+          return NextResponse.json(
+            { error: "This item is already assigned to you" },
+            { status: 409 },
+          );
+        }
       }
     } else {
       // For returns, prevent duplicate return requests

@@ -349,7 +349,7 @@ export async function PUT(req: NextRequest) {
       } catch {}
     }
 
-    // On return, unassign the item
+    // On return, unassign the item and close original approved request
     if (status === "returned") {
       try {
         await unassignItem(
@@ -357,6 +357,21 @@ export async function PUT(req: NextRequest) {
           existing.entityId,
           existing.userId,
         );
+        // Also mark any approved request for this item+user as returned
+        await prisma.itemRequest.updateMany({
+          where: {
+            entityType: existing.entityType,
+            entityId: existing.entityId,
+            userId: existing.userId,
+            status: "approved",
+            id: { not: id },
+          },
+          data: {
+            status: "returned",
+            returnedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
       } catch (err) {
         logger.error("Unassign failed after return", {
           error: err,
@@ -468,10 +483,11 @@ async function autoAssignItem(
 ) {
   switch (entityType) {
     case "asset": {
-      const existing = await prisma.userAssets.findFirst({
+      // Remove any stale assignment first, then create new one
+      await prisma.userAssets.deleteMany({
         where: { assetid: entityId },
       });
-      if (!existing) {
+      {
         await prisma.userAssets.create({
           data: {
             assetid: entityId,

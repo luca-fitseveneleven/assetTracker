@@ -12,6 +12,7 @@ import {
   getUserAssets,
 } from "@/lib/data";
 import { getOrganizationContext } from "@/lib/organization-context";
+import prisma from "@/lib/prisma";
 
 export const metadata = {
   title: "Asset Tracker - Assets",
@@ -95,9 +96,23 @@ export default async function Page() {
         .filter((s) => s.statustypename.toLowerCase().includes("available"))
         .map((s) => s.statustypeid),
     );
+    // Also include assets the user has pending/approved requests for
+    const requestedAssetIds = new Set(
+      (
+        await prisma.itemRequest.findMany({
+          where: {
+            userId: ctx.userId,
+            entityType: "asset",
+            status: { in: ["pending", "approved", "return_pending"] },
+          },
+          select: { entityId: true },
+        })
+      ).map((r) => r.entityId),
+    );
     displayAssets = databaseAssets.filter(
       (a) =>
         assignedAssetIds.has(a.assetid) ||
+        requestedAssetIds.has(a.assetid) ||
         (a.statustypeid && availableStatusIds.has(a.statustypeid)),
     );
   }

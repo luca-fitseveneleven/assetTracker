@@ -39,6 +39,7 @@ import {
 } from "../Icons";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import RequestItemDialog from "@/components/RequestItemDialog";
 
 const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
 
@@ -117,6 +118,11 @@ export default function AccessoriesTable({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [requestingAccessory, setRequestingAccessory] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const manufacturerById = useMemo(
     () =>
@@ -355,13 +361,17 @@ export default function AccessoriesTable({
                   </DropdownMenuItem>
                 )}
                 {!isAdmin && accCanRequest && (
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href={`/accessories/${item.accessorieid}?action=request`}
-                    >
-                      <CalendarPlusIcon className="mr-2 h-4 w-4" />
-                      Request
-                    </Link>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setRequestingAccessory({
+                        id: item.accessorieid as string,
+                        name: item.accessoriename as string,
+                      });
+                      setRequestDialogOpen(true);
+                    }}
+                  >
+                    <CalendarPlusIcon className="mr-2 h-4 w-4" />
+                    Request
                   </DropdownMenuItem>
                 )}
                 {isAdmin && (
@@ -587,6 +597,16 @@ export default function AccessoriesTable({
         onConfirm={handleBulkDelete}
         loading={bulkDeleting}
       />
+
+      {requestingAccessory && (
+        <RequestItemDialog
+          entityType="accessory"
+          entityId={requestingAccessory.id}
+          entityName={requestingAccessory.name}
+          open={requestDialogOpen}
+          onOpenChange={setRequestDialogOpen}
+        />
+      )}
     </div>
   );
 }

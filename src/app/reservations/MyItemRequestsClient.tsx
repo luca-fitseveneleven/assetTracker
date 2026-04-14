@@ -1,0 +1,203 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Loader2, PackageOpen, XCircle } from "lucide-react";
+import { toast } from "sonner";
+
+interface ItemRequest {
+  id: string;
+  entityType: string;
+  entityName: string;
+  status: string;
+  notes: string | null;
+  quantity: number;
+  createdAt: string;
+}
+
+function entityTypeBadgeClass(entityType: string): string {
+  switch (entityType) {
+    case "asset":
+      return "bg-blue-100 text-blue-800 hover:bg-blue-100";
+    case "accessory":
+      return "bg-purple-100 text-purple-800 hover:bg-purple-100";
+    case "consumable":
+      return "bg-orange-100 text-orange-800 hover:bg-orange-100";
+    case "licence":
+      return "bg-teal-100 text-teal-800 hover:bg-teal-100";
+    default:
+      return "bg-gray-100 text-gray-800 hover:bg-gray-100";
+  }
+}
+
+function getStatusBadge(status: string) {
+  switch (status) {
+    case "pending":
+      return (
+        <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+          Pending
+        </Badge>
+      );
+    case "approved":
+      return (
+        <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+          Approved
+        </Badge>
+      );
+    case "rejected":
+      return (
+        <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+          Rejected
+        </Badge>
+      );
+    case "cancelled":
+      return (
+        <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
+          Cancelled
+        </Badge>
+      );
+    default:
+      return <Badge variant="secondary">{status}</Badge>;
+  }
+}
+
+export default function MyItemRequestsClient() {
+  const [requests, setRequests] = useState<ItemRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRequests = useCallback(async () => {
+    try {
+      const res = await fetch("/api/requests?mine=true");
+      if (!res.ok) {
+        setRequests([]);
+        return;
+      }
+      const data = await res.json();
+      setRequests(Array.isArray(data) ? data : []);
+    } catch {
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
+
+  const handleCancel = async (id: string) => {
+    try {
+      const res = await fetch("/api/requests", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "cancelled" }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Failed to cancel request");
+        return;
+      }
+      toast.success("Request cancelled");
+      fetchRequests();
+    } catch {
+      toast.error("Failed to cancel request");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <h2 className="flex items-center gap-2 text-xl font-semibold">
+          <PackageOpen className="h-5 w-5" />
+          My Item Requests
+        </h2>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="flex items-center gap-2 text-xl font-semibold">
+          <PackageOpen className="h-5 w-5" />
+          My Item Requests
+        </h2>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Track your item checkout requests
+        </p>
+      </div>
+
+      {requests.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <PackageOpen className="text-muted-foreground mb-4 h-12 w-12" />
+          <h3 className="text-lg font-medium">No item requests</h3>
+          <p className="text-muted-foreground mt-1 text-sm">
+            You haven&apos;t submitted any item requests yet
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Type</TableHead>
+                <TableHead>Item</TableHead>
+                <TableHead>Qty</TableHead>
+                <TableHead>Notes</TableHead>
+                <TableHead>Requested</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {requests.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    <Badge
+                      className={`capitalize ${entityTypeBadgeClass(r.entityType)}`}
+                    >
+                      {r.entityType}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="font-medium">{r.entityName}</TableCell>
+                  <TableCell>{r.quantity > 1 ? r.quantity : "-"}</TableCell>
+                  <TableCell className="max-w-[200px] truncate">
+                    {r.notes || "-"}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(r.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(r.status)}</TableCell>
+                  <TableCell>
+                    {r.status === "pending" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCancel(r.id)}
+                      >
+                        <XCircle className="mr-1 h-4 w-4" />
+                        Cancel
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}

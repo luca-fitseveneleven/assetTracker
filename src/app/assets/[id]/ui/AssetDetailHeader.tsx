@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import AssetDetailActions from "./AssetDetailActions";
+import ReportProblemButton from "@/components/ReportProblemButton";
 
 function StatusChip({ name }) {
   const cls = useMemo(() => {
@@ -50,6 +51,11 @@ export default function AssetDetailHeader({
       </div>
       <div className="flex items-center gap-2">
         <StatusChip name={statusName} />
+        <ReportProblemButton
+          entityType="asset"
+          entityId={asset.assetid}
+          entityName={asset.assetname}
+        />
         {isAdmin && (
           <Link
             href={`/assets/${asset.assetid}/edit`}

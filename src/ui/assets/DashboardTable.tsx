@@ -65,6 +65,7 @@ import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import SavedFilters from "@/components/SavedFilters";
 import PrintLabelDialog from "@/components/PrintLabelDialog";
+import RequestItemDialog from "@/components/RequestItemDialog";
 import { Card, CardContent } from "@/components/ui/card";
 
 const statusColorMap = {
@@ -197,6 +198,11 @@ export default function App({
 
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [requestingAsset, setRequestingAsset] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [deleteMode, setDeleteMode] = useState("single");
   const [confirmAssigned, setConfirmAssigned] = useState(false);
 
@@ -871,11 +877,17 @@ export default function App({
                   </DropdownMenuItem>
                 )}
                 {!isAdmin && canRequest && (
-                  <DropdownMenuItem asChild>
-                    <Link href={`/assets/${asset.assetid}?action=request`}>
-                      <CalendarPlusIcon className="mr-2 h-4 w-4" />
-                      Request
-                    </Link>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setRequestingAsset({
+                        id: asset.assetid,
+                        name: asset.assetname,
+                      });
+                      setRequestDialogOpen(true);
+                    }}
+                  >
+                    <CalendarPlusIcon className="mr-2 h-4 w-4" />
+                    Request
                   </DropdownMenuItem>
                 )}
                 {isAdmin && <DropdownMenuSeparator />}
@@ -929,6 +941,8 @@ export default function App({
       userAssetsData,
       handleOpenModal,
       isAdmin,
+      setRequestingAsset,
+      setRequestDialogOpen,
     ],
   );
 
@@ -1516,13 +1530,17 @@ export default function App({
                           </DropdownMenuItem>
                         )}
                         {!isAdmin && mobileCanRequest && (
-                          <DropdownMenuItem asChild>
-                            <Link
-                              href={`/assets/${item.assetid}?action=request`}
-                            >
-                              <CalendarPlusIcon className="mr-2 h-4 w-4" />
-                              Request
-                            </Link>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setRequestingAsset({
+                                id: item.assetid,
+                                name: item.assetname,
+                              });
+                              setRequestDialogOpen(true);
+                            }}
+                          >
+                            <CalendarPlusIcon className="mr-2 h-4 w-4" />
+                            Request
                           </DropdownMenuItem>
                         )}
                         {isAdmin && <DropdownMenuSeparator />}
@@ -2222,6 +2240,16 @@ export default function App({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {requestingAsset && (
+        <RequestItemDialog
+          entityType="asset"
+          entityId={requestingAsset.id}
+          entityName={requestingAsset.name}
+          open={requestDialogOpen}
+          onOpenChange={setRequestDialogOpen}
+        />
+      )}
     </div>
   );
 }

@@ -497,12 +497,27 @@ function MyAssetsWidget() {
   );
 }
 
+function entityTypeBadgeClass(entityType: string): string {
+  switch (entityType) {
+    case "asset":
+      return "bg-blue-100 text-blue-800";
+    case "accessory":
+      return "bg-purple-100 text-purple-800";
+    case "consumable":
+      return "bg-orange-100 text-orange-800";
+    case "licence":
+      return "bg-teal-100 text-teal-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+}
+
 function MyRequestsWidget() {
   const [items, setItems] = useState<
     Array<{
       id: string;
-      assetName: string;
-      assetTag: string;
+      entityType: string;
+      entityName: string;
       status: string;
       createdAt: string;
     }>
@@ -510,7 +525,7 @@ function MyRequestsWidget() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/dashboard/my-requests")
+    fetch("/api/requests?mine=true&limit=5")
       .then((r) => r.json())
       .then((d) => setItems(Array.isArray(d) ? d : []))
       .catch(() => setItems([]))
@@ -528,11 +543,17 @@ function MyRequestsWidget() {
           key={r.id}
           className="flex items-center justify-between py-2 first:pt-0 last:pb-0"
         >
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{r.assetName}</p>
-            <p className="text-muted-foreground text-xs">{r.assetTag}</p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium capitalize ${entityTypeBadgeClass(r.entityType)}`}
+              >
+                {r.entityType}
+              </span>
+              <p className="truncate text-sm font-medium">{r.entityName}</p>
+            </div>
           </div>
-          <span className="bg-secondary text-secondary-foreground shrink-0 rounded-full px-2 py-0.5 text-xs">
+          <span className="bg-secondary text-secondary-foreground ml-2 shrink-0 rounded-full px-2 py-0.5 text-xs">
             {r.status}
           </span>
         </li>

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import Breadcrumb from "@/components/Breadcrumb";
 import prisma from "@/lib/prisma";
 import ReservationsCalendarClient from "./ReservationsCalendarClient";
+import MyItemRequestsClient from "./MyItemRequestsClient";
 
 export const metadata = {
   title: "Asset Tracker - Reservations",
@@ -54,6 +55,7 @@ export default async function ReservationsPage() {
       />
       <h1 className="text-2xl font-bold">Reservations</h1>
       <ReservationsCalendarClient reservations={serialized} />
+      {!isAdmin && <MyItemRequestsClient />}
     </div>
   );
 }

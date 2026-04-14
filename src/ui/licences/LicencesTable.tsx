@@ -33,9 +33,11 @@ import {
   EditIcon,
   DeleteIcon,
   MoreVertical,
+  CalendarPlusIcon,
 } from "../Icons";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import RequestItemDialog from "@/components/RequestItemDialog";
 
 const ROWS_PER_PAGE_OPTIONS = ["10", "20", "50", "100"];
 const expirationOptions = [
@@ -52,13 +54,12 @@ function formatDate(value) {
 }
 
 interface LicencesTableProps {
-   
   items: any[];
-   
+
   categories: any[];
-   
+
   manufacturers: any[];
-   
+
   suppliers: any[];
   isAdmin?: boolean;
 }
@@ -127,6 +128,11 @@ export default function LicencesTable({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [requestingLicence, setRequestingLicence] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const categoryById = useMemo(
     () =>
@@ -292,6 +298,26 @@ export default function LicencesTable({
         return formatDate(item.expirationdate);
       case "actions":
         if (!isAdmin) {
+          const isRequestable = item.requestable;
+          const isUnassigned = !item.licensedtoemail;
+          if (isRequestable && isUnassigned) {
+            return (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setRequestingLicence({
+                    id: item.licenceid,
+                    name: item.licencekey || item.licenceid,
+                  });
+                  setRequestDialogOpen(true);
+                }}
+              >
+                <CalendarPlusIcon className="mr-2 h-4 w-4" />
+                Request
+              </Button>
+            );
+          }
           return <span className="text-muted-foreground text-xs">-</span>;
         }
         return (
@@ -548,6 +574,16 @@ export default function LicencesTable({
         onConfirm={handleBulkDelete}
         loading={bulkDeleting}
       />
+
+      {requestingLicence && (
+        <RequestItemDialog
+          entityType="licence"
+          entityId={requestingLicence.id}
+          entityName={requestingLicence.name}
+          open={requestDialogOpen}
+          onOpenChange={setRequestDialogOpen}
+        />
+      )}
     </div>
   );
 }

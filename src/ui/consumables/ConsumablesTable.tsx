@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import RequestItemDialog from "@/components/RequestItemDialog";
 import {
   PlusIcon,
   SearchIcon,
@@ -54,13 +55,12 @@ function formatDate(value) {
 }
 
 interface ConsumablesTableProps {
-   
   items: any[];
-   
+
   categories: any[];
-   
+
   manufacturers: any[];
-   
+
   suppliers: any[];
   isAdmin?: boolean;
 }
@@ -123,6 +123,12 @@ export default function ConsumablesTable({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [requestingConsumable, setRequestingConsumable] = useState<{
+    id: string;
+    name: string;
+    quantity: number;
+  } | null>(null);
 
   const categoryById = useMemo(
     () =>
@@ -317,7 +323,12 @@ export default function ConsumablesTable({
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  toast.info("Request submitted for " + item.consumablename);
+                  setRequestingConsumable({
+                    id: item.consumableid,
+                    name: item.consumablename,
+                    quantity: qty,
+                  });
+                  setRequestDialogOpen(true);
                 }}
               >
                 Request
@@ -561,6 +572,18 @@ export default function ConsumablesTable({
         onConfirm={handleBulkDelete}
         loading={bulkDeleting}
       />
+
+      {requestingConsumable && (
+        <RequestItemDialog
+          entityType="consumable"
+          entityId={requestingConsumable.id}
+          entityName={requestingConsumable.name}
+          open={requestDialogOpen}
+          onOpenChange={setRequestDialogOpen}
+          showQuantity={true}
+          maxQuantity={requestingConsumable.quantity}
+        />
+      )}
     </div>
   );
 }

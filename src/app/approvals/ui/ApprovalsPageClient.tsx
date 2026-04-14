@@ -30,6 +30,7 @@ import {
   XCircle,
   ClipboardList,
   CalendarClock,
+  PackageOpen,
 } from "lucide-react";
 
 interface ApprovalUser {
@@ -82,6 +83,30 @@ interface Reservation {
   user: ReservationUser;
 }
 
+interface ItemRequestUser {
+  userid: string;
+  firstname: string;
+  lastname: string;
+  email?: string;
+}
+
+interface ItemRequest {
+  id: string;
+  entityType: string;
+  entityId: string;
+  entityName: string;
+  userId: string;
+  status: string;
+  notes: string | null;
+  quantity: number;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user: ItemRequestUser;
+  approver: ItemRequestUser | null;
+}
+
 interface ApprovalsPageClientProps {
   isAdmin: boolean;
 }
@@ -111,6 +136,17 @@ export default function ApprovalsPageClient({
   const [reservationActionNotes, setReservationActionNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmittingReservation, setIsSubmittingReservation] = useState(false);
+
+  const [itemRequests, setItemRequests] = useState<ItemRequest[]>([]);
+  const [isLoadingItemRequests, setIsLoadingItemRequests] = useState(true);
+  const [selectedItemRequest, setSelectedItemRequest] =
+    useState<ItemRequest | null>(null);
+  const [itemRequestDialogOpen, setItemRequestDialogOpen] = useState(false);
+  const [itemRequestDialogAction, setItemRequestDialogAction] = useState<
+    "approve" | "reject"
+  >("approve");
+  const [itemRequestActionNotes, setItemRequestActionNotes] = useState("");
+  const [isSubmittingItemRequest, setIsSubmittingItemRequest] = useState(false);
 
   const user = session?.user as SessionUser | undefined;
   const userIsAdmin = user?.isadmin || isAdmin;
@@ -165,10 +201,35 @@ export default function ApprovalsPageClient({
     }
   }, []);
 
+  const fetchItemRequests = useCallback(async (status?: string) => {
+    setIsLoadingItemRequests(true);
+    try {
+      const params = new URLSearchParams();
+      if (status && status !== "all") {
+        params.set("status", status);
+      }
+      const response = await fetch(`/api/requests?${params.toString()}`);
+      if (!response.ok) {
+        const data = await response.json();
+        toast.error(data.error || "Failed to fetch item requests");
+        setItemRequests([]);
+        return;
+      }
+      const data = await response.json();
+      setItemRequests(data);
+    } catch {
+      toast.error("Failed to connect to the server");
+      setItemRequests([]);
+    } finally {
+      setIsLoadingItemRequests(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchApprovals(activeTab);
     fetchReservations(activeTab);
-  }, [fetchApprovals, fetchReservations, activeTab]);
+    fetchItemRequests(activeTab);
+  }, [fetchApprovals, fetchReservations, fetchItemRequests, activeTab]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -266,6 +327,71 @@ export default function ApprovalsPageClient({
       toast.error(`Failed to ${reservationDialogAction} reservation`);
     } finally {
       setIsSubmittingReservation(false);
+    }
+  };
+
+  const openItemRequestConfirmDialog = (
+    itemRequest: ItemRequest,
+    action: "approve" | "reject",
+  ) => {
+    setSelectedItemRequest(itemRequest);
+    setItemRequestDialogAction(action);
+    setItemRequestActionNotes("");
+    setItemRequestDialogOpen(true);
+  };
+
+  const handleConfirmItemRequestAction = async () => {
+    if (!selectedItemRequest) return;
+
+    setIsSubmittingItemRequest(true);
+    try {
+      const newStatus =
+        itemRequestDialogAction === "approve" ? "approved" : "rejected";
+      const response = await fetch("/api/requests", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedItemRequest.id,
+          status: newStatus,
+          notes: itemRequestActionNotes || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        toast.error(
+          data.error || `Failed to ${itemRequestDialogAction} item request`,
+        );
+        return;
+      }
+
+      toast.success(
+        itemRequestDialogAction === "approve"
+          ? "Item request approved and auto-assigned"
+          : "Item request rejected",
+      );
+
+      setItemRequestDialogOpen(false);
+      fetchItemRequests(activeTab);
+    } catch {
+      toast.error(`Failed to ${itemRequestDialogAction} item request`);
+    } finally {
+      setIsSubmittingItemRequest(false);
+    }
+  };
+
+  const entityTypeBadgeClass = (entityType: string): string => {
+    switch (entityType) {
+      case "asset":
+        return "bg-blue-100 text-blue-800 hover:bg-blue-100";
+      case "accessory":
+        return "bg-purple-100 text-purple-800 hover:bg-purple-100";
+      case "consumable":
+        return "bg-orange-100 text-orange-800 hover:bg-orange-100";
+      case "licence":
+        return "bg-teal-100 text-teal-800 hover:bg-teal-100";
+      default:
+        return "bg-gray-100 text-gray-800 hover:bg-gray-100";
     }
   };
 
@@ -521,6 +647,188 @@ export default function ApprovalsPageClient({
           </div>
         )}
       </div>
+
+      {/* Item Requests Section */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-xl font-semibold">
+            <PackageOpen className="h-5 w-5" />
+            Item Requests
+          </h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Review and manage item checkout requests
+          </p>
+        </div>
+
+        {isLoadingItemRequests ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+          </div>
+        ) : itemRequests.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <PackageOpen className="text-muted-foreground mb-4 h-12 w-12" />
+            <h3 className="text-lg font-medium">No item requests found</h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {activeTab === "all"
+                ? "There are no item requests yet"
+                : `There are no ${activeTab} item requests`}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Item</TableHead>
+                  <TableHead>Requester</TableHead>
+                  <TableHead>Qty</TableHead>
+                  <TableHead>Notes</TableHead>
+                  <TableHead>Requested Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  {userIsAdmin && <TableHead>Actions</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {itemRequests.map((ir) => (
+                  <TableRow key={ir.id}>
+                    <TableCell>
+                      <Badge
+                        className={`capitalize ${entityTypeBadgeClass(ir.entityType)}`}
+                      >
+                        {ir.entityType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {ir.entityName}
+                    </TableCell>
+                    <TableCell>
+                      {ir.user.firstname} {ir.user.lastname}
+                    </TableCell>
+                    <TableCell>{ir.quantity > 1 ? ir.quantity : "-"}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      {ir.notes || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(ir.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(ir.status)}</TableCell>
+                    {userIsAdmin && (
+                      <TableCell>
+                        {ir.status === "pending" && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() =>
+                                openItemRequestConfirmDialog(ir, "approve")
+                              }
+                            >
+                              <CheckCircle className="mr-1 h-4 w-4" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() =>
+                                openItemRequestConfirmDialog(ir, "reject")
+                              }
+                            >
+                              <XCircle className="mr-1 h-4 w-4" />
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* Item Request Confirmation Dialog */}
+      <Dialog
+        open={itemRequestDialogOpen}
+        onOpenChange={setItemRequestDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {itemRequestDialogAction === "approve"
+                ? "Approve Item Request"
+                : "Reject Item Request"}
+            </DialogTitle>
+            <DialogDescription>
+              {itemRequestDialogAction === "approve"
+                ? "Are you sure you want to approve this request? The item will be automatically assigned."
+                : "Are you sure you want to reject this request?"}
+              {selectedItemRequest && (
+                <span className="mt-2 block">
+                  <strong>Type:</strong> {selectedItemRequest.entityType}
+                  {" | "}
+                  <strong>Item:</strong> {selectedItemRequest.entityName}
+                  {" | "}
+                  <strong>Requester:</strong>{" "}
+                  {selectedItemRequest.user.firstname}{" "}
+                  {selectedItemRequest.user.lastname}
+                  {selectedItemRequest.quantity > 1 && (
+                    <>
+                      {" | "}
+                      <strong>Quantity:</strong> {selectedItemRequest.quantity}
+                    </>
+                  )}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="item-request-action-notes">Notes (optional)</Label>
+            <Textarea
+              id="item-request-action-notes"
+              placeholder="Add any notes about this decision..."
+              value={itemRequestActionNotes}
+              onChange={(e) => setItemRequestActionNotes(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setItemRequestDialogOpen(false)}
+              disabled={isSubmittingItemRequest}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={
+                itemRequestDialogAction === "approve"
+                  ? "default"
+                  : "destructive"
+              }
+              className={
+                itemRequestDialogAction === "approve"
+                  ? "bg-green-600 hover:bg-green-700"
+                  : ""
+              }
+              onClick={handleConfirmItemRequestAction}
+              disabled={isSubmittingItemRequest}
+            >
+              {isSubmittingItemRequest ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : itemRequestDialogAction === "approve" ? (
+                <CheckCircle className="mr-2 h-4 w-4" />
+              ) : (
+                <XCircle className="mr-2 h-4 w-4" />
+              )}
+              {itemRequestDialogAction === "approve" ? "Approve" : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

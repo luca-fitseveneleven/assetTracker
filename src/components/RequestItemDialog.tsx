@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { CheckCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface RequestItemDialogProps {
   entityType: "asset" | "accessory" | "consumable" | "licence";
@@ -25,6 +26,7 @@ interface RequestItemDialogProps {
   onOpenChange: (open: boolean) => void;
   showQuantity?: boolean;
   maxQuantity?: number;
+  onSuccess?: () => void;
 }
 
 export default function RequestItemDialog({
@@ -35,7 +37,9 @@ export default function RequestItemDialog({
   onOpenChange,
   showQuantity = false,
   maxQuantity,
+  onSuccess,
 }: RequestItemDialogProps) {
+  const router = useRouter();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -71,6 +75,7 @@ export default function RequestItemDialog({
   };
 
   const handleClose = () => {
+    const wasSubmitted = submitted;
     onOpenChange(false);
     // Reset after close animation
     setTimeout(() => {
@@ -79,6 +84,10 @@ export default function RequestItemDialog({
       setEndDate("");
       setNotes("");
       setQuantity("1");
+      if (wasSubmitted) {
+        onSuccess?.();
+        router.refresh();
+      }
     }, 200);
   };
 

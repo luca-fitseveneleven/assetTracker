@@ -21,26 +21,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Resolve the "Active" status id (case-insensitive)
-    const activeStatus = await prisma.statusType.findFirst({
-      where: { statustypename: { equals: "Active", mode: "insensitive" } },
-    });
-    if (!activeStatus) {
-      return new Response(
-        JSON.stringify({ error: "Status 'Active' not found in statusType" }),
-        { status: 500 },
-      );
-    }
-
-    // Check if the asset is already assigned
-    const existingAssignment = await prisma.userAssets.findFirst({
-      where: { assetid: assetId },
-    });
-
     const result = await prisma.$transaction(async (tx) => {
+      // Resolve the "Active" status id (case-insensitive)
+      const activeStatus = await tx.statusType.findFirst({
+        where: { statustypename: { equals: "Active", mode: "insensitive" } },
+      });
+      if (!activeStatus) {
+        throw new Error("Status 'Active' not found in statusType");
+      }
+
+      // Check for existing assignment inside the transaction to prevent TOCTOU race
+      const existingAssignment = await tx.userAssets.findFirst({
+        where: { assetid: assetId },
+      });
+
       let assignment;
 
       if (existingAssignment) {
+        // Idempotent: if already assigned to the same user, no-op
+        if (existingAssignment.userid === userId) {
+          return { assignment: existingAssignment, idempotent: true };
+        }
+        // Reassign to the new user within the transaction
         assignment = await tx.userAssets.update({
           where: { userassetsid: existingAssignment.userassetsid },
           data: { userid: userId },
@@ -60,13 +62,15 @@ export async function POST(req: NextRequest) {
         data: { statustypeid: activeStatus.statustypeid },
       });
 
-      return assignment;
+      return { assignment, idempotent: false };
     });
 
     return new Response(
       JSON.stringify({
-        message: "Asset assigned successfully",
-        userAsset: result,
+        message: result.idempotent
+          ? "Asset already assigned to this user"
+          : "Asset assigned successfully",
+        userAsset: result.assignment,
       }),
       {
         status: 200,
@@ -82,6 +86,14 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error && error.message.startsWith("Forbidden")) {
       return new Response(JSON.stringify({ error: error.message }), {
         status: 403,
+      });
+    }
+    if (
+      error instanceof Error &&
+      error.message === "Status 'Active' not found in statusType"
+    ) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
       });
     }
     return new Response(JSON.stringify({ error: "Error assigning asset" }), {

@@ -246,69 +246,96 @@ export async function PUT(req: NextRequest) {
       updateData.approvedAt = new Date();
     }
 
-    const reservation = await prisma.assetReservation.update({
-      where: { id },
-      data: updateData,
-      include: {
-        asset: {
-          select: { assetid: true, assetname: true, assettag: true },
-        },
-        user: {
-          select: {
-            userid: true,
-            firstname: true,
-            lastname: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    // Auto-assign the asset to the requesting user on approval
-    if (status === "approved") {
-      try {
-        const existingAssignment = await prisma.userAssets.findFirst({
-          where: { assetid: reservation.asset.assetid },
+    // Wrap status update + auto-assign in a transaction to prevent race conditions
+    // (e.g. two admins approving different reservations for the same asset)
+    const { reservation, autoAssignResult } = await prisma.$transaction(
+      async (tx) => {
+        // Re-check the reservation status inside the transaction
+        const current = await tx.assetReservation.findUnique({
+          where: { id },
         });
 
-        if (!existingAssignment) {
-          await prisma.userAssets.create({
-            data: {
-              assetid: reservation.asset.assetid,
-              userid: reservation.user.userid,
-              creation_date: new Date(),
-            },
-          });
-
-          // Update asset status to "Active"
-          const activeStatus = await prisma.statusType.findFirst({
-            where: { statustypename: "Active" },
-          });
-
-          if (activeStatus) {
-            await prisma.asset.update({
-              where: { assetid: reservation.asset.assetid },
-              data: { statustypeid: activeStatus.statustypeid },
-            });
-          }
-
-          logger.info("Auto-assigned asset to user on reservation approval", {
-            assetId: reservation.asset.assetid,
-            userId: reservation.user.userid,
-          });
-        } else {
-          logger.info("Skipped auto-assign: asset already assigned to a user", {
-            assetId: reservation.asset.assetid,
-            existingAssignmentId: existingAssignment.userassetsid,
-          });
+        if (!current) {
+          throw new Error("RESERVATION_NOT_FOUND");
         }
-      } catch (assignError) {
-        logger.error("Failed to auto-assign asset on reservation approval", {
-          error: assignError,
+
+        // If another admin already processed this reservation, fail gracefully
+        if (current.status !== "pending" && existing.status === "pending") {
+          throw new Error(`ALREADY_PROCESSED:${current.status}`);
+        }
+
+        const updatedReservation = await tx.assetReservation.update({
+          where: { id },
+          data: updateData,
+          include: {
+            asset: {
+              select: { assetid: true, assetname: true, assettag: true },
+            },
+            user: {
+              select: {
+                userid: true,
+                firstname: true,
+                lastname: true,
+                email: true,
+              },
+            },
+          },
+        });
+
+        let assignResult: "assigned" | "already_assigned" | "skipped" =
+          "skipped";
+
+        // Auto-assign the asset to the requesting user on approval
+        if (status === "approved") {
+          const existingAssignment = await tx.userAssets.findFirst({
+            where: { assetid: updatedReservation.asset.assetid },
+          });
+
+          if (!existingAssignment) {
+            await tx.userAssets.create({
+              data: {
+                assetid: updatedReservation.asset.assetid,
+                userid: updatedReservation.user.userid,
+                creation_date: new Date(),
+              },
+            });
+
+            // Update asset status to "Active"
+            const activeStatus = await tx.statusType.findFirst({
+              where: { statustypename: "Active" },
+            });
+
+            if (activeStatus) {
+              await tx.asset.update({
+                where: { assetid: updatedReservation.asset.assetid },
+                data: { statustypeid: activeStatus.statustypeid },
+              });
+            }
+
+            assignResult = "assigned";
+          } else {
+            assignResult = "already_assigned";
+          }
+        }
+
+        return {
+          reservation: updatedReservation,
+          autoAssignResult: assignResult,
+        };
+      },
+    );
+
+    // Log auto-assign results outside the transaction
+    if (status === "approved") {
+      if (autoAssignResult === "assigned") {
+        logger.info("Auto-assigned asset to user on reservation approval", {
           assetId: reservation.asset.assetid,
           userId: reservation.user.userid,
         });
-        // Don't fail the whole request -- the reservation was already approved
+      } else if (autoAssignResult === "already_assigned") {
+        logger.info("Skipped auto-assign: asset already assigned to a user", {
+          assetId: reservation.asset.assetid,
+        });
       }
     }
 
@@ -335,6 +362,23 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(reservation);
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "RESERVATION_NOT_FOUND") {
+        return NextResponse.json(
+          { error: "Reservation not found" },
+          { status: 404 },
+        );
+      }
+      if (error.message.startsWith("ALREADY_PROCESSED:")) {
+        const currentStatus = error.message.split(":")[1];
+        return NextResponse.json(
+          {
+            error: `Reservation has already been ${currentStatus} by another admin`,
+          },
+          { status: 409 },
+        );
+      }
+    }
     logger.error("Error updating reservation", { error });
     return NextResponse.json(
       { error: "Failed to update reservation" },

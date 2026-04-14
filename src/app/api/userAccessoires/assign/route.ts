@@ -19,21 +19,35 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const exists = await prisma.userAccessoires.findFirst({
-      where: { userid: userId, accessorieid: accessorieId },
-    });
-    let record = exists;
-    if (!exists) {
-      record = await prisma.userAccessoires.create({
+    // Wrap check + create in a transaction to prevent duplicate assignments
+    const { record, idempotent } = await prisma.$transaction(async (tx) => {
+      const exists = await tx.userAccessoires.findFirst({
+        where: { userid: userId, accessorieid: accessorieId },
+      });
+
+      // Idempotent: if already assigned to the same user, return as-is
+      if (exists) {
+        return { record: exists, idempotent: true };
+      }
+
+      const created = await tx.userAccessoires.create({
         data: {
           userid: userId,
           accessorieid: accessorieId,
           creation_date: new Date(),
         } as Prisma.userAccessoiresUncheckedCreateInput,
       });
-    }
+
+      return { record: created, idempotent: false };
+    });
+
     return new Response(
-      JSON.stringify({ message: "Accessory assigned", userAccessoire: record }),
+      JSON.stringify({
+        message: idempotent
+          ? "Accessory already assigned to this user"
+          : "Accessory assigned",
+        userAccessoire: record,
+      }),
       { status: 200 },
     );
   } catch (e) {

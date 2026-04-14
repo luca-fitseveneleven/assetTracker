@@ -66,6 +66,7 @@ import { toast } from "sonner";
 import SavedFilters from "@/components/SavedFilters";
 import PrintLabelDialog from "@/components/PrintLabelDialog";
 import RequestItemDialog from "@/components/RequestItemDialog";
+import { Undo2 as Undo2Icon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const statusColorMap = {
@@ -200,6 +201,11 @@ export default function App({
   const [selectedUser, setSelectedUser] = useState(null);
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const [requestingAsset, setRequestingAsset] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [returningAsset, setReturningAsset] = useState<{
     id: string;
     name: string;
   } | null>(null);
@@ -895,6 +901,20 @@ export default function App({
                   >
                     <CalendarPlusIcon className="mr-2 h-4 w-4" />
                     Request
+                  </DropdownMenuItem>
+                )}
+                {!isAdmin && isAssignedToMe && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setReturningAsset({
+                        id: asset.assetid,
+                        name: asset.assetname,
+                      });
+                      setReturnDialogOpen(true);
+                    }}
+                  >
+                    <Undo2Icon className="mr-2 h-4 w-4" />
+                    Return
                   </DropdownMenuItem>
                 )}
                 {isAdmin && <DropdownMenuSeparator />}
@@ -2264,6 +2284,48 @@ export default function App({
           onOpenChange={setRequestDialogOpen}
         />
       )}
+
+      <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Return Asset</DialogTitle>
+            <DialogDescription>
+              Return <span className="font-medium">{returningAsset?.name}</span>{" "}
+              and unassign it from your account.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReturnDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/requests/self-return", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      entityType: "asset",
+                      entityId: returningAsset?.id,
+                    }),
+                  });
+                  if (!res.ok) throw new Error();
+                  toast.success("Asset returned");
+                  setReturnDialogOpen(false);
+                  refreshData();
+                } catch {
+                  toast.error("Failed to return asset");
+                }
+              }}
+            >
+              Confirm Return
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

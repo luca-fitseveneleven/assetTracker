@@ -397,8 +397,12 @@ export default function ApprovalsPageClient({
 
     setIsSubmittingItemRequest(true);
     try {
-      const newStatus =
-        itemRequestDialogAction === "approve" ? "approved" : "rejected";
+      const statusMap: Record<string, string> = {
+        approve: "approved",
+        reject: "rejected",
+        returned: "returned",
+      };
+      const newStatus = statusMap[itemRequestDialogAction] || "rejected";
       const response = await fetch("/api/requests", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -417,11 +421,12 @@ export default function ApprovalsPageClient({
         return;
       }
 
-      toast.success(
-        itemRequestDialogAction === "approve"
-          ? "Item request approved and auto-assigned"
-          : "Item request rejected",
-      );
+      const successMessages: Record<string, string> = {
+        approve: "Item request approved and auto-assigned",
+        reject: "Item request rejected",
+        returned: "Return confirmed — item unassigned",
+      };
+      toast.success(successMessages[itemRequestDialogAction] || "Done");
 
       setItemRequestDialogOpen(false);
       fetchItemRequests(activeTab);
@@ -966,12 +971,16 @@ export default function ApprovalsPageClient({
             <DialogTitle>
               {itemRequestDialogAction === "approve"
                 ? "Approve Item Request"
-                : "Reject Item Request"}
+                : itemRequestDialogAction === "returned"
+                  ? "Confirm Item Collection"
+                  : "Reject Item Request"}
             </DialogTitle>
             <DialogDescription>
               {itemRequestDialogAction === "approve"
                 ? "Are you sure you want to approve this request? The item will be automatically assigned."
-                : "Are you sure you want to reject this request?"}
+                : itemRequestDialogAction === "returned"
+                  ? "Confirm that you have collected this item from the user. The item will be unassigned and set to Available."
+                  : "Are you sure you want to reject this request?"}
               {selectedItemRequest && (
                 <span className="mt-2 block">
                   <strong>Type:</strong> {selectedItemRequest.entityType}
@@ -1011,26 +1020,28 @@ export default function ApprovalsPageClient({
             </Button>
             <Button
               variant={
-                itemRequestDialogAction === "approve"
-                  ? "default"
-                  : "destructive"
+                itemRequestDialogAction === "reject" ? "destructive" : "default"
               }
               className={
                 itemRequestDialogAction === "approve"
                   ? "bg-green-600 hover:bg-green-700"
-                  : ""
+                  : itemRequestDialogAction === "returned"
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : ""
               }
               onClick={handleConfirmItemRequestAction}
               disabled={isSubmittingItemRequest}
             >
               {isSubmittingItemRequest ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : itemRequestDialogAction === "approve" ? (
-                <CheckCircle className="mr-2 h-4 w-4" />
               ) : (
-                <XCircle className="mr-2 h-4 w-4" />
+                <CheckCircle className="mr-2 h-4 w-4" />
               )}
-              {itemRequestDialogAction === "approve" ? "Approve" : "Reject"}
+              {itemRequestDialogAction === "approve"
+                ? "Approve"
+                : itemRequestDialogAction === "returned"
+                  ? "Confirm Collection"
+                  : "Reject"}
             </Button>
           </DialogFooter>
         </DialogContent>

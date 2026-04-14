@@ -844,7 +844,14 @@ export default function App({
           const isAvailable =
             asset.statustypeid &&
             assetAvailableStatusIds.has(asset.statustypeid);
-          const canRequest = asset.requestable || isAvailable;
+          const isAssignedToMe =
+            currentUserId &&
+            userAssetsData.some(
+              (ua) =>
+                ua.assetid === asset.assetid && ua.userid === currentUserId,
+            );
+          const canRequest =
+            !isAssignedToMe && (asset.requestable || isAvailable);
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1424,7 +1431,14 @@ export default function App({
             const mobileIsAvailable =
               item.statustypeid &&
               mobileAvailableStatusIds.has(item.statustypeid);
-            const mobileCanRequest = item.requestable || mobileIsAvailable;
+            const mobileIsAssignedToMe =
+              currentUserId &&
+              userAssetsData.some(
+                (ua: Record<string, unknown>) =>
+                  ua.assetid === item.assetid && ua.userid === currentUserId,
+              );
+            const mobileCanRequest =
+              !mobileIsAssignedToMe && (item.requestable || mobileIsAvailable);
 
             return (
               <Card key={item.assetid} className="overflow-hidden">

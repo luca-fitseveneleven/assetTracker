@@ -95,12 +95,23 @@ export default function MyItemRequestsClient() {
   const [requests, setRequests] = useState<ItemRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [showHistory, setShowHistory] = useState(false);
 
-  const pages = Math.max(1, Math.ceil(requests.length / ITEMS_PER_PAGE));
+  const ACTIVE_STATUSES = ["pending", "approved", "return_pending", "overdue"];
+
+  const filteredRequests = useMemo(() => {
+    if (showHistory) return requests;
+    return requests.filter((r) => ACTIVE_STATUSES.includes(r.status));
+  }, [requests, showHistory]);
+
+  const pages = Math.max(
+    1,
+    Math.ceil(filteredRequests.length / ITEMS_PER_PAGE),
+  );
   const paginatedRequests = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE;
-    return requests.slice(start, start + ITEMS_PER_PAGE);
-  }, [requests, page]);
+    return filteredRequests.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredRequests, page]);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -197,17 +208,31 @@ export default function MyItemRequestsClient() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="flex items-center gap-2 text-xl font-semibold">
-          <PackageOpen className="h-5 w-5" />
-          My Item Requests
-        </h2>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Track your item checkout requests
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-xl font-semibold">
+            <PackageOpen className="h-5 w-5" />
+            My Item Requests
+          </h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {showHistory
+              ? "All requests including completed"
+              : "Active requests only"}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setShowHistory(!showHistory);
+            setPage(1);
+          }}
+        >
+          {showHistory ? "Show Active Only" : "Show History"}
+        </Button>
       </div>
 
-      {requests.length === 0 ? (
+      {filteredRequests.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <PackageOpen className="text-muted-foreground mb-4 h-12 w-12" />
           <h3 className="text-lg font-medium">No item requests</h3>
@@ -283,10 +308,11 @@ export default function MyItemRequestsClient() {
           </Table>
         </div>
       )}
-      {requests.length > 0 && (
+      {filteredRequests.length > 0 && (
         <div className="flex items-center justify-between pt-4">
           <span className="text-muted-foreground text-sm">
-            {requests.length} total request{requests.length !== 1 ? "s" : ""}
+            {filteredRequests.length} request
+            {filteredRequests.length !== 1 ? "s" : ""}
           </span>
           <div className="flex items-center gap-2">
             <Button

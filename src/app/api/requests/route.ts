@@ -48,53 +48,73 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Resolve entity names
-    const enriched = await Promise.all(
-      requests.map(async (r) => {
-        let entityName = "";
-        try {
-          switch (r.entityType) {
-            case "asset": {
-              const a = await prisma.asset.findUnique({
-                where: { assetid: r.entityId },
-                select: { assetname: true, assettag: true },
-              });
-              entityName = a
-                ? `${a.assetname} (${a.assettag})`
-                : "Unknown asset";
-              break;
-            }
-            case "accessory": {
-              const a = await prisma.accessories.findUnique({
-                where: { accessorieid: r.entityId },
-                select: { accessoriename: true },
-              });
-              entityName = a?.accessoriename || "Unknown accessory";
-              break;
-            }
-            case "consumable": {
-              const c = await prisma.consumable.findUnique({
-                where: { consumableid: r.entityId },
-                select: { consumablename: true },
-              });
-              entityName = c?.consumablename || "Unknown consumable";
-              break;
-            }
-            case "licence": {
-              const l = await prisma.licence.findUnique({
-                where: { licenceid: r.entityId },
-                select: { licencekey: true },
-              });
-              entityName = l?.licencekey || "Unknown licence";
-              break;
-            }
-          }
-        } catch {
-          entityName = "Unknown";
-        }
-        return { ...r, entityName };
-      }),
-    );
+    // Batch-resolve entity names (avoids N+1 queries)
+    const assetIds = [
+      ...new Set(
+        requests.filter((r) => r.entityType === "asset").map((r) => r.entityId),
+      ),
+    ];
+    const accessoryIds = [
+      ...new Set(
+        requests
+          .filter((r) => r.entityType === "accessory")
+          .map((r) => r.entityId),
+      ),
+    ];
+    const consumableIds = [
+      ...new Set(
+        requests
+          .filter((r) => r.entityType === "consumable")
+          .map((r) => r.entityId),
+      ),
+    ];
+    const licenceIds = [
+      ...new Set(
+        requests
+          .filter((r) => r.entityType === "licence")
+          .map((r) => r.entityId),
+      ),
+    ];
+
+    const [assets, accessories, consumables, licences] = await Promise.all([
+      assetIds.length
+        ? prisma.asset.findMany({
+            where: { assetid: { in: assetIds } },
+            select: { assetid: true, assetname: true, assettag: true },
+          })
+        : [],
+      accessoryIds.length
+        ? prisma.accessories.findMany({
+            where: { accessorieid: { in: accessoryIds } },
+            select: { accessorieid: true, accessoriename: true },
+          })
+        : [],
+      consumableIds.length
+        ? prisma.consumable.findMany({
+            where: { consumableid: { in: consumableIds } },
+            select: { consumableid: true, consumablename: true },
+          })
+        : [],
+      licenceIds.length
+        ? prisma.licence.findMany({
+            where: { licenceid: { in: licenceIds } },
+            select: { licenceid: true, licencekey: true },
+          })
+        : [],
+    ]);
+
+    const nameMap = new Map<string, string>();
+    for (const a of assets)
+      nameMap.set(a.assetid, `${a.assetname} (${a.assettag})`);
+    for (const a of accessories) nameMap.set(a.accessorieid, a.accessoriename);
+    for (const c of consumables) nameMap.set(c.consumableid, c.consumablename);
+    for (const l of licences)
+      nameMap.set(l.licenceid, l.licencekey || "Unnamed licence");
+
+    const enriched = requests.map((r) => ({
+      ...r,
+      entityName: nameMap.get(r.entityId) || "Unknown",
+    }));
 
     return NextResponse.json(enriched);
   } catch (error) {

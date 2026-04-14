@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { useSession, type SessionUser } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -148,8 +149,56 @@ export default function ApprovalsPageClient({
   const [itemRequestActionNotes, setItemRequestActionNotes] = useState("");
   const [isSubmittingItemRequest, setIsSubmittingItemRequest] = useState(false);
 
+  const [approvalsPage, setApprovalsPage] = useState(1);
+  const [reservationsPage, setReservationsPage] = useState(1);
+  const [itemRequestsPage, setItemRequestsPage] = useState(1);
+
   const user = session?.user as SessionUser | undefined;
   const userIsAdmin = user?.isadmin || isAdmin;
+
+  const ITEMS_PER_PAGE = 20;
+
+  const getEntityUrl = (entityType: string, entityId: string): string => {
+    switch (entityType) {
+      case "asset":
+        return `/assets/${entityId}`;
+      case "accessory":
+        return `/accessories/${entityId}`;
+      case "consumable":
+        return `/consumables/${entityId}`;
+      case "licence":
+        return `/licences/${entityId}`;
+      default:
+        return "#";
+    }
+  };
+
+  const approvalsPages = Math.max(
+    1,
+    Math.ceil(approvals.length / ITEMS_PER_PAGE),
+  );
+  const paginatedApprovals = useMemo(() => {
+    const start = (approvalsPage - 1) * ITEMS_PER_PAGE;
+    return approvals.slice(start, start + ITEMS_PER_PAGE);
+  }, [approvals, approvalsPage]);
+
+  const reservationsPages = Math.max(
+    1,
+    Math.ceil(reservations.length / ITEMS_PER_PAGE),
+  );
+  const paginatedReservations = useMemo(() => {
+    const start = (reservationsPage - 1) * ITEMS_PER_PAGE;
+    return reservations.slice(start, start + ITEMS_PER_PAGE);
+  }, [reservations, reservationsPage]);
+
+  const itemRequestsPages = Math.max(
+    1,
+    Math.ceil(itemRequests.length / ITEMS_PER_PAGE),
+  );
+  const paginatedItemRequests = useMemo(() => {
+    const start = (itemRequestsPage - 1) * ITEMS_PER_PAGE;
+    return itemRequests.slice(start, start + ITEMS_PER_PAGE);
+  }, [itemRequests, itemRequestsPage]);
 
   const fetchApprovals = useCallback(async (status?: string) => {
     setIsLoading(true);
@@ -233,6 +282,9 @@ export default function ApprovalsPageClient({
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
+    setApprovalsPage(1);
+    setReservationsPage(1);
+    setItemRequestsPage(1);
   };
 
   const openConfirmDialog = (
@@ -503,7 +555,7 @@ export default function ApprovalsPageClient({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {approvals.map((approval) => (
+                  {paginatedApprovals.map((approval) => (
                     <TableRow key={approval.id}>
                       <TableCell>
                         <Badge variant="outline">{approval.entityType}</Badge>
@@ -516,7 +568,15 @@ export default function ApprovalsPageClient({
                         className="font-mono text-xs"
                         title={approval.entityId}
                       >
-                        {truncateId(approval.entityId)}
+                        <Link
+                          href={getEntityUrl(
+                            approval.entityType,
+                            approval.entityId,
+                          )}
+                          className="text-primary hover:underline"
+                        >
+                          {truncateId(approval.entityId)}
+                        </Link>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
                         {approval.notes || "-"}
@@ -558,6 +618,41 @@ export default function ApprovalsPageClient({
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+          {approvals.length > 0 && (
+            <div className="flex items-center justify-between pt-4">
+              <span className="text-muted-foreground text-sm">
+                {approvals.length} total approval
+                {approvals.length !== 1 ? "s" : ""}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setApprovalsPage(Math.max(1, approvalsPage - 1))
+                  }
+                  disabled={approvalsPage === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm">
+                  Page {approvalsPage} of {approvalsPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setApprovalsPage(
+                      Math.min(approvalsPages, approvalsPage + 1),
+                    )
+                  }
+                  disabled={approvalsPage === approvalsPages}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </TabsContent>
@@ -604,10 +699,15 @@ export default function ApprovalsPageClient({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reservations.map((reservation) => (
+                {paginatedReservations.map((reservation) => (
                   <TableRow key={reservation.id}>
                     <TableCell className="font-medium">
-                      {reservation.asset.assetname}
+                      <Link
+                        href={`/assets/${reservation.assetId}`}
+                        className="text-primary hover:underline"
+                      >
+                        {reservation.asset.assetname}
+                      </Link>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {reservation.asset.assettag}
@@ -664,6 +764,41 @@ export default function ApprovalsPageClient({
             </Table>
           </div>
         )}
+        {reservations.length > 0 && (
+          <div className="flex items-center justify-between pt-4">
+            <span className="text-muted-foreground text-sm">
+              {reservations.length} total reservation
+              {reservations.length !== 1 ? "s" : ""}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setReservationsPage(Math.max(1, reservationsPage - 1))
+                }
+                disabled={reservationsPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {reservationsPage} of {reservationsPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setReservationsPage(
+                    Math.min(reservationsPages, reservationsPage + 1),
+                  )
+                }
+                disabled={reservationsPage === reservationsPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Item Requests Section */}
@@ -708,7 +843,7 @@ export default function ApprovalsPageClient({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {itemRequests.map((ir) => (
+                {paginatedItemRequests.map((ir) => (
                   <TableRow key={ir.id}>
                     <TableCell>
                       <Badge
@@ -718,7 +853,12 @@ export default function ApprovalsPageClient({
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium">
-                      {ir.entityName}
+                      <Link
+                        href={getEntityUrl(ir.entityType, ir.entityId)}
+                        className="text-primary hover:underline"
+                      >
+                        {ir.entityName}
+                      </Link>
                     </TableCell>
                     <TableCell>
                       {ir.user.firstname} {ir.user.lastname}
@@ -777,6 +917,41 @@ export default function ApprovalsPageClient({
                 ))}
               </TableBody>
             </Table>
+          </div>
+        )}
+        {itemRequests.length > 0 && (
+          <div className="flex items-center justify-between pt-4">
+            <span className="text-muted-foreground text-sm">
+              {itemRequests.length} total item request
+              {itemRequests.length !== 1 ? "s" : ""}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setItemRequestsPage(Math.max(1, itemRequestsPage - 1))
+                }
+                disabled={itemRequestsPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {itemRequestsPage} of {itemRequestsPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setItemRequestsPage(
+                    Math.min(itemRequestsPages, itemRequestsPage + 1),
+                  )
+                }
+                disabled={itemRequestsPage === itemRequestsPages}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         )}
       </div>

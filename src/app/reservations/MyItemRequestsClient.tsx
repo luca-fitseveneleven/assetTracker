@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,9 +73,34 @@ function getStatusBadge(status: string) {
   }
 }
 
+const ITEMS_PER_PAGE = 20;
+
+function getEntityUrl(entityType: string, entityId?: string): string {
+  if (!entityId) return "#";
+  switch (entityType) {
+    case "asset":
+      return `/assets/${entityId}`;
+    case "accessory":
+      return `/accessories/${entityId}`;
+    case "consumable":
+      return `/consumables/${entityId}`;
+    case "licence":
+      return `/licences/${entityId}`;
+    default:
+      return "#";
+  }
+}
+
 export default function MyItemRequestsClient() {
   const [requests, setRequests] = useState<ItemRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+
+  const pages = Math.max(1, Math.ceil(requests.length / ITEMS_PER_PAGE));
+  const paginatedRequests = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE;
+    return requests.slice(start, start + ITEMS_PER_PAGE);
+  }, [requests, page]);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -204,7 +230,7 @@ export default function MyItemRequestsClient() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {requests.map((r) => (
+              {paginatedRequests.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>
                     <Badge
@@ -213,7 +239,14 @@ export default function MyItemRequestsClient() {
                       {r.entityType}
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-medium">{r.entityName}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      href={getEntityUrl(r.entityType, r.entityId)}
+                      className="text-primary hover:underline"
+                    >
+                      {r.entityName}
+                    </Link>
+                  </TableCell>
                   <TableCell>{r.quantity > 1 ? r.quantity : "-"}</TableCell>
                   <TableCell className="max-w-[200px] truncate">
                     {r.notes || "-"}
@@ -248,6 +281,34 @@ export default function MyItemRequestsClient() {
               ))}
             </TableBody>
           </Table>
+        </div>
+      )}
+      {requests.length > 0 && (
+        <div className="flex items-center justify-between pt-4">
+          <span className="text-muted-foreground text-sm">
+            {requests.length} total request{requests.length !== 1 ? "s" : ""}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm">
+              Page {page} of {pages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(Math.min(pages, page + 1))}
+              disabled={page === pages}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
     </div>

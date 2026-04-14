@@ -204,6 +204,24 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Set item status to "Pending" while request is being reviewed
+    if (initialStatus === "pending" && entityType === "asset") {
+      try {
+        const pendingStatus = await prisma.statusType.findFirst({
+          where: { statustypename: { equals: "Pending", mode: "insensitive" } },
+        });
+        if (pendingStatus) {
+          await prisma.asset.update({
+            where: { assetid: entityId },
+            data: {
+              statustypeid: pendingStatus.statustypeid,
+              change_date: new Date(),
+            },
+          });
+        }
+      } catch {}
+    }
+
     // Notify all admins (in-app via notification_queue)
     try {
       const admins = await prisma.user.findMany({
@@ -306,6 +324,30 @@ export async function PUT(req: NextRequest) {
       where: { id },
       data: updateData,
     });
+
+    // On reject/cancel, revert asset status to "Available"
+    if (
+      (status === "rejected" || status === "cancelled") &&
+      existing.entityType === "asset" &&
+      existing.status === "pending"
+    ) {
+      try {
+        const available = await prisma.statusType.findFirst({
+          where: {
+            statustypename: { equals: "Available", mode: "insensitive" },
+          },
+        });
+        if (available) {
+          await prisma.asset.update({
+            where: { assetid: existing.entityId },
+            data: {
+              statustypeid: available.statustypeid,
+              change_date: new Date(),
+            },
+          });
+        }
+      } catch {}
+    }
 
     // On return, unassign the item
     if (status === "returned") {

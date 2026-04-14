@@ -157,48 +157,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prevent duplicate active requests for the same item (skip for returns)
-    if (initialStatus !== "return_pending") {
-      const existingRequest = await prisma.itemRequest.findFirst({
-        where: {
-          entityType,
-          entityId,
-          userId: user.id,
-          status: { in: ["pending", "return_pending"] },
-        },
-      });
-      if (existingRequest) {
+    // Prevent duplicates — only check active statuses (terminal ones kept briefly for visibility)
+    const existingRequest = await prisma.itemRequest.findFirst({
+      where: {
+        entityType,
+        entityId,
+        userId: user.id,
+        status: { notIn: ["returned", "rejected", "cancelled"] },
+      },
+    });
+
+    if (initialStatus === "return_pending") {
+      // Return requests are only valid if user has an approved request
+      if (existingRequest && existingRequest.status !== "approved") {
         return NextResponse.json(
-          { error: "You already have an active request for this item" },
+          { error: "You already have a pending request for this item" },
           { status: 409 },
         );
       }
-
-      // Check if user actually has the item assigned (approved but maybe stale)
-      if (entityType === "asset") {
-        const isAssigned = await prisma.userAssets.findFirst({
-          where: { assetid: entityId, userid: user.id },
-        });
-        if (isAssigned) {
-          return NextResponse.json(
-            { error: "This item is already assigned to you" },
-            { status: 409 },
-          );
-        }
-      }
     } else {
-      // For returns, prevent duplicate return requests
-      const existingReturn = await prisma.itemRequest.findFirst({
-        where: {
-          entityType,
-          entityId,
-          userId: user.id,
-          status: "return_pending",
-        },
-      });
-      if (existingReturn) {
+      // Regular requests blocked if any active record exists
+      if (existingRequest) {
         return NextResponse.json(
-          { error: "You already have a pending return for this item" },
+          { error: "You already have an active request for this item" },
           { status: 409 },
         );
       }
@@ -402,7 +383,7 @@ export async function PUT(req: NextRequest) {
       } catch {}
     }
 
-    // On return, unassign the item and close original approved request
+    // On return, unassign the item
     if (status === "returned") {
       try {
         await unassignItem(
@@ -410,21 +391,6 @@ export async function PUT(req: NextRequest) {
           existing.entityId,
           existing.userId,
         );
-        // Also mark any approved request for this item+user as returned
-        await prisma.itemRequest.updateMany({
-          where: {
-            entityType: existing.entityType,
-            entityId: existing.entityId,
-            userId: existing.userId,
-            status: "approved",
-            id: { not: id },
-          },
-          data: {
-            status: "returned",
-            returnedAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
       } catch (err) {
         logger.error("Unassign failed after return", {
           error: err,
@@ -476,7 +442,20 @@ export async function PUT(req: NextRequest) {
       // notification failures shouldn't block
     }
 
-    return NextResponse.json(updated);
+    // Clean up old terminal records (keep recent ones so user sees the outcome)
+    // Delete terminal records older than 24 hours for this item+user
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await prisma.itemRequest.deleteMany({
+      where: {
+        entityType: existing.entityType,
+        entityId: existing.entityId,
+        userId: existing.userId,
+        status: { in: ["returned", "rejected", "cancelled"] },
+        updatedAt: { lt: oneDayAgo },
+      },
+    });
+
+    return NextResponse.json({ success: true, status });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

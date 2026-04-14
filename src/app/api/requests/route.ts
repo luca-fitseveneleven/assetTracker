@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma, PrismaClient } from "@prisma/client";
 import {
   requireApiAuth,
   requireApiAdmin,
@@ -7,6 +8,10 @@ import {
 } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { logger } from "@/lib/logger";
+
+// Transaction client type — works with both the full PrismaClient and the
+// transaction-scoped client that Prisma passes into $transaction callbacks.
+type TxClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
 export const dynamic = "force-dynamic";
 
@@ -157,64 +162,86 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prevent duplicates — only check active statuses (terminal ones kept briefly for visibility)
-    const existingRequest = await prisma.itemRequest.findFirst({
-      where: {
-        entityType,
-        entityId,
-        userId: user.id,
-        status: { notIn: ["returned", "rejected", "cancelled"] },
-      },
-    });
-
-    if (initialStatus === "return_pending") {
-      // Return requests are only valid if user has an approved request
-      if (existingRequest && existingRequest.status !== "approved") {
-        return NextResponse.json(
-          { error: "You already have a pending request for this item" },
-          { status: 409 },
-        );
-      }
-    } else {
-      // Regular requests blocked if any active record exists
-      if (existingRequest) {
-        return NextResponse.json(
-          { error: "You already have an active request for this item" },
-          { status: 409 },
-        );
-      }
-    }
-
-    const request = await prisma.itemRequest.create({
-      data: {
-        entityType,
-        entityId,
-        userId: user.id,
-        status: initialStatus,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
-        notes: notes || null,
-        quantity: quantity || 1,
-        updatedAt: new Date(),
-      },
-    });
-
-    // Set item status to "Pending" while request is being reviewed
-    if (initialStatus === "pending" && entityType === "asset") {
-      try {
-        const pendingStatus = await prisma.statusType.findFirst({
-          where: { statustypename: { equals: "Pending", mode: "insensitive" } },
-        });
-        if (pendingStatus) {
-          await prisma.asset.update({
-            where: { assetid: entityId },
-            data: {
-              statustypeid: pendingStatus.statustypeid,
-              change_date: new Date(),
+    // Atomic duplicate check + create inside a serializable transaction
+    // to prevent the TOCTOU race where two concurrent POSTs both pass the
+    // duplicate check and insert two rows.
+    let request;
+    try {
+      request = await prisma.$transaction(
+        async (tx) => {
+          const existingRequest = await tx.itemRequest.findFirst({
+            where: {
+              entityType,
+              entityId,
+              userId: user.id,
+              status: { notIn: ["returned", "rejected", "cancelled"] },
             },
           });
+
+          if (initialStatus === "return_pending") {
+            // Return requests are only valid if user has an approved request
+            if (existingRequest && existingRequest.status !== "approved") {
+              throw new Error("DUPLICATE_PENDING");
+            }
+          } else {
+            // Regular requests blocked if any active record exists
+            if (existingRequest) {
+              throw new Error("DUPLICATE_ACTIVE");
+            }
+          }
+
+          const created = await tx.itemRequest.create({
+            data: {
+              entityType,
+              entityId,
+              userId: user.id,
+              status: initialStatus,
+              startDate: startDate ? new Date(startDate) : null,
+              endDate: endDate ? new Date(endDate) : null,
+              notes: notes || null,
+              quantity: quantity || 1,
+              updatedAt: new Date(),
+            },
+          });
+
+          // Set item status to "Pending" while request is being reviewed
+          if (initialStatus === "pending" && entityType === "asset") {
+            const pendingStatus = await tx.statusType.findFirst({
+              where: {
+                statustypename: { equals: "Pending", mode: "insensitive" },
+              },
+            });
+            if (pendingStatus) {
+              await tx.asset.update({
+                where: { assetid: entityId },
+                data: {
+                  statustypeid: pendingStatus.statustypeid,
+                  change_date: new Date(),
+                },
+              });
+            }
+          }
+
+          return created;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === "DUPLICATE_PENDING") {
+          return NextResponse.json(
+            { error: "You already have a pending request for this item" },
+            { status: 409 },
+          );
         }
-      } catch {}
+        if (error.message === "DUPLICATE_ACTIVE") {
+          return NextResponse.json(
+            { error: "You already have an active request for this item" },
+            { status: 409 },
+          );
+        }
+      }
+      throw error;
     }
 
     // Audit log
@@ -312,26 +339,86 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const updateData: Record<string, unknown> = {
-      status,
-      updatedAt: new Date(),
-    };
+    // ---- Critical section: all mutations are atomic ----
+    await prisma.$transaction(async (tx) => {
+      const updateData: Record<string, unknown> = {
+        status,
+        updatedAt: new Date(),
+      };
 
-    if (notes !== undefined) updateData.notes = notes;
+      if (notes !== undefined) updateData.notes = notes;
 
-    if (status === "approved" || status === "rejected") {
-      updateData.approvedBy = user.id;
-      updateData.approvedAt = new Date();
-    }
+      if (status === "approved" || status === "rejected") {
+        updateData.approvedBy = user.id;
+        updateData.approvedAt = new Date();
+      }
 
-    if (status === "returned") {
-      updateData.returnedAt = new Date();
-    }
+      if (status === "returned") {
+        updateData.returnedAt = new Date();
+      }
 
-    const updated = await prisma.itemRequest.update({
-      where: { id },
-      data: updateData,
+      await tx.itemRequest.update({
+        where: { id },
+        data: updateData,
+      });
+
+      // On reject/cancel, revert asset status to "Available"
+      if (
+        (status === "rejected" || status === "cancelled") &&
+        existing.entityType === "asset" &&
+        existing.status === "pending"
+      ) {
+        const available = await tx.statusType.findFirst({
+          where: {
+            statustypename: { equals: "Available", mode: "insensitive" },
+          },
+        });
+        if (available) {
+          await tx.asset.update({
+            where: { assetid: existing.entityId },
+            data: {
+              statustypeid: available.statustypeid,
+              change_date: new Date(),
+            },
+          });
+        }
+      }
+
+      // On return, unassign the item
+      if (status === "returned") {
+        await unassignItem(
+          tx,
+          existing.entityType,
+          existing.entityId,
+          existing.userId,
+        );
+      }
+
+      // On approval, auto-assign the item
+      if (status === "approved") {
+        await autoAssignItem(
+          tx,
+          existing.entityType,
+          existing.entityId,
+          existing.userId,
+          existing.quantity,
+        );
+      }
+
+      // Clean up old terminal records (keep recent ones so user sees the outcome)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await tx.itemRequest.deleteMany({
+        where: {
+          entityType: existing.entityType,
+          entityId: existing.entityId,
+          userId: existing.userId,
+          status: { in: ["returned", "rejected", "cancelled"] },
+          updatedAt: { lt: oneDayAgo },
+        },
+      });
     });
+
+    // ---- Post-transaction side effects (non-critical) ----
 
     // Audit log for status change
     const actionMap: Record<string, string> = {
@@ -357,63 +444,6 @@ export async function PUT(req: NextRequest) {
       },
     }).catch(() => {});
 
-    // On reject/cancel, revert asset status to "Available"
-    if (
-      (status === "rejected" || status === "cancelled") &&
-      existing.entityType === "asset" &&
-      existing.status === "pending"
-    ) {
-      try {
-        const available = await prisma.statusType.findFirst({
-          where: {
-            statustypename: { equals: "Available", mode: "insensitive" },
-          },
-        });
-        if (available) {
-          await prisma.asset.update({
-            where: { assetid: existing.entityId },
-            data: {
-              statustypeid: available.statustypeid,
-              change_date: new Date(),
-            },
-          });
-        }
-      } catch {}
-    }
-
-    // On return, unassign the item
-    if (status === "returned") {
-      try {
-        await unassignItem(
-          existing.entityType,
-          existing.entityId,
-          existing.userId,
-        );
-      } catch (err) {
-        logger.error("Unassign failed after return", {
-          error: err,
-          requestId: id,
-        });
-      }
-    }
-
-    // On approval, auto-assign the item
-    if (status === "approved") {
-      try {
-        await autoAssignItem(
-          existing.entityType,
-          existing.entityId,
-          existing.userId,
-          existing.quantity,
-        );
-      } catch (err) {
-        logger.error("Auto-assign failed after approval", {
-          error: err,
-          requestId: id,
-        });
-      }
-    }
-
     // Notify the requester
     try {
       const requester = await prisma.user.findUnique({
@@ -421,7 +451,7 @@ export async function PUT(req: NextRequest) {
         select: { userid: true, email: true },
       });
       if (requester) {
-        const entityName = await getEntityName(
+        const reqEntityName = await getEntityName(
           existing.entityType,
           existing.entityId,
         );
@@ -431,7 +461,7 @@ export async function PUT(req: NextRequest) {
             type: "request_decision",
             recipient: requester.email || "",
             subject: `Request ${status}`,
-            body: `Your request for ${entityName} has been ${status}`,
+            body: `Your request for ${reqEntityName} has been ${status}`,
             status: "pending",
           },
         });
@@ -439,19 +469,6 @@ export async function PUT(req: NextRequest) {
     } catch {
       // notification failures shouldn't block
     }
-
-    // Clean up old terminal records (keep recent ones so user sees the outcome)
-    // Delete terminal records older than 24 hours for this item+user
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    await prisma.itemRequest.deleteMany({
-      where: {
-        entityType: existing.entityType,
-        entityId: existing.entityId,
-        userId: existing.userId,
-        status: { in: ["returned", "rejected", "cancelled"] },
-        updatedAt: { lt: oneDayAgo },
-      },
-    });
 
     return NextResponse.json({ success: true, status });
   } catch (error) {
@@ -505,63 +522,91 @@ async function getEntityName(
   return "Unknown";
 }
 
+/**
+ * Idempotent auto-assignment of an item to a user.
+ * Uses upsert / existence checks so calling this multiple times for the same
+ * entity+user combination is a safe no-op.
+ */
 async function autoAssignItem(
+  tx: TxClient,
   entityType: string,
   entityId: string,
   userId: string,
   quantity: number,
-) {
+): Promise<void> {
   switch (entityType) {
     case "asset": {
-      // Remove any stale assignment first, then create new one
-      await prisma.userAssets.deleteMany({
-        where: { assetid: entityId },
+      // Check if the asset is already assigned to the correct user
+      const existingAssignment = await tx.userAssets.findFirst({
+        where: { assetid: entityId, userid: userId },
       });
-      {
-        await prisma.userAssets.create({
+
+      if (!existingAssignment) {
+        // Remove any stale assignment to a different user, then create
+        await tx.userAssets.deleteMany({
+          where: { assetid: entityId },
+        });
+        await tx.userAssets.create({
           data: {
             assetid: entityId,
             userid: userId,
             creation_date: new Date(),
           },
         });
-        const active = await prisma.statusType.findFirst({
-          where: { statustypename: { equals: "Active", mode: "insensitive" } },
+      }
+
+      // Always ensure the asset status is "Active"
+      const active = await tx.statusType.findFirst({
+        where: { statustypename: { equals: "Active", mode: "insensitive" } },
+      });
+      if (active) {
+        await tx.asset.update({
+          where: { assetid: entityId },
+          data: {
+            statustypeid: active.statustypeid,
+            change_date: new Date(),
+          },
         });
-        if (active) {
-          await prisma.asset.update({
-            where: { assetid: entityId },
-            data: {
-              statustypeid: active.statustypeid,
-              change_date: new Date(),
-            },
-          });
-        }
       }
       break;
     }
     case "accessory": {
-      await prisma.userAccessoires.create({
-        data: {
-          accessorieid: entityId,
-          userid: userId,
-          creation_date: new Date(),
-        },
+      // Check if the accessory is already assigned to this user
+      const existingAccessory = await tx.userAccessoires.findFirst({
+        where: { accessorieid: entityId, userid: userId },
       });
+      if (!existingAccessory) {
+        await tx.userAccessoires.create({
+          data: {
+            accessorieid: entityId,
+            userid: userId,
+            creation_date: new Date(),
+          },
+        });
+      }
       break;
     }
     case "consumable": {
-      await prisma.consumable.update({
+      // Check current quantity before decrementing to prevent going negative
+      const consumable = await tx.consumable.findUnique({
+        where: { consumableid: entityId },
+        select: { quantity: true },
+      });
+      if (!consumable || consumable.quantity < quantity) {
+        throw new Error("Insufficient consumable quantity");
+      }
+      await tx.consumable.update({
         where: { consumableid: entityId },
         data: { quantity: { decrement: quantity } },
       });
-      await prisma.consumable_checkouts.create({
+      await tx.consumable_checkouts.create({
         data: { consumableId: entityId, userId, quantity },
       });
       break;
     }
     case "licence": {
-      await prisma.licence.update({
+      // Update is already idempotent — just set the user
+      await tx.licence.update({
         where: { licenceid: entityId },
         data: { licenceduserid: userId },
       });
@@ -570,23 +615,30 @@ async function autoAssignItem(
   }
 }
 
+/**
+ * Idempotent un-assignment of an item from a user.
+ * If the item is already unassigned, this is a no-op (deleteMany returns 0,
+ * and licence update sets null on an already-null field).
+ */
 async function unassignItem(
+  tx: TxClient,
   entityType: string,
   entityId: string,
   userId: string,
-) {
+): Promise<void> {
   switch (entityType) {
     case "asset": {
-      await prisma.userAssets.deleteMany({
+      // deleteMany is inherently idempotent — returns count 0 if nothing to delete
+      await tx.userAssets.deleteMany({
         where: { assetid: entityId, userid: userId },
       });
-      const available = await prisma.statusType.findFirst({
+      const available = await tx.statusType.findFirst({
         where: {
           statustypename: { equals: "Available", mode: "insensitive" },
         },
       });
       if (available) {
-        await prisma.asset.update({
+        await tx.asset.update({
           where: { assetid: entityId },
           data: {
             statustypeid: available.statustypeid,
@@ -597,17 +649,19 @@ async function unassignItem(
       break;
     }
     case "accessory": {
-      await prisma.userAccessoires.deleteMany({
+      // deleteMany is inherently idempotent
+      await tx.userAccessoires.deleteMany({
         where: { accessorieid: entityId, userid: userId },
       });
       break;
     }
     case "consumable": {
-      // Consumables are consumed, no return
+      // Consumables are consumed, no return — intentional no-op
       break;
     }
     case "licence": {
-      await prisma.licence.update({
+      // Setting null is idempotent — safe even if already null
+      await tx.licence.update({
         where: { licenceid: entityId },
         data: { licenceduserid: null },
       });

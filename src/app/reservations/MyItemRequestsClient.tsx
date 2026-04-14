@@ -96,11 +96,14 @@ export default function MyItemRequestsClient() {
         const reservations = await reservationRes.json();
         if (Array.isArray(reservations)) {
           for (const r of reservations) {
-            // Avoid duplicates — skip if already covered by ItemRequest
-            const isDuplicate = items.some(
-              (ir) => ir.entityType === "asset" && ir.entityId === r.assetId,
+            // Avoid duplicates — skip only if there's an active ItemRequest for the same asset
+            const hasActiveItemRequest = items.some(
+              (ir) =>
+                ir.entityType === "asset" &&
+                ir.entityId === r.assetId &&
+                ["pending", "approved", "return_pending"].includes(ir.status),
             );
-            if (!isDuplicate) {
+            if (!hasActiveItemRequest) {
               items.push({
                 id: r.id,
                 entityType: "asset",

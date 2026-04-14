@@ -156,20 +156,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prevent duplicate active requests for the same item
-    const existingRequest = await prisma.itemRequest.findFirst({
-      where: {
-        entityType,
-        entityId,
-        userId: user.id,
-        status: { in: ["pending", "approved", "return_pending"] },
-      },
-    });
-    if (existingRequest) {
-      return NextResponse.json(
-        { error: "You already have an active request for this item" },
-        { status: 409 },
-      );
+    // Prevent duplicate active requests for the same item (skip for returns)
+    if (initialStatus !== "return_pending") {
+      const existingRequest = await prisma.itemRequest.findFirst({
+        where: {
+          entityType,
+          entityId,
+          userId: user.id,
+          status: { in: ["pending", "approved", "return_pending"] },
+        },
+      });
+      if (existingRequest) {
+        return NextResponse.json(
+          { error: "You already have an active request for this item" },
+          { status: 409 },
+        );
+      }
+    } else {
+      // For returns, prevent duplicate return requests
+      const existingReturn = await prisma.itemRequest.findFirst({
+        where: {
+          entityType,
+          entityId,
+          userId: user.id,
+          status: "return_pending",
+        },
+      });
+      if (existingReturn) {
+        return NextResponse.json(
+          { error: "You already have a pending return for this item" },
+          { status: 409 },
+        );
+      }
     }
 
     const request = await prisma.itemRequest.create({

@@ -5,6 +5,7 @@ import {
   requireApiAdmin,
   requireNotDemoMode,
 } from "@/lib/api-auth";
+import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
@@ -235,6 +236,19 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
+    // Audit log
+    const entityName = await getEntityName(entityType, entityId);
+    await createAuditLog({
+      userId: user.id,
+      action:
+        initialStatus === "return_pending"
+          ? "RETURN_REQUEST"
+          : AUDIT_ACTIONS.REQUEST,
+      entity: entityType,
+      entityId,
+      details: { entityName, status: initialStatus, notes: notes || null },
+    }).catch(() => {});
+
     // Notify all admins (in-app via notification_queue)
     try {
       const admins = await prisma.user.findMany({
@@ -337,6 +351,32 @@ export async function PUT(req: NextRequest) {
       where: { id },
       data: updateData,
     });
+
+    // Audit log for status change
+    const actionMap: Record<string, string> = {
+      approved: AUDIT_ACTIONS.APPROVE,
+      rejected: AUDIT_ACTIONS.REJECT,
+      returned: "RETURN_CONFIRMED",
+      cancelled: "CANCELLED",
+    };
+    const entityName = await getEntityName(
+      existing.entityType,
+      existing.entityId,
+    );
+    await createAuditLog({
+      userId: user.id,
+      action: actionMap[status] || status,
+      entity: existing.entityType,
+      entityId: existing.entityId,
+      details: {
+        entityName,
+        requestId: id,
+        previousStatus: existing.status,
+        newStatus: status,
+        requestedBy: existing.userId,
+        notes: notes || null,
+      },
+    }).catch(() => {});
 
     // On reject/cancel, revert asset status to "Available"
     if (

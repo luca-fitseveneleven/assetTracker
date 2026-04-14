@@ -143,7 +143,7 @@ export default function ApprovalsPageClient({
     useState<ItemRequest | null>(null);
   const [itemRequestDialogOpen, setItemRequestDialogOpen] = useState(false);
   const [itemRequestDialogAction, setItemRequestDialogAction] = useState<
-    "approve" | "reject"
+    "approve" | "reject" | "returned"
   >("approve");
   const [itemRequestActionNotes, setItemRequestActionNotes] = useState("");
   const [isSubmittingItemRequest, setIsSubmittingItemRequest] = useState(false);
@@ -332,7 +332,7 @@ export default function ApprovalsPageClient({
 
   const openItemRequestConfirmDialog = (
     itemRequest: ItemRequest,
-    action: "approve" | "reject",
+    action: "approve" | "reject" | "returned",
   ) => {
     setSelectedItemRequest(itemRequest);
     setItemRequestDialogAction(action);
@@ -419,6 +419,24 @@ export default function ApprovalsPageClient({
         return (
           <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
             Cancelled
+          </Badge>
+        );
+      case "return_pending":
+        return (
+          <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+            Return Pending
+          </Badge>
+        );
+      case "returned":
+        return (
+          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+            Returned
+          </Badge>
+        );
+      case "overdue":
+        return (
+          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+            Overdue
           </Badge>
         );
       default:
@@ -739,6 +757,19 @@ export default function ApprovalsPageClient({
                               Reject
                             </Button>
                           </div>
+                        )}
+                        {ir.status === "return_pending" && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="bg-blue-600 hover:bg-blue-700"
+                            onClick={() =>
+                              openItemRequestConfirmDialog(ir, "returned")
+                            }
+                          >
+                            <CheckCircle className="mr-1 h-4 w-4" />
+                            Confirm Collection
+                          </Button>
                         )}
                       </TableCell>
                     )}

@@ -37,39 +37,24 @@ export default function ReturnItemButton({
   const handleReturn = async () => {
     setSubmitting(true);
     try {
-      let res: Response;
-      if (requestId) {
-        // Existing request flow: update request status to "returned"
-        res = await fetch("/api/requests", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: requestId,
-            status: "returned",
-            notes: notes || undefined,
-          }),
-        });
-      } else if (entityId) {
-        // Self-return flow: no prior request exists (admin-assigned item)
-        res = await fetch("/api/requests/self-return", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            entityType,
-            entityId,
-            notes: notes || undefined,
-          }),
-        });
-      } else {
-        throw new Error("Missing requestId or entityId for return");
-      }
+      // Create a return_pending request — admin confirms collection
+      const res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entityType,
+          entityId: entityId || undefined,
+          notes: notes || "Return request",
+          status: "return_pending",
+        }),
+      });
 
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Return failed");
       }
-      toast.success("Item returned", {
-        description: `${entityName} has been returned and unassigned`,
+      toast.success("Return requested", {
+        description: "An admin will collect the item and confirm the return",
       });
       setOpen(false);
       // Reload to reflect the change
@@ -94,10 +79,11 @@ export default function ReturnItemButton({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Return Item</DialogTitle>
+            <DialogTitle>Request Return</DialogTitle>
             <DialogDescription>
-              Return <span className="font-medium">{entityName}</span> and
-              unassign it from your account.
+              Submit a return request for{" "}
+              <span className="font-medium">{entityName}</span>. An admin will
+              collect the item and confirm the return.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">

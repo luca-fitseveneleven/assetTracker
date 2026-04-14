@@ -2288,10 +2288,11 @@ export default function App({
       <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Return Asset</DialogTitle>
+            <DialogTitle>Request Return</DialogTitle>
             <DialogDescription>
-              Return <span className="font-medium">{returningAsset?.name}</span>{" "}
-              and unassign it from your account.
+              Submit a return request for{" "}
+              <span className="font-medium">{returningAsset?.name}</span>. An
+              admin will confirm collection and complete the return.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -2304,24 +2305,28 @@ export default function App({
             <Button
               onClick={async () => {
                 try {
-                  const res = await fetch("/api/requests/self-return", {
+                  const res = await fetch("/api/requests", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       entityType: "asset",
                       entityId: returningAsset?.id,
+                      notes: "Return request",
+                      status: "return_pending",
                     }),
                   });
                   if (!res.ok) throw new Error();
-                  toast.success("Asset returned");
+                  toast.success("Return requested", {
+                    description:
+                      "An admin will collect the item and confirm the return",
+                  });
                   setReturnDialogOpen(false);
-                  refreshData();
                 } catch {
-                  toast.error("Failed to return asset");
+                  toast.error("Failed to request return");
                 }
               }}
             >
-              Confirm Return
+              Submit Return Request
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -116,8 +116,10 @@ export async function POST(req: NextRequest) {
     if (demoBlock) return demoBlock;
     const user = await requireApiAuth();
 
-    const { entityType, entityId, startDate, endDate, notes, quantity } =
-      await req.json();
+    const body = await req.json();
+    const { entityType, entityId, startDate, endDate, notes, quantity } = body;
+    const initialStatus =
+      body.status === "return_pending" ? "return_pending" : "pending";
 
     if (!entityType || !entityId) {
       return NextResponse.json(
@@ -139,6 +141,7 @@ export async function POST(req: NextRequest) {
         entityType,
         entityId,
         userId: user.id,
+        status: initialStatus,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         notes: notes || null,
@@ -204,10 +207,15 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
     }
 
-    // Only admins can approve/reject
-    if ((status === "approved" || status === "rejected") && !user.isAdmin) {
+    // Only admins can approve/reject/confirm returns
+    if (
+      (status === "approved" ||
+        status === "rejected" ||
+        status === "returned") &&
+      !user.isAdmin
+    ) {
       return NextResponse.json(
-        { error: "Only admins can approve or reject" },
+        { error: "Only admins can approve, reject, or confirm returns" },
         { status: 403 },
       );
     }

@@ -20,10 +20,13 @@ export default async function ReservationsPage() {
 
   // Self-service restriction: non-admins only see their own reservations
   const isAdmin = session.user.isadmin;
-  const whereClause = isAdmin ? {} : { userId: session.user.id };
+  const baseWhere = isAdmin ? {} : { userId: session.user.id };
 
   const reservations = await prisma.assetReservation.findMany({
-    where: whereClause,
+    where: {
+      ...baseWhere,
+      status: { notIn: ["cancelled", "rejected"] },
+    },
     include: {
       asset: {
         select: { assetid: true, assetname: true, assettag: true },

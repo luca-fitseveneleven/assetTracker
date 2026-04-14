@@ -236,10 +236,30 @@ export async function PUT(req: NextRequest) {
       updateData.approvedAt = new Date();
     }
 
+    if (status === "returned") {
+      updateData.returnedAt = new Date();
+    }
+
     const updated = await prisma.itemRequest.update({
       where: { id },
       data: updateData,
     });
+
+    // On return, unassign the item
+    if (status === "returned") {
+      try {
+        await unassignItem(
+          existing.entityType,
+          existing.entityId,
+          existing.userId,
+        );
+      } catch (err) {
+        logger.error("Unassign failed after return", {
+          error: err,
+          requestId: id,
+        });
+      }
+    }
 
     // On approval, auto-assign the item
     if (status === "approved") {
@@ -394,6 +414,52 @@ async function autoAssignItem(
       await prisma.licence.update({
         where: { licenceid: entityId },
         data: { licenceduserid: userId },
+      });
+      break;
+    }
+  }
+}
+
+async function unassignItem(
+  entityType: string,
+  entityId: string,
+  userId: string,
+) {
+  switch (entityType) {
+    case "asset": {
+      await prisma.userAssets.deleteMany({
+        where: { assetid: entityId, userid: userId },
+      });
+      const available = await prisma.statusType.findFirst({
+        where: {
+          statustypename: { equals: "Available", mode: "insensitive" },
+        },
+      });
+      if (available) {
+        await prisma.asset.update({
+          where: { assetid: entityId },
+          data: {
+            statustypeid: available.statustypeid,
+            change_date: new Date(),
+          },
+        });
+      }
+      break;
+    }
+    case "accessory": {
+      await prisma.userAccessoires.deleteMany({
+        where: { accessorieid: entityId, userid: userId },
+      });
+      break;
+    }
+    case "consumable": {
+      // Consumables are consumed, no return
+      break;
+    }
+    case "licence": {
+      await prisma.licence.update({
+        where: { licenceid: entityId },
+        data: { licenceduserid: null },
       });
       break;
     }

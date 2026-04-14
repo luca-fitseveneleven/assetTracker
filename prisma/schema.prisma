@@ -1415,6 +1415,7 @@ model ItemRequest {
   quantity    Int       @default(1)
   approvedBy  String?   @db.Uuid
   approvedAt  DateTime? @db.Timestamp(6)
+  returnedAt  DateTime? @db.Timestamp(6)
   createdAt   DateTime  @default(now()) @db.Timestamp(6)
   updatedAt   DateTime  @db.Timestamp(6)
   user        user      @relation("item_request_user", fields: [userId], references: [userid], onDelete: Cascade)

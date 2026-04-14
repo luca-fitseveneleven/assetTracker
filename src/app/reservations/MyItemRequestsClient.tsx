@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Loader2, PackageOpen, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import ReturnItemButton from "@/components/ReturnItemButton";
 
 interface ItemRequest {
   id: string;
@@ -181,16 +182,26 @@ export default function MyItemRequestsClient() {
                   </TableCell>
                   <TableCell>{getStatusBadge(r.status)}</TableCell>
                   <TableCell>
-                    {r.status === "pending" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCancel(r.id)}
-                      >
-                        <XCircle className="mr-1 h-4 w-4" />
-                        Cancel
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {r.status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCancel(r.id)}
+                        >
+                          <XCircle className="mr-1 h-4 w-4" />
+                          Cancel
+                        </Button>
+                      )}
+                      {r.status === "approved" &&
+                        r.entityType !== "consumable" && (
+                          <ReturnItemButton
+                            requestId={r.id}
+                            entityName={r.entityName}
+                            entityType={r.entityType}
+                          />
+                        )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

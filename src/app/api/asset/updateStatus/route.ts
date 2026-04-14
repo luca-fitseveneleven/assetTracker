@@ -67,35 +67,63 @@ export async function PUT(req: NextRequest) {
       });
     }
 
-    // Enforce status workflow transitions (if any are defined)
-    if (existingAsset.statustypeid && existingAsset.statustypeid !== statusId) {
-      const transitionCount = await prisma.status_transitions.count();
-      if (transitionCount > 0) {
-        const allowed = await prisma.status_transitions.findUnique({
-          where: {
-            fromStatusId_toStatusId: {
-              fromStatusId: existingAsset.statustypeid,
-              toStatusId: statusId,
-            },
-          },
+    // Atomic: re-read current status + validate transition + update inside transaction
+    let updated;
+    try {
+      updated = await prisma.$transaction(async (tx) => {
+        // Re-read inside transaction to get latest status
+        const current = await tx.asset.findUnique({
+          where: { assetid: assetId },
+          select: { statustypeid: true },
         });
-        if (!allowed) {
+
+        if (!current) throw new Error("ASSET_NOT_FOUND");
+
+        // Enforce status workflow transitions (if any are defined)
+        if (current.statustypeid && current.statustypeid !== statusId) {
+          const transitionCount = await tx.status_transitions.count();
+          if (transitionCount > 0) {
+            const allowed = await tx.status_transitions.findUnique({
+              where: {
+                fromStatusId_toStatusId: {
+                  fromStatusId: current.statustypeid,
+                  toStatusId: statusId,
+                },
+              },
+            });
+            if (!allowed) {
+              throw new Error("TRANSITION_NOT_ALLOWED");
+            }
+          }
+        }
+
+        // Idempotent: if already at target status, return current
+        if (current.statustypeid === statusId) {
+          return tx.asset.findUnique({ where: { assetid: assetId } });
+        }
+
+        return tx.asset.update({
+          where: { assetid: assetId },
+          data: { statustypeid: statusId, change_date: new Date() },
+        });
+      });
+    } catch (err) {
+      if (err instanceof Error) {
+        if (err.message === "ASSET_NOT_FOUND") {
+          return new Response(JSON.stringify({ error: "Asset not found" }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (err.message === "TRANSITION_NOT_ALLOWED") {
           return new Response(
-            JSON.stringify({
-              error: "This status transition is not allowed",
-              fromStatusId: existingAsset.statustypeid,
-              toStatusId: statusId,
-            }),
+            JSON.stringify({ error: "This status transition is not allowed" }),
             { status: 400, headers: { "Content-Type": "application/json" } },
           );
         }
       }
+      throw err;
     }
-
-    const updated = await prisma.asset.update({
-      where: { assetid: assetId },
-      data: { statustypeid: statusId, change_date: new Date() },
-    });
 
     triggerWebhook(
       "asset.updated",

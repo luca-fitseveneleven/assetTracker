@@ -1,8 +1,11 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { CalendarPlus } from "lucide-react";
 import AssetDetailActions from "./AssetDetailActions";
 import ReportProblemButton from "@/components/ReportProblemButton";
+import RequestItemDialog from "@/components/RequestItemDialog";
 
 function StatusChip({ name }) {
   const cls = useMemo(() => {
@@ -32,6 +35,7 @@ export default function AssetDetailHeader({
   isAdmin = true,
 }) {
   const [statusId, setStatusId] = useState(asset.statustypeid || null);
+  const [requestOpen, setRequestOpen] = useState(false);
   const statusName = useMemo(
     () => statuses.find((s) => s.statustypeid === statusId)?.statustypename,
     [statuses, statusId],
@@ -40,6 +44,8 @@ export default function AssetDetailHeader({
     () => statuses.find((s) => s.statustypename?.toLowerCase() === "active"),
     [statuses],
   );
+  const isAvailable = statusName?.toLowerCase().includes("available");
+  const canRequest = !isAdmin && (asset.requestable || isAvailable);
 
   return (
     <div className="flex items-start justify-between gap-4">
@@ -55,6 +61,23 @@ export default function AssetDetailHeader({
           entityType="asset"
           entityId={asset.assetid}
           entityName={asset.assetname}
+        />
+        {canRequest && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setRequestOpen(true)}
+          >
+            <CalendarPlus className="mr-2 h-4 w-4" />
+            Request
+          </Button>
+        )}
+        <RequestItemDialog
+          entityType="asset"
+          entityId={asset.assetid}
+          entityName={asset.assetname}
+          open={requestOpen}
+          onOpenChange={setRequestOpen}
         />
         {isAdmin && (
           <Link

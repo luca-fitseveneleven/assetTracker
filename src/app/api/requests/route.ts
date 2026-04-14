@@ -351,10 +351,8 @@ export async function PUT(req: NextRequest) {
       entityId: existing.entityId,
       details: {
         entityName,
-        requestId: id,
         previousStatus: existing.status,
         newStatus: status,
-        requestedBy: existing.userId,
         notes: notes || null,
       },
     }).catch(() => {});

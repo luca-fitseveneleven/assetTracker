@@ -18,6 +18,7 @@ import ReturnItemButton from "@/components/ReturnItemButton";
 interface ItemRequest {
   id: string;
   entityType: string;
+  entityId?: string;
   entityName: string;
   status: string;
   notes: string | null;
@@ -77,13 +78,50 @@ export default function MyItemRequestsClient() {
 
   const fetchRequests = useCallback(async () => {
     try {
-      const res = await fetch("/api/requests?mine=true");
-      if (!res.ok) {
-        setRequests([]);
-        return;
+      // Fetch from both the new ItemRequest system and legacy AssetReservation system
+      const [itemRes, reservationRes] = await Promise.all([
+        fetch("/api/requests?mine=true"),
+        fetch("/api/asset/reservations"),
+      ]);
+
+      const items: ItemRequest[] = [];
+
+      if (itemRes.ok) {
+        const data = await itemRes.json();
+        if (Array.isArray(data)) items.push(...data);
       }
-      const data = await res.json();
-      setRequests(Array.isArray(data) ? data : []);
+
+      // Merge legacy asset reservations as ItemRequest-shaped objects
+      if (reservationRes.ok) {
+        const reservations = await reservationRes.json();
+        if (Array.isArray(reservations)) {
+          for (const r of reservations) {
+            // Avoid duplicates — skip if already covered by ItemRequest
+            const isDuplicate = items.some(
+              (ir) => ir.entityType === "asset" && ir.entityId === r.assetId,
+            );
+            if (!isDuplicate) {
+              items.push({
+                id: r.id,
+                entityType: "asset",
+                entityName: `${r.asset?.assetname || "Asset"} (${r.asset?.assettag || ""})`,
+                entityId: r.assetId,
+                status: r.status,
+                notes: r.notes,
+                quantity: 1,
+                createdAt: r.createdAt,
+              });
+            }
+          }
+        }
+      }
+
+      // Sort by date descending
+      items.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      setRequests(items);
     } catch {
       setRequests([]);
     } finally {

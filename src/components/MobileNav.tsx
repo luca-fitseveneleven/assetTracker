@@ -60,27 +60,23 @@ export default function MobileNav() {
           );
         })}
 
-        {/* Scan button — prominent center action */}
+        {/* Scan button */}
         <Link
           href="/scanner"
           className={cn(
-            "touch-target -mt-5 flex flex-col items-center justify-center gap-0.5",
+            "touch-target flex flex-col items-center justify-center gap-0.5 px-2 py-2 text-[10px] font-medium transition-colors",
             isActivePath(pathname, "/scanner")
               ? "text-primary"
-              : "text-muted-foreground",
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
-          <span
+          <ScanLine
             className={cn(
-              "flex h-12 w-12 items-center justify-center rounded-full shadow-lg",
-              isActivePath(pathname, "/scanner")
-                ? "bg-primary text-primary-foreground"
-                : "bg-primary text-primary-foreground",
+              "h-5 w-5",
+              isActivePath(pathname, "/scanner") && "text-primary",
             )}
-          >
-            <ScanLine className="h-6 w-6" />
-          </span>
-          <span className="text-[10px] font-medium">Scan</span>
+          />
+          <span>Scan</span>
         </Link>
 
         {primaryNavItems.slice(2).map((item) => {

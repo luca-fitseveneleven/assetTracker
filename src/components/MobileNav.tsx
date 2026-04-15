@@ -110,10 +110,7 @@ export default function MobileNav() {
               <span>More</span>
             </Button>
           </SheetTrigger>
-          <SheetContent
-            side="right"
-            className="w-[280px] overflow-y-auto p-0 duration-200"
-          >
+          <SheetContent side="right" className="w-[280px] overflow-y-auto p-0">
             <SheetHeader className="px-4 pt-4 pb-2">
               <SheetTitle>Asset Tracker</SheetTitle>
             </SheetHeader>

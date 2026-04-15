@@ -4,7 +4,9 @@ import { getOrganizationContext } from "./organization-context";
 
 /**
  * Build an org-scoped where clause for data queries.
- * Strict scoping — only returns records matching the user's org.
+ * Returns an empty filter when org context is unavailable — suitable for
+ * reference data that is intentionally global (manufacturers, suppliers,
+ * locations, categories, statuses, models).
  */
 async function orgWhere(): Promise<Record<string, unknown>> {
   try {
@@ -18,26 +20,41 @@ async function orgWhere(): Promise<Record<string, unknown>> {
   }
 }
 
+/**
+ * Strict org-scoped where clause — throws when org context is missing.
+ * Use this for entity data that MUST be scoped to the user's organization
+ * (assets, accessories, consumables, licences, users, components, kits,
+ * audit campaigns, etc.).
+ */
+async function strictOrgWhere(): Promise<{ organizationId: string }> {
+  const ctx = await getOrganizationContext();
+  const orgId = ctx?.organization?.id;
+  if (!orgId) {
+    throw new Error("Organization context required");
+  }
+  return { organizationId: orgId };
+}
+
 export async function getAssetCount() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `asset_count:${JSON.stringify(where)}`;
   return cached(key, () => prisma.asset.count({ where }), 2 * 60 * 1000);
 }
 
 export async function getUserCount() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `user_count:${JSON.stringify(where)}`;
   return cached(key, () => prisma.user.count({ where }), 2 * 60 * 1000);
 }
 
 export async function getAccessoryCount() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `accessory_count:${JSON.stringify(where)}`;
   return cached(key, () => prisma.accessories.count({ where }), 2 * 60 * 1000);
 }
 
 export async function getAccessoryStatusDistribution() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `accessory_status_distribution:${JSON.stringify(where)}`;
   return cached(
     key,
@@ -57,7 +74,7 @@ export async function getAccessoryStatusDistribution() {
 }
 
 export async function getAssetStatusDistribution() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `asset_status_distribution:${JSON.stringify(where)}`;
   return cached(
     key,
@@ -77,10 +94,13 @@ export async function getAssetStatusDistribution() {
 }
 
 export async function getUsers() {
+  const where = await strictOrgWhere();
+  const key = `users:${JSON.stringify(where)}`;
   return cached(
-    "users",
+    key,
     () =>
       prisma.user.findMany({
+        where,
         select: {
           userid: true,
           username: true,
@@ -100,7 +120,7 @@ export async function getUsers() {
 }
 
 export async function getAssets() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `assets_all:${JSON.stringify(where)}`;
   return cached(key, () => prisma.asset.findMany({ where }), 2 * 60 * 1000);
 }
@@ -191,7 +211,7 @@ export async function getManufacturerById(id: string) {
 }
 
 export async function getAccessories() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `accessories_all:${JSON.stringify(where)}`;
   return cached(
     key,
@@ -237,7 +257,7 @@ export async function getSupplierById(id: string) {
 }
 
 export async function getConsumables() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `consumables_all:${JSON.stringify(where)}`;
   return cached(
     key,
@@ -279,7 +299,7 @@ export async function getAccessoryCategories() {
 }
 
 export async function getLicences() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `licences_all:${JSON.stringify(where)}`;
   return cached(key, () => prisma.licence.findMany({ where }), 2 * 60 * 1000);
 }
@@ -471,7 +491,7 @@ export async function getModelById(id: string) {
 
 // Component data functions
 export async function getComponents() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `components_all:${JSON.stringify(where)}`;
   return cached(
     key,
@@ -559,7 +579,7 @@ export async function getEulaTemplateById(id: string) {
 
 // Kits
 export async function getKits() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `kits_all:${JSON.stringify(where)}`;
   return cached(
     key,
@@ -585,7 +605,7 @@ export async function getKitById(id: string) {
 
 // Audit Campaigns
 export async function getAuditCampaigns() {
-  const where = await orgWhere();
+  const where = await strictOrgWhere();
   const key = `audit_campaigns_all:${JSON.stringify(where)}`;
   return cached(
     key,

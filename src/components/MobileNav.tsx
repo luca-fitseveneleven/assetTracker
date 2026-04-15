@@ -3,7 +3,8 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, Settings, UserPen, LogOut } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -13,7 +14,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { useSession, type SessionUser } from "@/lib/auth-client";
+import { useSession, signOut, type SessionUser } from "@/lib/auth-client";
 import {
   navSections,
   primaryNavItems,
@@ -109,6 +110,53 @@ export default function MobileNav() {
                 </div>
               ))}
             </div>
+
+            {user && (
+              <>
+                <Separator className="mx-3" />
+                <div className="px-2 py-3">
+                  <p className="text-muted-foreground px-3 pb-2 text-xs font-semibold tracking-wide uppercase">
+                    Account
+                  </p>
+                  <div className="mb-2 px-3">
+                    <p className="text-sm font-medium">
+                      {user.firstname} {user.lastname}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {user.email || user.username}
+                    </p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <Link
+                      href={`/user/${user.id}/settings`}
+                      onClick={() => setSheetOpen(false)}
+                      className="touch-target text-muted-foreground hover:bg-accent hover:text-foreground flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+                    >
+                      <Settings className="h-5 w-5 shrink-0" />
+                      Settings
+                    </Link>
+                    <Link
+                      href={`/user/${user.id}/edit`}
+                      onClick={() => setSheetOpen(false)}
+                      className="touch-target text-muted-foreground hover:bg-accent hover:text-foreground flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+                    >
+                      <UserPen className="h-5 w-5 shrink-0" />
+                      Edit Profile
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setSheetOpen(false);
+                        signOut();
+                      }}
+                      className="touch-target text-destructive hover:bg-destructive/10 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+                    >
+                      <LogOut className="h-5 w-5 shrink-0" />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </SheetContent>
         </Sheet>
       </div>

@@ -40,7 +40,7 @@ export default function MobileNav() {
       aria-label="Mobile navigation"
     >
       <div className="flex items-center justify-around px-1">
-        {primaryNavItems.slice(0, 2).map((item) => {
+        {primaryNavItems.map((item) => {
           const Icon = item.icon;
           const active = isActivePath(pathname, item.href, item.exact);
           return (
@@ -78,26 +78,6 @@ export default function MobileNav() {
           />
           <span>Scan</span>
         </Link>
-
-        {primaryNavItems.slice(2).map((item) => {
-          const Icon = item.icon;
-          const active = isActivePath(pathname, item.href, item.exact);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "touch-target flex flex-col items-center justify-center gap-0.5 px-2 py-2 text-[10px] font-medium transition-colors",
-                active
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className={cn("h-5 w-5", active && "text-primary")} />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
 
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>

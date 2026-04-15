@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Settings, UserPen, LogOut } from "lucide-react";
+import { Menu, Settings, UserPen, LogOut, ScanLine } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +40,50 @@ export default function MobileNav() {
       aria-label="Mobile navigation"
     >
       <div className="flex items-center justify-around px-1">
-        {primaryNavItems.map((item) => {
+        {primaryNavItems.slice(0, 2).map((item) => {
+          const Icon = item.icon;
+          const active = isActivePath(pathname, item.href, item.exact);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "touch-target flex flex-col items-center justify-center gap-0.5 px-2 py-2 text-[10px] font-medium transition-colors",
+                active
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className={cn("h-5 w-5", active && "text-primary")} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+
+        {/* Scan button — prominent center action */}
+        <Link
+          href="/scanner"
+          className={cn(
+            "touch-target -mt-5 flex flex-col items-center justify-center gap-0.5",
+            isActivePath(pathname, "/scanner")
+              ? "text-primary"
+              : "text-muted-foreground",
+          )}
+        >
+          <span
+            className={cn(
+              "flex h-12 w-12 items-center justify-center rounded-full shadow-lg",
+              isActivePath(pathname, "/scanner")
+                ? "bg-primary text-primary-foreground"
+                : "bg-primary text-primary-foreground",
+            )}
+          >
+            <ScanLine className="h-6 w-6" />
+          </span>
+          <span className="text-[10px] font-medium">Scan</span>
+        </Link>
+
+        {primaryNavItems.slice(2).map((item) => {
           const Icon = item.icon;
           const active = isActivePath(pathname, item.href, item.exact);
           return (

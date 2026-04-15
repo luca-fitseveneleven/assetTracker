@@ -174,6 +174,9 @@ export async function POST(req: NextRequest) {
         ? body.seatCount
         : 1;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id ?? null;
+
     const created = await prisma.licence.create({
       data: {
         licencekey: licencekey ?? null,
@@ -189,6 +192,7 @@ export async function POST(req: NextRequest) {
         supplierid,
         seatCount,
         creation_date: new Date(),
+        organizationId: orgId,
       } as Prisma.licenceUncheckedCreateInput,
     });
 
@@ -276,9 +280,11 @@ export async function PUT(req: NextRequest) {
       _expectedVersion,
     } = body;
 
-    // Fetch existing licence for concurrency check
-    const existingLicence = await prisma.licence.findUnique({
-      where: { licenceid },
+    // Fetch existing licence with org scoping for concurrency check
+    const putOrgCtx = await getOrganizationContext();
+    const putOrgId = putOrgCtx?.organization?.id;
+    const existingLicence = await prisma.licence.findFirst({
+      where: scopeToOrganization({ licenceid }, putOrgId),
     });
     if (!existingLicence) {
       return NextResponse.json({ error: "Licence not found" }, { status: 404 });
@@ -381,10 +387,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Get licence details before deletion for audit log
-    const licence = await prisma.licence.findUnique({
-      where: { licenceid },
-      select: { licencekey: true },
+    // Get licence details before deletion for audit log (with org scoping)
+    const delOrgCtx = await getOrganizationContext();
+    const delOrgId = delOrgCtx?.organization?.id;
+    const licence = await prisma.licence.findFirst({
+      where: scopeToOrganization({ licenceid }, delOrgId),
+      select: { licencekey: true, licenceid: true },
     });
 
     if (!licence) {
@@ -393,7 +401,7 @@ export async function DELETE(req: NextRequest) {
 
     // Delete the licence
     await prisma.licence.delete({
-      where: { licenceid },
+      where: { licenceid: licence.licenceid },
     });
 
     // Create audit log

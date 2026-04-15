@@ -67,31 +67,22 @@ export async function POST(req: Request) {
 
     const { componentId, assetId, quantity, notes } = validated;
 
-    // Verify the component exists and has sufficient stock
-    const component = await prisma.component.findUnique({
-      where: { id: componentId },
-    });
+    // Use a transaction to atomically verify stock, decrement, and create checkout
+    // The stock check MUST be inside the transaction to prevent race conditions
+    const { checkout, component } = await prisma.$transaction(async (tx) => {
+      // Verify the component exists and has sufficient stock (inside transaction)
+      const comp = await tx.component.findUnique({
+        where: { id: componentId },
+      });
 
-    if (!component) {
-      return NextResponse.json(
-        { error: "Component not found" },
-        { status: 404 },
-      );
-    }
+      if (!comp) {
+        throw new Error("COMPONENT_NOT_FOUND");
+      }
 
-    if (component.remainingQuantity < quantity) {
-      return NextResponse.json(
-        {
-          error: "Insufficient stock",
-          available: component.remainingQuantity,
-          requested: quantity,
-        },
-        { status: 400 },
-      );
-    }
+      if (comp.remainingQuantity < quantity) {
+        throw new Error(`INSUFFICIENT_STOCK:${comp.remainingQuantity}`);
+      }
 
-    // Use a transaction to atomically decrement stock and create checkout
-    const checkout = await prisma.$transaction(async (tx) => {
       // Decrement the component remaining quantity
       await tx.component.update({
         where: { id: componentId },
@@ -121,7 +112,7 @@ export async function POST(req: Request) {
         },
       });
 
-      return created;
+      return { checkout: created, component: comp };
     });
 
     // Audit log
@@ -169,14 +160,32 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(checkout, { status: 201 });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "";
     logger.error("POST /api/components/checkout error", { error: e });
 
-    if (e.message === "Unauthorized") {
+    if (message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
+    if (message.startsWith("Forbidden")) {
+      return NextResponse.json({ error: message }, { status: 403 });
+    }
+    if (message === "COMPONENT_NOT_FOUND") {
+      return NextResponse.json(
+        { error: "Component not found" },
+        { status: 404 },
+      );
+    }
+    if (message.startsWith("INSUFFICIENT_STOCK:")) {
+      const available = parseInt(message.split(":")[1], 10);
+      return NextResponse.json(
+        {
+          error: "Insufficient stock",
+          available,
+          requested: 0,
+        },
+        { status: 400 },
+      );
     }
 
     return NextResponse.json(

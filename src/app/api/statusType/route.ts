@@ -272,10 +272,23 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Check for referencing records before deleting
-    const [assetRefs, accessoriesRefs] = await Promise.all([
+    const [assetRefs, accessoriesRefs, transitionRefs] = await Promise.all([
       prisma.asset.count({ where: { statustypeid } }),
       prisma.accessories.count({ where: { statustypeid } }),
+      prisma.status_transitions.count({
+        where: {
+          OR: [{ fromStatusId: statustypeid }, { toStatusId: statustypeid }],
+        },
+      }),
     ]);
+
+    if (transitionRefs > 0) {
+      return NextResponse.json(
+        { error: "Cannot delete: status type is used in workflow transitions" },
+        { status: 409 },
+      );
+    }
+
     const totalRefs = assetRefs + accessoriesRefs;
     if (totalRefs > 0) {
       const details = [

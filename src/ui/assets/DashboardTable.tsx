@@ -968,6 +968,7 @@ export default function App({
       userAssetsData,
       handleOpenModal,
       isAdmin,
+      currentUserId,
       setRequestingAsset,
       setRequestDialogOpen,
     ],

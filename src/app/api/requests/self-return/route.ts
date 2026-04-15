@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 import { logger } from "@/lib/logger";
 
 /**
@@ -28,10 +32,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify the item is actually assigned to this user
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify the item is actually assigned to this user and belongs to the same org
     let isAssigned = false;
     switch (entityType) {
       case "asset": {
+        const asset = await prisma.asset.findFirst({
+          where: scopeToOrganization({ assetid: entityId }, orgId),
+        });
+        if (!asset) break;
         const ua = await prisma.userAssets.findFirst({
           where: { assetid: entityId, userid: user.id },
         });
@@ -39,6 +50,10 @@ export async function POST(req: NextRequest) {
         break;
       }
       case "accessory": {
+        const acc = await prisma.accessories.findFirst({
+          where: scopeToOrganization({ accessorieid: entityId }, orgId),
+        });
+        if (!acc) break;
         const ua = await prisma.userAccessoires.findFirst({
           where: { accessorieid: entityId, userid: user.id },
         });
@@ -46,6 +61,10 @@ export async function POST(req: NextRequest) {
         break;
       }
       case "licence": {
+        const lic = await prisma.licence.findFirst({
+          where: scopeToOrganization({ licenceid: entityId }, orgId),
+        });
+        if (!lic) break;
         const l = await prisma.licence.findFirst({
           where: { licenceid: entityId, licenceduserid: user.id },
         });
@@ -90,6 +109,7 @@ export async function POST(req: NextRequest) {
           await tx.userAssets.deleteMany({
             where: { assetid: entityId, userid: user.id },
           });
+          // Returns always set status to Available, bypassing workflow transition rules (intentional)
           const available = await tx.statusType.findFirst({
             where: {
               statustypename: { equals: "Available", mode: "insensitive" },

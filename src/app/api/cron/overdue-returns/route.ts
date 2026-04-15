@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   // Verify cron secret
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
             firstname: true,
             lastname: true,
             email: true,
+            organizationId: true,
           },
         },
       },
@@ -37,6 +38,22 @@ export async function GET(req: NextRequest) {
     let notified = 0;
 
     for (const request of overdueRequests) {
+      // BUG 19 fix: Verify the item is still actually assigned to the user
+      // before sending notifications. Skip if no longer assigned.
+      const stillAssigned = await isItemStillAssigned(
+        request.entityType,
+        request.entityId,
+        request.user.userid,
+      );
+      if (!stillAssigned) {
+        // Item was already returned or unassigned; mark as overdue silently
+        await prisma.itemRequest.update({
+          where: { id: request.id },
+          data: { status: "overdue", updatedAt: new Date() },
+        });
+        continue;
+      }
+
       const entityName = await getEntityName(
         request.entityType,
         request.entityId,
@@ -54,9 +71,16 @@ export async function GET(req: NextRequest) {
         },
       });
 
-      // Notify all admins to collect the item
+      // BUG 2 fix: Only notify admins within the same organization
+      const adminWhere: Record<string, unknown> = {
+        isadmin: true,
+        isActive: true,
+      };
+      if (request.user.organizationId) {
+        adminWhere.organizationId = request.user.organizationId;
+      }
       const admins = await prisma.user.findMany({
-        where: { isadmin: true, isActive: true },
+        where: adminWhere,
         select: { userid: true, email: true },
       });
 
@@ -96,6 +120,36 @@ export async function GET(req: NextRequest) {
     logger.error("Overdue returns cron error", { error });
     return NextResponse.json({ error: "Cron job failed" }, { status: 500 });
   }
+}
+
+async function isItemStillAssigned(
+  entityType: string,
+  entityId: string,
+  userId: string,
+): Promise<boolean> {
+  try {
+    switch (entityType) {
+      case "asset": {
+        const ua = await prisma.userAssets.findFirst({
+          where: { assetid: entityId, userid: userId },
+        });
+        return !!ua;
+      }
+      case "accessory": {
+        const ua = await prisma.userAccessoires.findFirst({
+          where: { accessorieid: entityId, userid: userId },
+        });
+        return !!ua;
+      }
+      case "licence": {
+        const l = await prisma.licence.findFirst({
+          where: { licenceid: entityId, licenceduserid: userId },
+        });
+        return !!l;
+      }
+    }
+  } catch {}
+  return false;
 }
 
 async function getEntityName(

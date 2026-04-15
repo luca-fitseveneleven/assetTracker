@@ -578,6 +578,7 @@ async function createEntity(
           isadmin: data.isadmin === "true" || data.isadmin === "1",
           canrequest: data.canrequest !== "false" && data.canrequest !== "0",
           creation_date: now,
+          organizationId,
         },
       });
       break;

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { NotificationIcon } from "../ui/Icons";
+// NotificationIcon replaced with lucide Bell
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -29,6 +29,23 @@ interface Notification {
   body: string;
   status: string;
   createdAt: string;
+}
+
+function formatTimeAgo(dateString: string): string {
+  const now = Date.now();
+  const then = new Date(dateString).getTime();
+  const diffMs = now - then;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(dateString).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function Navigation() {
@@ -224,69 +241,90 @@ function Navigation() {
           >
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
-                <NotificationIcon size={24} />
+                <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center p-0 text-xs"
-                  >
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
                     {unreadCount > 99 ? "99+" : unreadCount}
-                  </Badge>
+                  </span>
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel className="flex items-center justify-between">
-                <span>Notifications</span>
-                {notificationsLoading && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-              </DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="w-96">
+              <div className="flex items-center justify-between px-3 py-2">
+                <span className="text-sm font-semibold">Notifications</span>
+                <div className="flex items-center gap-1">
+                  {unreadCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground h-7 text-xs"
+                      onClick={() => {
+                        notifications
+                          .filter((n) => n.status === "pending")
+                          .forEach((n) => markAsRead(n.id));
+                      }}
+                    >
+                      Mark all read
+                    </Button>
+                  )}
+                  {notificationsLoading && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
+                </div>
+              </div>
               <DropdownMenuSeparator />
 
               {notifications.length === 0 ? (
-                <div className="text-muted-foreground py-6 text-center text-sm">
-                  {notificationsLoading ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading notifications...
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <Bell className="text-muted-foreground/50 h-8 w-8" />
-                      <span>No notifications</span>
-                    </div>
-                  )}
+                <div className="text-muted-foreground py-8 text-center text-sm">
+                  <Bell className="text-muted-foreground/30 mx-auto mb-2 h-8 w-8" />
+                  <p>All caught up</p>
                 </div>
               ) : (
-                <div className="max-h-80 overflow-y-auto">
-                  {notifications.map((notification) => (
-                    <DropdownMenuItem
-                      key={notification.id}
-                      className={cn(
-                        "flex cursor-pointer flex-col items-start gap-1 py-3",
-                        notification.status === "pending" && "bg-muted/50",
-                      )}
-                      onClick={() => {
-                        if (notification.status === "pending") {
-                          markAsRead(notification.id);
-                        }
-                      }}
-                    >
-                      <div className="flex w-full items-start justify-between gap-2">
-                        <span className="line-clamp-1 text-sm font-medium">
-                          {notification.subject}
-                        </span>
-                        <div className="flex shrink-0 items-center gap-1">
-                          {notification.status === "pending" && (
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.map((notification) => {
+                    const isUnread = notification.status === "pending";
+                    const timeAgo = formatTimeAgo(notification.createdAt);
+                    return (
+                      <div
+                        key={notification.id}
+                        className={cn(
+                          "group flex gap-3 border-b px-3 py-2.5 last:border-0",
+                          isUnread && "bg-primary/5",
+                        )}
+                      >
+                        <div className="mt-1.5 shrink-0">
+                          {isUnread ? (
+                            <span className="bg-primary block h-2 w-2 rounded-full" />
+                          ) : (
+                            <span className="block h-2 w-2" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={cn(
+                              "text-sm leading-snug",
+                              isUnread && "font-medium",
+                            )}
+                          >
+                            {notification.subject}
+                          </p>
+                          <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs leading-relaxed">
+                            {notification.body
+                              .replace(/<[^>]*>/g, "")
+                              .slice(0, 120)}
+                          </p>
+                          <p className="text-muted-foreground/60 mt-1 text-[11px]">
+                            {timeAgo}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-start gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                          {isUnread && (
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                markAsRead(notification.id);
-                              }}
+                              title="Mark as read"
+                              onClick={() => markAsRead(notification.id)}
                             >
                               <Check className="h-3 w-3" />
                             </Button>
@@ -295,48 +333,28 @@ function Navigation() {
                             variant="ghost"
                             size="icon"
                             className="text-muted-foreground hover:text-destructive h-6 w-6"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteNotification(notification.id);
-                            }}
+                            title="Dismiss"
+                            onClick={() => deleteNotification(notification.id)}
                           >
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
-                      <span className="text-muted-foreground line-clamp-2 text-xs">
-                        {notification.body
-                          .replace(/<[^>]*>/g, "")
-                          .slice(0, 100)}
-                        {notification.body.length > 100 && "..."}
-                      </span>
-                      <span className="text-muted-foreground/70 text-xs">
-                        {new Date(notification.createdAt).toLocaleDateString(
-                          undefined,
-                          {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          },
-                        )}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
               {notifications.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuItem
-                    className="text-destructive cursor-pointer"
+                    className="text-muted-foreground cursor-pointer justify-center text-xs"
                     onClick={deleteAllNotifications}
                     disabled={deletingAll}
                   >
                     {deletingAll ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
                     ) : null}
                     Delete all notifications
                   </DropdownMenuItem>

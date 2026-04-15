@@ -170,8 +170,18 @@ export default function AssetEditForm({
           warrantyMonths:
             form.warrantyMonths === "" ? null : Number(form.warrantyMonths),
           warrantyExpires: form.warrantyExpires || null,
+          _expectedVersion: initial.change_date ?? null,
         }),
       });
+      if (res.status === 409) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(
+          err.error ||
+            "This item was modified by someone else. Please refresh and try again.",
+        );
+        setSaving(false);
+        return;
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error || "Failed to update asset");

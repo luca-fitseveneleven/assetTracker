@@ -187,11 +187,21 @@ export default function UserEditForm({
         // Convert empty string to null for optional UUID field
         if (body.departmentId === "") body.departmentId = null;
       }
+      body._expectedVersion = initial.change_date ?? null;
       const res = await fetch("/api/user", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (res.status === 409) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(
+          err.error ||
+            "This item was modified by someone else. Please refresh and try again.",
+        );
+        setSaving(false);
+        return;
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error || "Failed to update user");

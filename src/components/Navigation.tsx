@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useSession, type SessionUser } from "@/lib/auth-client";
 import ThemeSwitcher from "./ThemeSwitcher";
-import { SignOutButton } from "./SignOutButton";
+// User menu moved to sidebar
 import GlobalSearch from "./GlobalSearch";
 import { Search, X, Loader2, Bell, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 // NotificationIcon replaced with lucide Bell
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -188,19 +187,6 @@ function Navigation() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  // Get user initials for avatar
-  const getInitials = () => {
-    if (user?.firstname && user?.lastname) {
-      return `${user.firstname[0]}${user.lastname[0]}`.toUpperCase();
-    }
-    if (user?.username) {
-      return user.username.slice(0, 2).toUpperCase();
-    }
-    return "U";
-  };
-
-  const userName = user?.name || user?.username || "User";
-
   return (
     <nav className="border-border/60 bg-background/95 border-b backdrop-blur-sm">
       <div className="flex h-16 items-center px-4 md:px-6">
@@ -364,61 +350,6 @@ function Navigation() {
           </DropdownMenu>
 
           <ThemeSwitcher />
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="relative h-10 w-10 rounded-full"
-              >
-                <Avatar className="h-10 w-10">
-                  <AvatarImage
-                    src="https://images.unsplash.com/broken"
-                    alt={userName}
-                  />
-                  <AvatarFallback>{getInitials()}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm leading-none font-medium">
-                    Signed in as
-                  </p>
-                  <p className="text-muted-foreground text-xs leading-none">
-                    {userName}
-                  </p>
-                  {session?.user?.email && (
-                    <p className="text-muted-foreground text-xs leading-none">
-                      {session.user.email}
-                    </p>
-                  )}
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href={`/user/${user?.id || "123"}`}>My Items</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={user?.isadmin ? "/admin/tickets" : "/user/tickets"}>
-                  {user?.isadmin ? "Tickets" : "My Tickets"}
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={`/user/${user?.id || "123"}/settings`}>
-                  My Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={`/user/${user?.id || "123"}/edit`}>
-                  Edit Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <SignOutButton />
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
     </nav>

@@ -26,6 +26,7 @@ import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { checkAssetLimit } from "@/lib/tenant-limits";
 import { logger } from "@/lib/logger";
+import { conflictResponse } from "@/lib/concurrency";
 import {
   createAuditLog,
   createAuditLogWithDiff,
@@ -251,7 +252,8 @@ export async function PUT(req: NextRequest) {
     if (demoBlock) return demoBlock;
     await requirePermission("asset:edit");
     const body = await req.json();
-    const validated = validateBody(updateAssetSchema, body);
+    const { _expectedVersion, ...bodyWithoutVersion } = body;
+    const validated = validateBody(updateAssetSchema, bodyWithoutVersion);
     if (validated instanceof NextResponse) return validated;
 
     const { assetid, ...data } = validated;
@@ -264,6 +266,10 @@ export async function PUT(req: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: "Asset not found" }, { status: 404 });
     }
+
+    // Optimistic concurrency check
+    const conflict = conflictResponse(_expectedVersion, existing.change_date);
+    if (conflict) return conflict;
 
     // Normalize date types
     const updateData: Record<string, unknown> = { ...data };

@@ -8,6 +8,7 @@ import {
 } from "@/lib/organization-context";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
+import { checkVersion, CONFLICT_MESSAGE } from "@/lib/concurrency";
 
 // PUT /api/asset/updateStatus
 // Body: { assetId: string, statusTypeId?: string, statusName?: string }
@@ -21,7 +22,8 @@ export async function PUT(req: NextRequest) {
     const orgContext = await getOrganizationContext();
     const orgId = orgContext?.organization?.id;
 
-    const { assetId, statusTypeId, statusName } = await req.json();
+    const { assetId, statusTypeId, statusName, _expectedVersion } =
+      await req.json();
 
     if (!assetId || (!statusTypeId && !statusName)) {
       logger.warn("PUT /api/asset/updateStatus - Invalid request", {
@@ -74,10 +76,15 @@ export async function PUT(req: NextRequest) {
         // Re-read inside transaction to get latest status
         const current = await tx.asset.findUnique({
           where: { assetid: assetId },
-          select: { statustypeid: true },
+          select: { statustypeid: true, change_date: true },
         });
 
         if (!current) throw new Error("ASSET_NOT_FOUND");
+
+        // Optimistic concurrency check
+        if (!checkVersion(_expectedVersion, current.change_date)) {
+          throw new Error("VERSION_CONFLICT");
+        }
 
         // Enforce status workflow transitions (if any are defined)
         if (current.statustypeid && current.statustypeid !== statusId) {
@@ -112,6 +119,12 @@ export async function PUT(req: NextRequest) {
         if (err.message === "ASSET_NOT_FOUND") {
           return new Response(JSON.stringify({ error: "Asset not found" }), {
             status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (err.message === "VERSION_CONFLICT") {
+          return new Response(JSON.stringify({ error: CONFLICT_MESSAGE }), {
+            status: 409,
             headers: { "Content-Type": "application/json" },
           });
         }

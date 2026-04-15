@@ -300,7 +300,7 @@ export async function PUT(req: NextRequest) {
     if (demoBlock) return demoBlock;
     const user = await requireApiAuth();
 
-    const { id, status, notes } = await req.json();
+    const { id, status, notes, _expectedVersion } = await req.json();
 
     if (!id || !status) {
       return NextResponse.json(
@@ -312,6 +312,22 @@ export async function PUT(req: NextRequest) {
     const existing = await prisma.itemRequest.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    }
+
+    // Optimistic concurrency check
+    if (
+      _expectedVersion &&
+      existing.updatedAt &&
+      new Date(_expectedVersion).getTime() !==
+        new Date(existing.updatedAt).getTime()
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "This request was modified by another user. Please refresh and try again.",
+        },
+        { status: 409 },
+      );
     }
 
     // Only admins can approve/reject/confirm returns

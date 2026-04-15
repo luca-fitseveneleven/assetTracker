@@ -136,13 +136,34 @@ export async function PUT(req: NextRequest) {
 
     const authUser = await requireApiAuth();
     const body = await req.json();
-    const { userid, password, ...data } = body || {};
+    const { userid, password, _expectedVersion, ...data } = body || {};
 
     if (!userid) {
       return NextResponse.json(
         { error: "userid is required to update a user" },
         { status: 400 },
       );
+    }
+
+    // Optimistic concurrency check
+    if (_expectedVersion) {
+      const current = await prisma.user.findUnique({
+        where: { userid },
+        select: { change_date: true },
+      });
+      if (
+        current?.change_date &&
+        new Date(_expectedVersion).getTime() !==
+          new Date(current.change_date).getTime()
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "This user was modified by another admin. Please refresh and try again.",
+          },
+          { status: 409 },
+        );
+      }
     }
 
     if (!authUser.isAdmin && authUser.id !== userid) {

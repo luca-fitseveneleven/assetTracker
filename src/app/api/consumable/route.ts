@@ -19,6 +19,7 @@ import {
   buildPaginatedResponse,
 } from "@/lib/pagination";
 import { logger } from "@/lib/logger";
+import { conflictResponse } from "@/lib/concurrency";
 
 const CONSUMABLE_SORT_FIELDS = ["consumablename", "quantity", "creation_date"];
 
@@ -213,6 +214,7 @@ export async function PUT(req: NextRequest) {
       purchasedate,
       minQuantity,
       quantity,
+      _expectedVersion,
     } = body;
 
     const orgCtx = await getOrganizationContext();
@@ -226,6 +228,13 @@ export async function PUT(req: NextRequest) {
         { status: 404 },
       );
     }
+
+    // Optimistic concurrency check
+    const conflict = conflictResponse(
+      _expectedVersion,
+      existingConsumable.change_date,
+    );
+    if (conflict) return conflict;
 
     const updated = await prisma.consumable.update({
       where: { consumableid: existingConsumable.consumableid },

@@ -20,6 +20,7 @@ import {
 } from "@/lib/pagination";
 import { logger } from "@/lib/logger";
 import { triggerWebhook } from "@/lib/webhooks";
+import { conflictResponse } from "@/lib/concurrency";
 
 const LICENCE_SORT_FIELDS = ["licencekey", "creation_date"];
 
@@ -272,7 +273,23 @@ export async function PUT(req: NextRequest) {
       manufacturerid,
       supplierid,
       seatCount,
+      _expectedVersion,
     } = body;
+
+    // Fetch existing licence for concurrency check
+    const existingLicence = await prisma.licence.findUnique({
+      where: { licenceid },
+    });
+    if (!existingLicence) {
+      return NextResponse.json({ error: "Licence not found" }, { status: 404 });
+    }
+
+    // Optimistic concurrency check
+    const conflict = conflictResponse(
+      _expectedVersion,
+      existingLicence.change_date,
+    );
+    if (conflict) return conflict;
 
     const updated = await prisma.licence.update({
       where: { licenceid },

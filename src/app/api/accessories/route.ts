@@ -21,6 +21,7 @@ import {
   AUDIT_ACTIONS,
   AUDIT_ENTITIES,
 } from "@/lib/audit-log";
+import { conflictResponse } from "@/lib/concurrency";
 
 const ACCESSORY_SORT_FIELDS = ["accessoriename", "creation_date"];
 
@@ -227,7 +228,7 @@ export async function PUT(req: NextRequest) {
     if (demoBlock) return demoBlock;
     await requirePermission("accessory:edit");
     const body = await req.json();
-    const { accessorieid, ...data } = body || {};
+    const { accessorieid, _expectedVersion, ...data } = body || {};
 
     if (!accessorieid) {
       return NextResponse.json(
@@ -247,6 +248,10 @@ export async function PUT(req: NextRequest) {
         { status: 404 },
       );
     }
+
+    // Optimistic concurrency check
+    const conflict = conflictResponse(_expectedVersion, existing.change_date);
+    if (conflict) return conflict;
 
     const normalized = {
       ...data,

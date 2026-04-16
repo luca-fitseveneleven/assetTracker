@@ -15,7 +15,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import { X, Eye, EyeOff, Check } from "lucide-react";
+
+const MIN_PASSWORD_LENGTH = 12;
 
 export default function UserEditForm({
   initial,
@@ -47,6 +49,22 @@ export default function UserEditForm({
     departmentId: initial.departmentId ?? "",
     password: "",
   });
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Password validation state — derived once per render, no useState needed.
+  const passwordEntered = form.password.length > 0;
+  const passwordTooShort =
+    passwordEntered && form.password.length < MIN_PASSWORD_LENGTH;
+  const passwordsMismatch =
+    passwordEntered &&
+    confirmPassword.length > 0 &&
+    form.password !== confirmPassword;
+  const passwordValid =
+    !passwordEntered ||
+    (form.password.length >= MIN_PASSWORD_LENGTH &&
+      form.password === confirmPassword);
   const [isDirty, setIsDirty] = useState(false);
   const [allRoles, setAllRoles] = useState(initialRoles);
   const [userRoles, setUserRoles] = useState(initialUserRoles);
@@ -174,6 +192,22 @@ export default function UserEditForm({
 
   const onSubmit = async (e) => {
     e.preventDefault();
+
+    // Block submit if a password was entered but doesn't meet requirements.
+    // Empty password is fine — means "don't change it".
+    if (passwordEntered) {
+      if (form.password.length < MIN_PASSWORD_LENGTH) {
+        setError(
+          `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+        );
+        return;
+      }
+      if (form.password !== confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+    }
+
     setSaving(true);
     setError("");
     try {
@@ -249,7 +283,7 @@ export default function UserEditForm({
             </Button>
             <Button
               type="submit"
-              disabled={saving}
+              disabled={saving || !passwordValid}
               className="w-full sm:w-auto"
             >
               {saving ? "Saving..." : "Save"}
@@ -520,22 +554,128 @@ export default function UserEditForm({
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-          <section className="border-default-200 col-span-1 rounded-lg border p-4">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
+          <section className="border-default-200 rounded-lg border p-4">
             <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
               Security
             </h2>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="password">Set New Password</Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={form.password}
-                  onChange={onChange}
-                  placeholder="Leave blank to keep current"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={onChange}
+                    placeholder="Leave blank to keep current"
+                    autoComplete="new-password"
+                    minLength={MIN_PASSWORD_LENGTH}
+                    className={`pr-10 ${passwordTooShort ? "border-destructive" : ""}`}
+                    aria-describedby="password-help"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    tabIndex={-1}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    className="absolute top-0 right-0 h-full px-3"
+                    onClick={() => setShowPassword((v) => !v)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p
+                  id="password-help"
+                  className={`mt-1 text-xs ${
+                    !passwordEntered
+                      ? "text-muted-foreground"
+                      : form.password.length >= MIN_PASSWORD_LENGTH
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-destructive"
+                  }`}
+                >
+                  {!passwordEntered ? (
+                    `Minimum ${MIN_PASSWORD_LENGTH} characters. Leave blank to keep current password.`
+                  ) : form.password.length >= MIN_PASSWORD_LENGTH ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Check className="h-3 w-3" />
+                      Meets {MIN_PASSWORD_LENGTH}-character minimum
+                    </span>
+                  ) : (
+                    `${form.password.length} / ${MIN_PASSWORD_LENGTH} characters`
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter the new password"
+                    autoComplete="new-password"
+                    minLength={MIN_PASSWORD_LENGTH}
+                    disabled={!passwordEntered}
+                    className={`pr-10 ${passwordsMismatch ? "border-destructive" : ""}`}
+                    aria-describedby="confirm-help"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    tabIndex={-1}
+                    aria-label={
+                      showConfirmPassword ? "Hide password" : "Show password"
+                    }
+                    className="absolute top-0 right-0 h-full px-3"
+                    disabled={!passwordEntered}
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p
+                  id="confirm-help"
+                  className={`mt-1 text-xs ${
+                    passwordsMismatch
+                      ? "text-destructive"
+                      : passwordEntered &&
+                          confirmPassword.length > 0 &&
+                          form.password === confirmPassword
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {passwordsMismatch ? (
+                    "Passwords do not match"
+                  ) : passwordEntered &&
+                    confirmPassword.length > 0 &&
+                    form.password === confirmPassword ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Check className="h-3 w-3" />
+                      Passwords match
+                    </span>
+                  ) : (
+                    "Re-enter the password to confirm"
+                  )}
+                </p>
               </div>
             </div>
           </section>
@@ -559,7 +699,7 @@ export default function UserEditForm({
           </Button>
           <Button
             type="submit"
-            disabled={saving || usernameTaken || emailTaken}
+            disabled={saving || usernameTaken || emailTaken || !passwordValid}
             className="w-full sm:w-auto"
           >
             {saving ? "Saving..." : "Save"}

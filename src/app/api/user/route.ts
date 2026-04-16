@@ -8,7 +8,7 @@ import {
 } from "@/lib/organization-context";
 import { applyDepartmentScopeToUsers } from "@/lib/department-access";
 import { updateUserSchema } from "@/lib/validation";
-import { hashPassword } from "@/lib/auth-utils";
+import { setUserPassword } from "@/lib/auth-utils";
 import {
   parsePaginationParams,
   buildPrismaArgs,
@@ -199,9 +199,9 @@ export async function PUT(req: NextRequest) {
     }
 
     const updateData = { ...validationResult.data } as Record<string, unknown>;
-    if (Object.prototype.hasOwnProperty.call(updateData, "password")) {
-      updateData.password = await hashPassword(updateData.password as string);
-    }
+    // Strip password from profile update — it goes to accounts.password via setUserPassword.
+    const newPassword = updateData.password as string | undefined;
+    delete updateData.password;
 
     const updated = await prisma.user.update({
       where: { userid },
@@ -211,9 +211,16 @@ export async function PUT(req: NextRequest) {
       },
     });
 
+    if (newPassword) {
+      await setUserPassword(userid, newPassword);
+    }
+
     triggerWebhook("user.updated", {
       userId: userid,
-      changes: Object.keys(updateData),
+      changes: [
+        ...Object.keys(updateData),
+        ...(newPassword ? ["password"] : []),
+      ],
     }).catch(() => {});
 
     return NextResponse.json(stripPassword(updated), { status: 200 });

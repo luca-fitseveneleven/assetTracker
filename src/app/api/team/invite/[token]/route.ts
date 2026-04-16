@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireNotDemoMode } from "@/lib/api-auth";
-import bcrypt from "bcryptjs";
+import { setUserPassword } from "@/lib/auth-utils";
 import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
@@ -134,29 +134,30 @@ export async function POST(
         );
       }
 
-      if (password.length < 8) {
+      if (password.length < 12) {
         return NextResponse.json(
-          { error: "Password must be at least 8 characters" },
+          { error: "Password must be at least 12 characters" },
           { status: 400 },
         );
       }
 
-      // Create new user
-      const hashedPassword = await bcrypt.hash(password, 12);
-
+      // Create new user without a password column write — setUserPassword handles
+      // both user.password and accounts.password atomically right after creation.
       const newUser = await prisma.user.create({
         data: {
           firstname,
           lastname,
           email: invitation.email,
           username: invitation.email,
-          password: hashedPassword,
           isadmin: false,
           canrequest: true,
           organizationId: invitation.organization.id,
           creation_date: new Date(),
         },
       });
+
+      // Set credential password (writes to user.password + accounts.password upsert)
+      await setUserPassword(newUser.userid, password);
 
       // Assign role if specified
       if (invitation.role) {

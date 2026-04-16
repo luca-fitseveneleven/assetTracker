@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
+import { verifyUserPassword } from "@/lib/auth-utils";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { logger } from "@/lib/logger";
 
@@ -37,10 +37,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get user with password for verification
+    // Check MFA is currently enabled before bothering with password verification
     const user = await prisma.user.findUnique({
       where: { userid: authUser.id },
-      select: { password: true, mfaEnabled: true },
+      select: { mfaEnabled: true },
     });
 
     if (!user) {
@@ -54,8 +54,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    // Verify password against accounts.password (BetterAuth's source of truth) — using
+    // user.password here was a bug because that column can be stale relative to accounts.
+    const isValidPassword = await verifyUserPassword(authUser.id, password);
 
     if (!isValidPassword) {
       return NextResponse.json({ error: "Invalid password" }, { status: 403 });

@@ -20,6 +20,50 @@ export async function verifyPassword(
 }
 
 /**
+ * Verify a user's password by reading the canonical hash from `accounts.password`
+ * (the column BetterAuth uses for credential verification). Falls back to the legacy
+ * `user.password` column for accounts that haven't yet been migrated by the BetterAuth
+ * `before` hook.
+ *
+ * Use this anywhere you need to confirm "is this the user's current password?" —
+ * for example, password change, MFA disable, or any sensitive re-authentication.
+ *
+ * @returns true if the password matches the stored hash, false otherwise
+ *          (also false if the user has no password set at all)
+ */
+export async function verifyUserPassword(
+  userId: string,
+  plaintextPassword: string,
+): Promise<boolean> {
+  const account = await prisma.accounts.findUnique({
+    where: {
+      providerId_accountId: {
+        providerId: "credential",
+        accountId: userId,
+      },
+    },
+    select: { password: true },
+  });
+
+  // Prefer accounts.password (BetterAuth's source of truth)
+  if (account?.password) {
+    return bcrypt.compare(plaintextPassword, account.password);
+  }
+
+  // Legacy fallback: user.password (set by NextAuth-era code paths)
+  const user = await prisma.user.findUnique({
+    where: { userid: userId },
+    select: { password: true },
+  });
+
+  if (!user?.password) {
+    return false;
+  }
+
+  return bcrypt.compare(plaintextPassword, user.password);
+}
+
+/**
  * Atomically set a user's password in both `user.password` (legacy column)
  * and `accounts.password` for the BetterAuth credential provider.
  *

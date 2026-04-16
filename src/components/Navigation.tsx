@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useOptimistic,
+  useTransition,
+} from "react";
 import Link from "next/link";
 import { useSession, type SessionUser } from "@/lib/auth-client";
 import ThemeSwitcher from "./ThemeSwitcher";
@@ -52,13 +58,71 @@ function Navigation() {
   const { data: session } = useSession();
   const user = session?.user as SessionUser | undefined;
 
-  // Notification state
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [deletingAll, setDeletingAll] = useState(false);
+  // Notification state — single source of truth so list and badge stay atomic
+  type NotifState = {
+    notifications: Notification[];
+    unreadCount: number;
+  };
 
-  // Fetch notifications
+  type OptimisticAction =
+    | { type: "markRead"; id: string }
+    | { type: "markAllReadDisplayed" }
+    | { type: "delete"; id: string }
+    | { type: "deleteAll" };
+
+  const [state, setState] = useState<NotifState>({
+    notifications: [],
+    unreadCount: 0,
+  });
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const [optimisticState, applyOptimistic] = useOptimistic<
+    NotifState,
+    OptimisticAction
+  >(state, (current, action): NotifState => {
+    switch (action.type) {
+      case "markRead": {
+        const target = current.notifications.find((n) => n.id === action.id);
+        const wasUnread = target?.status === "pending";
+        return {
+          notifications: current.notifications.map((n) =>
+            n.id === action.id ? { ...n, status: "sent" } : n,
+          ),
+          unreadCount: wasUnread
+            ? Math.max(0, current.unreadCount - 1)
+            : current.unreadCount,
+        };
+      }
+      case "markAllReadDisplayed": {
+        const displayedPending = current.notifications.filter(
+          (n) => n.status === "pending",
+        ).length;
+        return {
+          notifications: current.notifications.map((n) =>
+            n.status === "pending" ? { ...n, status: "sent" } : n,
+          ),
+          unreadCount: Math.max(0, current.unreadCount - displayedPending),
+        };
+      }
+      case "delete": {
+        const target = current.notifications.find((n) => n.id === action.id);
+        const wasUnread = target?.status === "pending";
+        return {
+          notifications: current.notifications.filter(
+            (n) => n.id !== action.id,
+          ),
+          unreadCount: wasUnread
+            ? Math.max(0, current.unreadCount - 1)
+            : current.unreadCount,
+        };
+      }
+      case "deleteAll":
+        return { notifications: [], unreadCount: 0 };
+    }
+  });
+
+  // Fetch notifications (server is source of truth; replaces both list + count)
   const fetchNotifications = useCallback(async () => {
     if (!session?.user?.id) return;
 
@@ -67,8 +131,10 @@ function Navigation() {
       const response = await fetch("/api/notifications?limit=10");
       if (response.ok) {
         const data = await response.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
+        setState({
+          notifications: data.notifications || [],
+          unreadCount: data.unreadCount || 0,
+        });
       }
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
@@ -77,63 +143,128 @@ function Navigation() {
     }
   }, [session?.user?.id]);
 
-  // Mark notification as read
-  const markAsRead = async (id: string) => {
-    try {
-      const response = await fetch(`/api/notifications/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "sent" }),
-      });
-      if (response.ok) {
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, status: "sent" } : n)),
+  // Mark notification as read — optimistic
+  const markAsRead = (id: string) => {
+    startTransition(async () => {
+      applyOptimistic({ type: "markRead", id });
+      try {
+        const response = await fetch(`/api/notifications/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "sent" }),
+        });
+        if (!response.ok) throw new Error("Request failed");
+        setState((prev) => {
+          const target = prev.notifications.find((n) => n.id === id);
+          const wasUnread = target?.status === "pending";
+          return {
+            notifications: prev.notifications.map((n) =>
+              n.id === id ? { ...n, status: "sent" } : n,
+            ),
+            unreadCount: wasUnread
+              ? Math.max(0, prev.unreadCount - 1)
+              : prev.unreadCount,
+          };
+        });
+      } catch (error) {
+        console.error("Failed to mark notification as read:", error);
+        toast.error("Couldn't mark as read");
+        // Optimistic update auto-reverts when this transition ends
+      }
+    });
+  };
+
+  // Mark every displayed pending notification as read — single optimistic
+  // update + parallel PATCH requests. unreadCount drops by the displayed
+  // pending count (not to 0) since there may be more unread beyond limit=10.
+  const markAllReadDisplayed = () => {
+    const pendingIds = state.notifications
+      .filter((n) => n.status === "pending")
+      .map((n) => n.id);
+    if (pendingIds.length === 0) return;
+
+    startTransition(async () => {
+      applyOptimistic({ type: "markAllReadDisplayed" });
+      const results = await Promise.allSettled(
+        pendingIds.map((id) =>
+          fetch(`/api/notifications/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "sent" }),
+          }),
+        ),
+      );
+      const failed = results.filter(
+        (r) =>
+          r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok),
+      ).length;
+      if (failed > 0) {
+        toast.error(
+          `Couldn't mark ${failed} notification${
+            failed === 1 ? "" : "s"
+          } as read`,
         );
-        setUnreadCount((prev) => Math.max(0, prev - 1));
+        // Reconcile partial-success state with server truth
+        fetchNotifications();
+      } else {
+        setState((prev) => {
+          const displayedPending = prev.notifications.filter(
+            (n) => n.status === "pending",
+          ).length;
+          return {
+            notifications: prev.notifications.map((n) =>
+              n.status === "pending" ? { ...n, status: "sent" } : n,
+            ),
+            unreadCount: Math.max(0, prev.unreadCount - displayedPending),
+          };
+        });
       }
-    } catch (error) {
-      console.error("Failed to mark notification as read:", error);
-    }
+    });
   };
 
-  // Delete single notification
-  const deleteNotification = async (id: string) => {
-    try {
-      const response = await fetch(`/api/notifications/${id}`, {
-        method: "DELETE",
-      });
-      if (response.ok) {
-        const notification = notifications.find((n) => n.id === id);
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
-        if (notification?.status === "pending") {
-          setUnreadCount((prev) => Math.max(0, prev - 1));
-        }
+  // Delete single notification — optimistic
+  const deleteNotification = (id: string) => {
+    startTransition(async () => {
+      applyOptimistic({ type: "delete", id });
+      try {
+        const response = await fetch(`/api/notifications/${id}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) throw new Error("Request failed");
+        setState((prev) => {
+          const target = prev.notifications.find((n) => n.id === id);
+          const wasUnread = target?.status === "pending";
+          return {
+            notifications: prev.notifications.filter((n) => n.id !== id),
+            unreadCount: wasUnread
+              ? Math.max(0, prev.unreadCount - 1)
+              : prev.unreadCount,
+          };
+        });
         toast.success("Notification deleted");
+      } catch (error) {
+        console.error("Failed to delete notification:", error);
+        toast.error("Failed to delete notification");
       }
-    } catch (error) {
-      console.error("Failed to delete notification:", error);
-      toast.error("Failed to delete notification");
-    }
+    });
   };
 
-  // Delete all notifications
-  const deleteAllNotifications = async () => {
-    setDeletingAll(true);
-    try {
-      const response = await fetch("/api/notifications", {
-        method: "DELETE",
-      });
-      if (response.ok) {
-        setNotifications([]);
-        setUnreadCount(0);
+  // Delete all notifications — optimistic
+  const deleteAllNotifications = () => {
+    startTransition(async () => {
+      applyOptimistic({ type: "deleteAll" });
+      try {
+        const response = await fetch("/api/notifications", {
+          method: "DELETE",
+        });
+        if (!response.ok) throw new Error("Request failed");
+        setState({ notifications: [], unreadCount: 0 });
         toast.success("All notifications deleted");
+      } catch (error) {
+        console.error("Failed to delete all notifications:", error);
+        toast.error("Failed to delete notifications");
       }
-    } catch (error) {
-      console.error("Failed to delete all notifications:", error);
-      toast.error("Failed to delete notifications");
-    } finally {
-      setDeletingAll(false);
-    }
+    });
   };
 
   // Fetch notifications on mount and poll every 30s for new ones
@@ -228,9 +359,11 @@ function Navigation() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
+                {optimisticState.unreadCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
-                    {unreadCount > 99 ? "99+" : unreadCount}
+                    {optimisticState.unreadCount > 99
+                      ? "99+"
+                      : optimisticState.unreadCount}
                   </span>
                 )}
               </Button>
@@ -239,16 +372,12 @@ function Navigation() {
               <div className="flex items-center justify-between px-3 py-2">
                 <span className="text-sm font-semibold">Notifications</span>
                 <div className="flex items-center gap-1">
-                  {unreadCount > 0 && (
+                  {optimisticState.unreadCount > 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
                       className="text-muted-foreground h-7 text-xs"
-                      onClick={() => {
-                        notifications
-                          .filter((n) => n.status === "pending")
-                          .forEach((n) => markAsRead(n.id));
-                      }}
+                      onClick={markAllReadDisplayed}
                     >
                       Mark all read
                     </Button>
@@ -260,14 +389,14 @@ function Navigation() {
               </div>
               <DropdownMenuSeparator />
 
-              {notifications.length === 0 ? (
+              {optimisticState.notifications.length === 0 ? (
                 <div className="text-muted-foreground py-8 text-center text-sm">
                   <Bell className="text-muted-foreground/30 mx-auto mb-2 h-8 w-8" />
                   <p>All caught up</p>
                 </div>
               ) : (
                 <div className="max-h-96 overflow-y-auto">
-                  {notifications.map((notification) => {
+                  {optimisticState.notifications.map((notification) => {
                     const isUnread = notification.status === "pending";
                     const timeAgo = formatTimeAgo(notification.createdAt);
                     return (
@@ -331,15 +460,15 @@ function Navigation() {
                 </div>
               )}
 
-              {notifications.length > 0 && (
+              {optimisticState.notifications.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-muted-foreground cursor-pointer justify-center text-xs"
                     onClick={deleteAllNotifications}
-                    disabled={deletingAll}
+                    disabled={isPending}
                   >
-                    {deletingAll ? (
+                    {isPending ? (
                       <Loader2 className="mr-2 h-3 w-3 animate-spin" />
                     ) : null}
                     Delete all notifications

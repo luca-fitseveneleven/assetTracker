@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { hashPassword } from "@/lib/auth-utils";
+import { hashPassword, setUserPasswordHashed } from "@/lib/auth-utils";
 import { requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const normalizedEmail = email.toLowerCase().trim();
     const hashedPassword = await hashPassword(password);
 
-    // Atomic transaction: find token, validate, update password, delete token
+    // Atomic transaction: find token, validate, update password (both user + accounts), delete token
     const result = await prisma.$transaction(async (tx) => {
       const verificationToken = await tx.verification.findFirst({
         where: { identifier: normalizedEmail, value: token },
@@ -60,10 +60,8 @@ export async function POST(req: Request) {
         return { error: "Invalid or expired reset link", status: 400 };
       }
 
-      await tx.user.update({
-        where: { userid: user.userid },
-        data: { password: hashedPassword, change_date: new Date() },
-      });
+      // Writes both user.password AND accounts.password — BetterAuth verifies against accounts.
+      await setUserPasswordHashed(user.userid, hashedPassword, tx);
 
       await tx.verification.deleteMany({
         where: {

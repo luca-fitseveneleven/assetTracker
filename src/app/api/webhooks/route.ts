@@ -174,9 +174,22 @@ export async function POST(req: NextRequest) {
 
 // List available webhook events
 export async function OPTIONS() {
-  await requirePermission("webhook:view");
-  const events = getWebhookEvents();
-  return NextResponse.json({ events });
+  try {
+    await requirePermission("webhook:view");
+    const events = getWebhookEvents();
+    return NextResponse.json({ events });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json(
+      { error: "Failed to fetch webhook events" },
+      { status: 500 },
+    );
+  }
 }
 
 export const dynamic = "force-dynamic";

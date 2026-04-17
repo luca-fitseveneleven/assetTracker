@@ -8,6 +8,9 @@ import {
   getSuppliers,
 } from "@/lib/data";
 import { getOrganizationContext } from "@/lib/organization-context";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Asset Tracker - Licences",
@@ -15,6 +18,10 @@ export const metadata = {
 };
 
 export default async function Page() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    redirect("/login");
+  }
   const [licencesRaw, categories, manufacturers, suppliers] = await Promise.all(
     [getLicences(), getLicenceCategories(), getManufacturers(), getSuppliers()],
   );
@@ -24,7 +31,7 @@ export default async function Page() {
   try {
     ctx = await getOrganizationContext();
   } catch {}
-  const isAdmin = ctx?.isAdmin ?? true;
+  const isAdmin = ctx?.isAdmin ?? false;
 
   let filteredLicences = licencesRaw;
   if (!isAdmin && ctx?.userId) {
@@ -76,6 +83,7 @@ export default async function Page() {
           categories={categories}
           manufacturers={manufacturers}
           suppliers={suppliers}
+          isAdmin={isAdmin}
         />
       </Suspense>
     </div>

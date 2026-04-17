@@ -80,32 +80,31 @@ export async function POST(req: Request) {
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
-    // Verify the consumable exists, belongs to org, and has sufficient stock
-    const consumable = await prisma.consumable.findFirst({
-      where: scopeToOrganization({ consumableid: consumableId }, orgId),
-    });
+    // Entire checkout flow in a single transaction: verify, check stock, decrement, create record
+    const result = await prisma.$transaction(async (tx) => {
+      // Re-read the consumable inside the transaction to get the latest quantity
+      const consumable = await tx.consumable.findFirst({
+        where: scopeToOrganization({ consumableid: consumableId }, orgId),
+      });
 
-    if (!consumable) {
-      return NextResponse.json(
-        { error: "Consumable not found" },
-        { status: 404 },
-      );
-    }
+      if (!consumable) {
+        return {
+          error: "not_found" as const,
+          consumable: null,
+          checkout: null,
+        };
+      }
 
-    if (consumable.quantity < quantity) {
-      return NextResponse.json(
-        {
-          error: "Insufficient stock",
+      if (consumable.quantity < quantity) {
+        return {
+          error: "insufficient_stock" as const,
           available: consumable.quantity,
-          requested: quantity,
-        },
-        { status: 400 },
-      );
-    }
+          consumable,
+          checkout: null,
+        };
+      }
 
-    // Use a transaction to atomically decrement stock and create checkout
-    const checkout = await prisma.$transaction(async (tx) => {
-      // Decrement the consumable quantity
+      // Atomically decrement the consumable quantity
       await tx.consumable.update({
         where: { consumableid: consumableId },
         data: {
@@ -134,48 +133,69 @@ export async function POST(req: Request) {
         },
       });
 
-      return created;
+      return { error: null, consumable, checkout: created };
     });
 
-    // Audit log
+    // Handle transaction results
+    if (result.error === "not_found") {
+      return NextResponse.json(
+        { error: "Consumable not found" },
+        { status: 404 },
+      );
+    }
+
+    if (result.error === "insufficient_stock") {
+      return NextResponse.json(
+        {
+          error: "Insufficient stock",
+          available: result.available,
+          requested: quantity,
+        },
+        { status: 400 },
+      );
+    }
+
+    const { consumable, checkout } = result;
+
+    // Side effects outside the transaction: audit log, webhooks, notifications
     await createAuditLog({
       userId: authUser.id,
       action: AUDIT_ACTIONS.CREATE,
       entity: AUDIT_ENTITIES.CONSUMABLE,
-      entityId: checkout.id,
+      entityId: checkout!.id,
       details: {
         type: "checkout",
         consumableId,
         userId,
         quantity,
-        consumableName: consumable.consumablename,
+        consumableName: consumable!.consumablename,
       },
     });
 
     // Check remaining stock after checkout and trigger low/critical stock webhooks
-    const remainingStock = consumable.quantity - quantity;
-    const minQty = consumable.minQuantity ?? 0;
+    const remainingStock = consumable!.quantity - quantity;
+    const minQty = consumable!.minQuantity ?? 0;
     if (minQty > 0 && remainingStock <= 0) {
       triggerWebhook("consumable.critical_stock", {
         consumableId,
-        consumableName: consumable.consumablename,
+        consumableName: consumable!.consumablename,
         remainingStock,
         minQuantity: minQty,
       }).catch(() => {});
       notifyIntegrations("consumable.critical_stock", {
-        consumableName: consumable.consumablename,
+        consumableName: consumable!.consumablename,
         quantity: remainingStock,
         minQuantity: minQty,
       }).catch(() => {});
     } else if (minQty > 0 && remainingStock <= minQty) {
       triggerWebhook("consumable.low_stock", {
         consumableId,
-        consumableName: consumable.consumablename,
+        consumableName: consumable!.consumablename,
         remainingStock,
         minQuantity: minQty,
       }).catch(() => {});
       notifyIntegrations("consumable.low_stock", {
-        consumableName: consumable.consumablename,
+        consumableName: consumable!.consumablename,
         quantity: remainingStock,
         minQuantity: minQty,
       }).catch(() => {});

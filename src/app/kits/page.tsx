@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import Breadcrumb from "@/components/Breadcrumb";
 import { getKits } from "@/lib/data";
 import { Button } from "@/components/ui/button";
@@ -10,6 +13,14 @@ export const metadata = {
 };
 
 export default async function KitsPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    redirect("/login");
+  }
+  if (!session.user.isadmin) {
+    redirect("/dashboard");
+  }
+
   const kits = await getKits();
 
   return (

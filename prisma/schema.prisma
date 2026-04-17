@@ -938,6 +938,8 @@ model user {
   auditEntriesAudited              AuditEntry[]              @relation("audit_entry_auditor")
   twoFactorEntries                 twoFactor[]
   apiKeys                          ApiKey[]
+  itemRequestsCreated              ItemRequest[]              @relation("item_request_user")
+  itemRequestsApproved             ItemRequest[]              @relation("item_request_approver")
 
   @@index([firstname, lastname])
   @@index([organizationId])
@@ -1394,5 +1396,34 @@ model DashboardWidget {
   @@index([userId])
   @@index([userId, position])
   @@map("dashboard_widgets")
+  @@schema("assettool")
+}
+
+// ============================================================================
+// Unified Item Request System
+// ============================================================================
+
+model ItemRequest {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType  String    @db.VarChar(30)
+  entityId    String    @db.Uuid
+  userId      String    @db.Uuid
+  status      String    @default("pending") @db.VarChar(20)
+  startDate   DateTime? @db.Date
+  endDate     DateTime? @db.Date
+  notes       String?
+  quantity    Int       @default(1)
+  approvedBy  String?   @db.Uuid
+  approvedAt  DateTime? @db.Timestamp(6)
+  returnedAt  DateTime? @db.Timestamp(6)
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime  @db.Timestamp(6)
+  user        user      @relation("item_request_user", fields: [userId], references: [userid], onDelete: Cascade)
+  approver    user?     @relation("item_request_approver", fields: [approvedBy], references: [userid])
+
+  @@index([userId])
+  @@index([status])
+  @@index([entityType, entityId])
+  @@map("item_requests")
   @@schema("assettool")
 }

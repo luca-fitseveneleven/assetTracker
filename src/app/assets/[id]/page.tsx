@@ -31,6 +31,7 @@ import AssetReservations from "./ui/AssetReservations";
 import AssetTransfers from "./ui/AssetTransfers";
 import AssetCheckoutHistory from "./ui/AssetCheckoutHistory";
 import { CustomFieldValue } from "@/components/CustomFieldValue";
+import ReturnItemButton from "@/components/ReturnItemButton";
 
 export const metadata = {
   title: "Asset Tracker - Asset Details",
@@ -60,8 +61,9 @@ function booleanPill(val) {
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   let isAdmin = true;
+  let ctx: Awaited<ReturnType<typeof getOrganizationContext>> = null;
   try {
-    const ctx = await getOrganizationContext();
+    ctx = await getOrganizationContext();
     isAdmin = ctx?.isAdmin ?? true;
   } catch {}
   // First: fetch the asset (needed by subsequent queries)
@@ -94,6 +96,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     maintenanceSchedules,
     customFieldDefs,
     customFieldValues,
+    activeItemRequest,
   ] = await Promise.all([
     asset?.locationid ? getLocationById(asset.locationid) : null,
     getUsers(),
@@ -124,6 +127,17 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     prisma.custom_field_values.findMany({
       where: { entityId: params.id },
     }),
+    // Find an active (approved) item request for this asset+user, for the Return button
+    ctx?.userId
+      ? prisma.itemRequest.findFirst({
+          where: {
+            entityType: "asset",
+            entityId: params.id,
+            userId: ctx.userId,
+            status: "approved",
+          },
+        })
+      : null,
   ]);
 
   // Compute depreciation if we have settings and a purchase price
@@ -339,21 +353,31 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
               Assigned User
             </h2>
             {assignedUser ? (
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="font-medium">
-                    {assignedUser.firstname} {assignedUser.lastname}
-                  </span>
-                  <span className="text-foreground-500 text-sm">
-                    {assignedUser.email || "No email"}
-                  </span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {assignedUser.firstname} {assignedUser.lastname}
+                    </span>
+                    <span className="text-foreground-500 text-sm">
+                      {assignedUser.email || "No email"}
+                    </span>
+                  </div>
+                  <Link
+                    href={`/user/${assignedUser.userid}`}
+                    className="text-primary text-sm font-medium hover:underline"
+                  >
+                    View
+                  </Link>
                 </div>
-                <Link
-                  href={`/user/${assignedUser.userid}`}
-                  className="text-primary text-sm font-medium hover:underline"
-                >
-                  View
-                </Link>
+                {!isAdmin && userByAsset?.userid === ctx?.userId && (
+                  <ReturnItemButton
+                    requestId={activeItemRequest?.id}
+                    entityId={asset.assetid}
+                    entityName={asset.assetname}
+                    entityType="asset"
+                  />
+                )}
               </div>
             ) : (
               <p className="text-foreground-500 text-sm">No user assigned.</p>

@@ -65,6 +65,8 @@ import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import SavedFilters from "@/components/SavedFilters";
 import PrintLabelDialog from "@/components/PrintLabelDialog";
+import RequestItemDialog from "@/components/RequestItemDialog";
+import { Undo2 as Undo2Icon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const statusColorMap = {
@@ -197,6 +199,16 @@ export default function App({
 
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [requestingAsset, setRequestingAsset] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [returningAsset, setReturningAsset] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [deleteMode, setDeleteMode] = useState("single");
   const [confirmAssigned, setConfirmAssigned] = useState(false);
 
@@ -838,7 +850,14 @@ export default function App({
           const isAvailable =
             asset.statustypeid &&
             assetAvailableStatusIds.has(asset.statustypeid);
-          const canRequest = asset.requestable || isAvailable;
+          const isAssignedToMe =
+            currentUserId &&
+            userAssetsData.some(
+              (ua) =>
+                ua.assetid === asset.assetid && ua.userid === currentUserId,
+            );
+          const canRequest =
+            !isAssignedToMe && (asset.requestable || isAvailable);
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -871,11 +890,31 @@ export default function App({
                   </DropdownMenuItem>
                 )}
                 {!isAdmin && canRequest && (
-                  <DropdownMenuItem asChild>
-                    <Link href={`/assets/${asset.assetid}?action=request`}>
-                      <CalendarPlusIcon className="mr-2 h-4 w-4" />
-                      Request
-                    </Link>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setRequestingAsset({
+                        id: asset.assetid,
+                        name: asset.assetname,
+                      });
+                      setRequestDialogOpen(true);
+                    }}
+                  >
+                    <CalendarPlusIcon className="mr-2 h-4 w-4" />
+                    Request
+                  </DropdownMenuItem>
+                )}
+                {!isAdmin && isAssignedToMe && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setReturningAsset({
+                        id: asset.assetid,
+                        name: asset.assetname,
+                      });
+                      setReturnDialogOpen(true);
+                    }}
+                  >
+                    <Undo2Icon className="mr-2 h-4 w-4" />
+                    Return
                   </DropdownMenuItem>
                 )}
                 {isAdmin && <DropdownMenuSeparator />}
@@ -929,6 +968,9 @@ export default function App({
       userAssetsData,
       handleOpenModal,
       isAdmin,
+      currentUserId,
+      setRequestingAsset,
+      setRequestDialogOpen,
     ],
   );
 
@@ -1410,7 +1452,14 @@ export default function App({
             const mobileIsAvailable =
               item.statustypeid &&
               mobileAvailableStatusIds.has(item.statustypeid);
-            const mobileCanRequest = item.requestable || mobileIsAvailable;
+            const mobileIsAssignedToMe =
+              currentUserId &&
+              userAssetsData.some(
+                (ua: Record<string, unknown>) =>
+                  ua.assetid === item.assetid && ua.userid === currentUserId,
+              );
+            const mobileCanRequest =
+              !mobileIsAssignedToMe && (item.requestable || mobileIsAvailable);
 
             return (
               <Card key={item.assetid} className="overflow-hidden">
@@ -1516,13 +1565,17 @@ export default function App({
                           </DropdownMenuItem>
                         )}
                         {!isAdmin && mobileCanRequest && (
-                          <DropdownMenuItem asChild>
-                            <Link
-                              href={`/assets/${item.assetid}?action=request`}
-                            >
-                              <CalendarPlusIcon className="mr-2 h-4 w-4" />
-                              Request
-                            </Link>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setRequestingAsset({
+                                id: item.assetid,
+                                name: item.assetname,
+                              });
+                              setRequestDialogOpen(true);
+                            }}
+                          >
+                            <CalendarPlusIcon className="mr-2 h-4 w-4" />
+                            Request
                           </DropdownMenuItem>
                         )}
                         {isAdmin && <DropdownMenuSeparator />}
@@ -2218,6 +2271,63 @@ export default function App({
               onClick={handleBulkLocationChange}
             >
               {bulkUpdating ? "Updating..." : "Update Location"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {requestingAsset && (
+        <RequestItemDialog
+          entityType="asset"
+          entityId={requestingAsset.id}
+          entityName={requestingAsset.name}
+          open={requestDialogOpen}
+          onOpenChange={setRequestDialogOpen}
+        />
+      )}
+
+      <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Return</DialogTitle>
+            <DialogDescription>
+              Submit a return request for{" "}
+              <span className="font-medium">{returningAsset?.name}</span>. An
+              admin will confirm collection and complete the return.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReturnDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/requests", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      entityType: "asset",
+                      entityId: returningAsset?.id,
+                      notes: "Return request",
+                      status: "return_pending",
+                    }),
+                  });
+                  if (!res.ok) throw new Error();
+                  toast.success("Return requested", {
+                    description:
+                      "An admin will collect the item and confirm the return",
+                  });
+                  setReturnDialogOpen(false);
+                } catch {
+                  toast.error("Failed to request return");
+                }
+              }}
+            >
+              Submit Return Request
             </Button>
           </DialogFooter>
         </DialogContent>

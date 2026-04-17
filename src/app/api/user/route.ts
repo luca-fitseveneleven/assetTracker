@@ -8,7 +8,7 @@ import {
 } from "@/lib/organization-context";
 import { applyDepartmentScopeToUsers } from "@/lib/department-access";
 import { updateUserSchema } from "@/lib/validation";
-import { hashPassword } from "@/lib/auth-utils";
+import { setUserPassword } from "@/lib/auth-utils";
 import {
   parsePaginationParams,
   buildPrismaArgs,
@@ -136,13 +136,34 @@ export async function PUT(req: NextRequest) {
 
     const authUser = await requireApiAuth();
     const body = await req.json();
-    const { userid, password, ...data } = body || {};
+    const { userid, password, _expectedVersion, ...data } = body || {};
 
     if (!userid) {
       return NextResponse.json(
         { error: "userid is required to update a user" },
         { status: 400 },
       );
+    }
+
+    // Optimistic concurrency check
+    if (_expectedVersion) {
+      const current = await prisma.user.findUnique({
+        where: { userid },
+        select: { change_date: true },
+      });
+      if (
+        current?.change_date &&
+        new Date(_expectedVersion).getTime() !==
+          new Date(current.change_date).getTime()
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "This user was modified by another admin. Please refresh and try again.",
+          },
+          { status: 409 },
+        );
+      }
     }
 
     if (!authUser.isAdmin && authUser.id !== userid) {
@@ -178,9 +199,9 @@ export async function PUT(req: NextRequest) {
     }
 
     const updateData = { ...validationResult.data } as Record<string, unknown>;
-    if (Object.prototype.hasOwnProperty.call(updateData, "password")) {
-      updateData.password = await hashPassword(updateData.password as string);
-    }
+    // Strip password from profile update — it goes to accounts.password via setUserPassword.
+    const newPassword = updateData.password as string | undefined;
+    delete updateData.password;
 
     const updated = await prisma.user.update({
       where: { userid },
@@ -190,9 +211,16 @@ export async function PUT(req: NextRequest) {
       },
     });
 
+    if (newPassword) {
+      await setUserPassword(userid, newPassword);
+    }
+
     triggerWebhook("user.updated", {
       userId: userid,
-      changes: Object.keys(updateData),
+      changes: [
+        ...Object.keys(updateData),
+        ...(newPassword ? ["password"] : []),
+      ],
     }).catch(() => {});
 
     return NextResponse.json(stripPassword(updated), { status: 200 });

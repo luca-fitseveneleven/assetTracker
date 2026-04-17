@@ -73,8 +73,8 @@ export const createUserSchema = z.object({
   lastname: z.string().min(1).max(100),
   password: z
     .string()
-    .min(8, "Password must be at least 8 characters")
-    .max(100)
+    .min(12, "Password must be at least 12 characters")
+    .max(128)
     .optional(),
   isadmin: z.boolean().default(false),
   canrequest: z.boolean().default(false),
@@ -87,7 +87,11 @@ export const updateUserSchema = z.object({
   email: z.string().email().optional().nullable(),
   firstname: z.string().min(1).max(100).optional(),
   lastname: z.string().min(1).max(100).optional(),
-  password: z.string().min(8).max(100).optional(),
+  password: z
+    .string()
+    .min(12, "Password must be at least 12 characters")
+    .max(128)
+    .optional(),
   isadmin: z.boolean().optional(),
   canrequest: z.boolean().optional(),
   lan: z.string().max(50).optional().nullable(),

@@ -148,6 +148,7 @@ export default function AccessoryCreateForm({
 
       if (mode === "edit" && initialData?.accessorieid) {
         payload.accessorieid = initialData.accessorieid;
+        payload._expectedVersion = initialData.change_date ?? null;
       }
 
       const res = await fetch("/api/accessories", {
@@ -156,6 +157,15 @@ export default function AccessoryCreateForm({
         body: JSON.stringify(payload),
       });
 
+      if (res.status === 409) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(
+          err.error ||
+            "This item was modified by someone else. Please refresh and try again.",
+        );
+        setSubmitting(false);
+        return;
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error || "Failed to create accessory");

@@ -7,6 +7,10 @@ import {
   getManufacturers,
   getSuppliers,
 } from "@/lib/data";
+import { getOrganizationContext } from "@/lib/organization-context";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Asset Tracker - Consumables",
@@ -14,12 +18,22 @@ export const metadata = {
 };
 
 export default async function Page() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    redirect("/login");
+  }
   const [itemsRaw, categories, manufacturers, suppliers] = await Promise.all([
     getConsumables(),
     getConsumableCategories(),
     getManufacturers(),
     getSuppliers(),
   ]);
+
+  let ctx;
+  try {
+    ctx = await getOrganizationContext();
+  } catch {}
+  const isAdmin = ctx?.isAdmin ?? false;
 
   const items = itemsRaw.map((item) => ({
     ...item,
@@ -58,6 +72,7 @@ export default async function Page() {
           categories={categories}
           manufacturers={manufacturers}
           suppliers={suppliers}
+          isAdmin={isAdmin}
         />
       </Suspense>
     </div>

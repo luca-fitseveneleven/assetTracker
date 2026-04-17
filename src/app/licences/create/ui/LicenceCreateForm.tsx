@@ -130,6 +130,7 @@ export default function LicenceCreateForm({
 
       if (mode === "edit" && initialData?.licenceid) {
         payload.licenceid = initialData.licenceid;
+        payload._expectedVersion = initialData.change_date ?? null;
       }
 
       const res = await fetch("/api/licence", {
@@ -138,6 +139,15 @@ export default function LicenceCreateForm({
         body: JSON.stringify(payload),
       });
 
+      if (res.status === 409) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(
+          err.error ||
+            "This item was modified by someone else. Please refresh and try again.",
+        );
+        setSubmitting(false);
+        return;
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error || "Failed to create licence");

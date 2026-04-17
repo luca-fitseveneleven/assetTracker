@@ -185,6 +185,22 @@ export async function requirePermission(
 
   // Admin users bypass permission checks
   if (user.isAdmin) {
+    // API key scope check still applies even for admins
+    if (user.apiKeyScopes && user.apiKeyScopes.length > 0) {
+      const hasScope = permissions.some((p) => user.apiKeyScopes!.includes(p));
+      if (!hasScope) {
+        throw new Error("Forbidden: API key lacks required scope");
+      }
+    }
+    return user;
+  }
+
+  // API key scope check for non-admin users
+  if (user.apiKeyScopes && user.apiKeyScopes.length > 0) {
+    const hasScope = permissions.some((p) => user.apiKeyScopes!.includes(p));
+    if (!hasScope) {
+      throw new Error("Forbidden: API key lacks required scope");
+    }
     return user;
   }
 

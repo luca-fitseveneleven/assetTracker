@@ -35,8 +35,14 @@ export async function GET(req: Request) {
 
   try {
     const url = new URL(req.url);
-    const startIndex = Math.max(1, parseInt(url.searchParams.get("startIndex") || "1", 10));
-    const count = Math.min(100, Math.max(1, parseInt(url.searchParams.get("count") || "100", 10)));
+    const startIndex = Math.max(
+      1,
+      parseInt(url.searchParams.get("startIndex") || "1", 10),
+    );
+    const count = Math.min(
+      100,
+      Math.max(1, parseInt(url.searchParams.get("count") || "100", 10)),
+    );
     const filter = url.searchParams.get("filter");
     const baseUrl = `${url.protocol}//${url.host}`;
 
@@ -70,16 +76,15 @@ export async function GET(req: Request) {
 
     const resources = users.map((u) => userToScim(u, baseUrl));
 
-    return NextResponse.json(
-      scimListResponse(resources, total, startIndex),
-      { headers: scimHeaders() },
-    );
+    return NextResponse.json(scimListResponse(resources, total, startIndex), {
+      headers: scimHeaders(),
+    });
   } catch (error) {
     logger.error("SCIM GET /Users error", { error });
-    return NextResponse.json(
-      scimError("Internal server error", 500),
-      { status: 500, headers: scimHeaders() },
-    );
+    return NextResponse.json(scimError("Internal server error", 500), {
+      status: 500,
+      headers: scimHeaders(),
+    });
   }
 }
 
@@ -104,10 +109,10 @@ export async function POST(req: Request) {
     const active = body.active !== false;
 
     if (!userName) {
-      return NextResponse.json(
-        scimError("userName is required", 400),
-        { status: 400, headers: scimHeaders() },
-      );
+      return NextResponse.json(scimError("userName is required", 400), {
+        status: 400,
+        headers: scimHeaders(),
+      });
     }
 
     // Check for existing user
@@ -122,10 +127,10 @@ export async function POST(req: Request) {
     });
 
     if (existing) {
-      return NextResponse.json(
-        scimError("User already exists", 409),
-        { status: 409, headers: scimHeaders() },
-      );
+      return NextResponse.json(scimError("User already exists", 409), {
+        status: 409,
+        headers: scimHeaders(),
+      });
     }
 
     // Create user with random password (SCIM users auth via IdP)
@@ -153,6 +158,20 @@ export async function POST(req: Request) {
       select: USER_SELECT,
     });
 
+    // Mirror to accounts.password so BetterAuth has a credential row for this user.
+    // Cannot fail meaningfully — the user already exists; if the account write fails
+    // the next login attempt's migration hook will create it from user.password.
+    await prisma.accounts
+      .create({
+        data: {
+          userId: user.userid,
+          providerId: "credential",
+          accountId: user.userid,
+          password: randomPassword,
+        },
+      })
+      .catch(() => {});
+
     await createAuditLog({
       userId: user.userid,
       action: AUDIT_ACTIONS.CREATE,
@@ -161,16 +180,16 @@ export async function POST(req: Request) {
       details: { method: "scim", userName },
     });
 
-    return NextResponse.json(
-      userToScim(user, baseUrl),
-      { status: 201, headers: scimHeaders() },
-    );
+    return NextResponse.json(userToScim(user, baseUrl), {
+      status: 201,
+      headers: scimHeaders(),
+    });
   } catch (error) {
     logger.error("SCIM POST /Users error", { error });
-    return NextResponse.json(
-      scimError("Internal server error", 500),
-      { status: 500, headers: scimHeaders() },
-    );
+    return NextResponse.json(scimError("Internal server error", 500), {
+      status: 500,
+      headers: scimHeaders(),
+    });
   }
 }
 

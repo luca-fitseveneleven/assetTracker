@@ -15,6 +15,7 @@ import { getOrganizationContext } from "@/lib/organization-context";
 import prisma from "@/lib/prisma";
 import { Suspense } from "react";
 import AssetMapClient from "@/components/maps/AssetMapClient";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Asset Tracker - Dashboard",
@@ -25,9 +26,12 @@ export default async function DashboardPage() {
   try {
     ctx = await getOrganizationContext();
   } catch {
-    // No session — will show admin dashboard with defaults
+    redirect("/login");
   }
-  const isAdmin = ctx?.isAdmin ?? true;
+  if (!ctx?.userId) {
+    redirect("/login");
+  }
+  const isAdmin = ctx.isAdmin ?? false;
 
   if (!isAdmin && ctx?.userId) {
     return (

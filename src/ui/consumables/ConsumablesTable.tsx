@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import RequestItemDialog from "@/components/RequestItemDialog";
 import {
   PlusIcon,
   SearchIcon,
@@ -53,12 +54,24 @@ function formatDate(value) {
   return date.toLocaleDateString();
 }
 
+interface ConsumablesTableProps {
+  items: any[];
+
+  categories: any[];
+
+  manufacturers: any[];
+
+  suppliers: any[];
+  isAdmin?: boolean;
+}
+
 export default function ConsumablesTable({
   items,
   categories,
   manufacturers,
   suppliers,
-}) {
+  isAdmin = true,
+}: ConsumablesTableProps) {
   // -- URL-synced state for shareable filter / pagination URLs --
   const [urlState, setUrlState] = useUrlState({
     search: "",
@@ -110,6 +123,12 @@ export default function ConsumablesTable({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [requestingConsumable, setRequestingConsumable] = useState<{
+    id: string;
+    name: string;
+    quantity: number;
+  } | null>(null);
 
   const categoryById = useMemo(
     () =>
@@ -296,6 +315,28 @@ export default function ConsumablesTable({
       case "purchasedate":
         return formatDate(item.purchasedate);
       case "actions":
+        if (!isAdmin) {
+          const qty = item.quantity ?? 0;
+          if (qty > 0) {
+            return (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setRequestingConsumable({
+                    id: item.consumableid,
+                    name: item.consumablename,
+                    quantity: qty,
+                  });
+                  setRequestDialogOpen(true);
+                }}
+              >
+                Request
+              </Button>
+            );
+          }
+          return <span className="text-muted-foreground text-xs">-</span>;
+        }
         return (
           <div className="flex items-center gap-2">
             <Button
@@ -421,12 +462,14 @@ export default function ConsumablesTable({
                 </SelectContent>
               </Select>
             </div>
-            <Button asChild>
-              <Link href="/consumables/create">
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Create
-              </Link>
-            </Button>
+            {isAdmin && (
+              <Button asChild>
+                <Link href="/consumables/create">
+                  <PlusIcon className="mr-2 h-4 w-4" />
+                  Create
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -459,17 +502,19 @@ export default function ConsumablesTable({
         emptyMessage="No consumables found"
         mobileCardView={true}
         storageKey="columns:consumables"
-        selectable
+        selectable={isAdmin}
         selectedKeys={selectedKeys}
         onSelectionChange={setSelectedKeys}
         bulkActions={
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setShowBulkDelete(true)}
-          >
-            Delete ({selectedKeys.size})
-          </Button>
+          isAdmin ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowBulkDelete(true)}
+            >
+              Delete ({selectedKeys.size})
+            </Button>
+          ) : undefined
         }
       />
       <div className="flex items-center justify-center gap-2">
@@ -527,6 +572,18 @@ export default function ConsumablesTable({
         onConfirm={handleBulkDelete}
         loading={bulkDeleting}
       />
+
+      {requestingConsumable && (
+        <RequestItemDialog
+          entityType="consumable"
+          entityId={requestingConsumable.id}
+          entityName={requestingConsumable.name}
+          open={requestDialogOpen}
+          onOpenChange={setRequestDialogOpen}
+          showQuantity={true}
+          maxQuantity={requestingConsumable.quantity}
+        />
+      )}
     </div>
   );
 }

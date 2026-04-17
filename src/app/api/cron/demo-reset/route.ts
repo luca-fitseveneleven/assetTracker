@@ -255,6 +255,7 @@ async function seedUsers() {
       creation_date: new Date(),
     },
   });
+  await createCredentialAccount(admin.userid, hashedAdminPw);
 
   const user = await prisma.user.create({
     data: {
@@ -268,28 +269,42 @@ async function seedUsers() {
       creation_date: new Date(),
     },
   });
+  await createCredentialAccount(user.userid, hashedUserPw);
 
   const extraUsers = [];
   const sampleUsers = ["Alice", "Bob", "Charlie"];
   for (const name of sampleUsers) {
     const pw = await bcrypt.hash("password123", 12);
-    extraUsers.push(
-      await prisma.user.create({
-        data: {
-          username: name.toLowerCase(),
-          email: `${name.toLowerCase()}@demo.example`,
-          firstname: name,
-          lastname: "Sample",
-          password: pw,
-          isadmin: false,
-          canrequest: true,
-          creation_date: new Date(),
-        },
-      }),
-    );
+    const created = await prisma.user.create({
+      data: {
+        username: name.toLowerCase(),
+        email: `${name.toLowerCase()}@demo.example`,
+        firstname: name,
+        lastname: "Sample",
+        password: pw,
+        isadmin: false,
+        canrequest: true,
+        creation_date: new Date(),
+      },
+    });
+    await createCredentialAccount(created.userid, pw);
+    extraUsers.push(created);
   }
 
   return [admin, user, ...extraUsers];
+}
+
+// BetterAuth verifies passwords against accounts.password — every demo user needs
+// a credential row or login fails after each reset.
+async function createCredentialAccount(userId: string, hashedPassword: string) {
+  await prisma.accounts.create({
+    data: {
+      userId,
+      providerId: "credential",
+      accountId: userId,
+      password: hashedPassword,
+    },
+  });
 }
 
 interface SeedRefs {

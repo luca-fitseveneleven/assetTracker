@@ -99,6 +99,10 @@ export default function ComponentCreateForm({
         locationId: form.locationId || null,
       };
 
+      if (mode === "edit" && initialData?.updatedAt) {
+        payload._expectedVersion = initialData.updatedAt;
+      }
+
       const url =
         mode === "edit" && initialData?.id
           ? `/api/components/${initialData.id}`
@@ -110,6 +114,15 @@ export default function ComponentCreateForm({
         body: JSON.stringify(payload),
       });
 
+      if (res.status === 409) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(
+          err.error ||
+            "This item was modified by someone else. Please refresh and try again.",
+        );
+        setSubmitting(false);
+        return;
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error || "Failed to save component");

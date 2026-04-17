@@ -8,6 +8,7 @@ import {
 } from "@/lib/organization-context";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
+import { checkVersion, CONFLICT_MESSAGE } from "@/lib/concurrency";
 
 // PUT /api/asset/updateStatus
 // Body: { assetId: string, statusTypeId?: string, statusName?: string }
@@ -21,7 +22,8 @@ export async function PUT(req: NextRequest) {
     const orgContext = await getOrganizationContext();
     const orgId = orgContext?.organization?.id;
 
-    const { assetId, statusTypeId, statusName } = await req.json();
+    const { assetId, statusTypeId, statusName, _expectedVersion } =
+      await req.json();
 
     if (!assetId || (!statusTypeId && !statusName)) {
       logger.warn("PUT /api/asset/updateStatus - Invalid request", {
@@ -67,35 +69,74 @@ export async function PUT(req: NextRequest) {
       });
     }
 
-    // Enforce status workflow transitions (if any are defined)
-    if (existingAsset.statustypeid && existingAsset.statustypeid !== statusId) {
-      const transitionCount = await prisma.status_transitions.count();
-      if (transitionCount > 0) {
-        const allowed = await prisma.status_transitions.findUnique({
-          where: {
-            fromStatusId_toStatusId: {
-              fromStatusId: existingAsset.statustypeid,
-              toStatusId: statusId,
-            },
-          },
+    // Atomic: re-read current status + validate transition + update inside transaction
+    let updated;
+    try {
+      updated = await prisma.$transaction(async (tx) => {
+        // Re-read inside transaction to get latest status
+        const current = await tx.asset.findUnique({
+          where: { assetid: assetId },
+          select: { statustypeid: true, change_date: true },
         });
-        if (!allowed) {
+
+        if (!current) throw new Error("ASSET_NOT_FOUND");
+
+        // Optimistic concurrency check
+        if (!checkVersion(_expectedVersion, current.change_date)) {
+          throw new Error("VERSION_CONFLICT");
+        }
+
+        // Enforce status workflow transitions (if any are defined)
+        if (current.statustypeid && current.statustypeid !== statusId) {
+          const transitionCount = await tx.status_transitions.count();
+          if (transitionCount > 0) {
+            const allowed = await tx.status_transitions.findUnique({
+              where: {
+                fromStatusId_toStatusId: {
+                  fromStatusId: current.statustypeid,
+                  toStatusId: statusId,
+                },
+              },
+            });
+            if (!allowed) {
+              throw new Error("TRANSITION_NOT_ALLOWED");
+            }
+          }
+        }
+
+        // Idempotent: if already at target status, return current
+        if (current.statustypeid === statusId) {
+          return tx.asset.findUnique({ where: { assetid: assetId } });
+        }
+
+        return tx.asset.update({
+          where: { assetid: assetId },
+          data: { statustypeid: statusId, change_date: new Date() },
+        });
+      });
+    } catch (err) {
+      if (err instanceof Error) {
+        if (err.message === "ASSET_NOT_FOUND") {
+          return new Response(JSON.stringify({ error: "Asset not found" }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (err.message === "VERSION_CONFLICT") {
+          return new Response(JSON.stringify({ error: CONFLICT_MESSAGE }), {
+            status: 409,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (err.message === "TRANSITION_NOT_ALLOWED") {
           return new Response(
-            JSON.stringify({
-              error: "This status transition is not allowed",
-              fromStatusId: existingAsset.statustypeid,
-              toStatusId: statusId,
-            }),
+            JSON.stringify({ error: "This status transition is not allowed" }),
             { status: 400, headers: { "Content-Type": "application/json" } },
           );
         }
       }
+      throw err;
     }
-
-    const updated = await prisma.asset.update({
-      where: { assetid: assetId },
-      data: { statustypeid: statusId, change_date: new Date() },
-    });
 
     triggerWebhook(
       "asset.updated",

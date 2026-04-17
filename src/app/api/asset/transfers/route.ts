@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
-import { requireNotDemoMode } from "@/lib/api-auth";
+import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 // GET /api/asset/transfers
 // Optional query: ?assetId=<uuid> to filter by asset
 export async function GET(req: Request) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.isadmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const user = await requireApiAdmin();
 
     const url = new URL(req.url);
     const assetId = url.searchParams.get("assetId");
@@ -27,6 +22,14 @@ export async function GET(req: Request) {
     return NextResponse.json(transfers, { status: 200 });
   } catch (error) {
     logger.error("GET /api/asset/transfers error", { error });
+    if (error instanceof Error) {
+      if (error.message === "Unauthorized") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (error.message.includes("Forbidden")) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
     return NextResponse.json(
       { error: "Failed to fetch transfers" },
       { status: 500 },
@@ -40,12 +43,9 @@ export async function POST(req: Request) {
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.isadmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const user = await requireApiAdmin();
 
-    const transferredBy = session.user.id as string;
+    const transferredBy = user.id!;
     const body = await req.json();
     const { assetId, transferType, toUserId, toLocationId, toOrgId, reason } =
       body || {};
@@ -194,6 +194,14 @@ export async function POST(req: Request) {
     return NextResponse.json(transfer, { status: 201 });
   } catch (error) {
     logger.error("POST /api/asset/transfers error", { error });
+    if (error instanceof Error) {
+      if (error.message === "Unauthorized") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (error.message.includes("Forbidden")) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
     return NextResponse.json(
       { error: "Failed to create transfer" },
       { status: 500 },

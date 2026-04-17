@@ -40,7 +40,13 @@ interface ScannedAsset {
   assignedUser?: string | null;
 }
 
-export default function ScannerPageClient() {
+interface ScannerPageClientProps {
+  isAdmin?: boolean;
+}
+
+export default function ScannerPageClient({
+  isAdmin = true,
+}: ScannerPageClientProps) {
   const router = useRouter();
 
   // --- Scan mode state ---
@@ -269,20 +275,26 @@ export default function ScannerPageClient() {
       <div>
         <h1 className="text-2xl font-semibold">QR Code Scanner</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Scan asset QR codes or generate new ones
+          {isAdmin
+            ? "Scan asset QR codes or generate new ones"
+            : "Scan asset QR codes to look up details"}
         </p>
       </div>
 
       <Tabs defaultValue="scan" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList
+          className={`grid w-full max-w-md ${isAdmin ? "grid-cols-2" : "grid-cols-1"}`}
+        >
           <TabsTrigger value="scan" className="gap-2">
             <Camera className="h-4 w-4" />
             Scan
           </TabsTrigger>
-          <TabsTrigger value="generate" className="gap-2">
-            <QrCode className="h-4 w-4" />
-            Generate
-          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="generate" className="gap-2">
+              <QrCode className="h-4 w-4" />
+              Generate
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ============ SCAN TAB ============ */}
@@ -435,104 +447,106 @@ export default function ScannerPageClient() {
         </TabsContent>
 
         {/* ============ GENERATE TAB ============ */}
-        <TabsContent value="generate">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {/* Search panel */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="relative">
-                  <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-                  <Input
-                    placeholder="Search assets by name, tag, or serial..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+        {isAdmin && (
+          <TabsContent value="generate">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* Search panel */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="relative">
+                    <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                    <Input
+                      placeholder="Search assets by name, tag, or serial..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
 
-                {searchLoading && (
-                  <p className="text-muted-foreground mt-4 text-sm">
-                    Searching...
-                  </p>
-                )}
-
-                {!searchLoading &&
-                  searchQuery.length >= 2 &&
-                  searchResults.length === 0 && (
+                  {searchLoading && (
                     <p className="text-muted-foreground mt-4 text-sm">
-                      No assets found.
+                      Searching...
                     </p>
                   )}
 
-                {searchResults.length > 0 && (
-                  <div className="mt-4 max-h-[400px] space-y-2 overflow-y-auto">
-                    {searchResults.map((result) => (
-                      <Button
-                        key={result.id}
-                        type="button"
-                        variant="outline"
-                        onClick={() => setSelectedAsset(result)}
-                        className={`hover:bg-accent h-auto w-full justify-start rounded-lg border p-3 text-left transition-colors ${
-                          selectedAsset?.id === result.id
-                            ? "border-primary bg-primary/5"
-                            : "border-border"
-                        }`}
-                      >
-                        <div className="flex w-full items-center justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">
-                              {result.title}
-                            </p>
-                            <p className="text-muted-foreground truncate text-xs">
-                              {result.subtitle}
-                            </p>
+                  {!searchLoading &&
+                    searchQuery.length >= 2 &&
+                    searchResults.length === 0 && (
+                      <p className="text-muted-foreground mt-4 text-sm">
+                        No assets found.
+                      </p>
+                    )}
+
+                  {searchResults.length > 0 && (
+                    <div className="mt-4 max-h-[400px] space-y-2 overflow-y-auto">
+                      {searchResults.map((result) => (
+                        <Button
+                          key={result.id}
+                          type="button"
+                          variant="outline"
+                          onClick={() => setSelectedAsset(result)}
+                          className={`hover:bg-accent h-auto w-full justify-start rounded-lg border p-3 text-left transition-colors ${
+                            selectedAsset?.id === result.id
+                              ? "border-primary bg-primary/5"
+                              : "border-border"
+                          }`}
+                        >
+                          <div className="flex w-full items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">
+                                {result.title}
+                              </p>
+                              <p className="text-muted-foreground truncate text-xs">
+                                {result.subtitle}
+                              </p>
+                            </div>
+                            <Badge variant="secondary" className="shrink-0">
+                              {result.type}
+                            </Badge>
                           </div>
-                          <Badge variant="secondary" className="shrink-0">
-                            {result.type}
-                          </Badge>
-                        </div>
-                      </Button>
-                    ))}
-                  </div>
-                )}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
 
-                {searchQuery.length < 2 && (
-                  <div className="flex flex-col items-center gap-2 py-8">
-                    <QrCode className="text-muted-foreground h-10 w-10" />
-                    <p className="text-muted-foreground text-center text-sm">
-                      Search for an asset to generate its QR code
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {searchQuery.length < 2 && (
+                    <div className="flex flex-col items-center gap-2 py-8">
+                      <QrCode className="text-muted-foreground h-10 w-10" />
+                      <p className="text-muted-foreground text-center text-sm">
+                        Search for an asset to generate its QR code
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-            {/* QR code display panel */}
-            <div>
-              {selectedAsset ? (
-                <QRCodeDisplay
-                  assetId={selectedAsset.id}
-                  assetTag={
-                    selectedAsset.subtitle
-                      .split("\u2022")[0]
-                      ?.replace("Tag:", "")
-                      .trim() || selectedAsset.id
-                  }
-                  assetName={selectedAsset.title}
-                />
-              ) : (
-                <Card className="mx-auto w-full max-w-sm">
-                  <CardContent className="flex min-h-[300px] flex-col items-center justify-center gap-2 p-6">
-                    <QrCode className="text-muted-foreground h-10 w-10" />
-                    <p className="text-muted-foreground text-center text-sm">
-                      Select an asset to view its QR code
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
+              {/* QR code display panel */}
+              <div>
+                {selectedAsset ? (
+                  <QRCodeDisplay
+                    assetId={selectedAsset.id}
+                    assetTag={
+                      selectedAsset.subtitle
+                        .split("\u2022")[0]
+                        ?.replace("Tag:", "")
+                        .trim() || selectedAsset.id
+                    }
+                    assetName={selectedAsset.title}
+                  />
+                ) : (
+                  <Card className="mx-auto w-full max-w-sm">
+                    <CardContent className="flex min-h-[300px] flex-col items-center justify-center gap-2 p-6">
+                      <QrCode className="text-muted-foreground h-10 w-10" />
+                      <p className="text-muted-foreground text-center text-sm">
+                        Select an asset to view its QR code
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

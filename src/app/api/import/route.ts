@@ -568,7 +568,7 @@ async function createEntity(
         crypto.randomBytes(32).toString("hex"),
         10,
       );
-      await prisma.user.create({
+      const newUser = await prisma.user.create({
         data: {
           username: data.username || null,
           email: data.email || null,
@@ -578,8 +578,21 @@ async function createEntity(
           isadmin: data.isadmin === "true" || data.isadmin === "1",
           canrequest: data.canrequest !== "false" && data.canrequest !== "0",
           creation_date: now,
+          organizationId,
         },
       });
+      // Mirror to accounts.password — imported users still need a credential row
+      // for the BetterAuth password-reset flow to find them.
+      await prisma.accounts
+        .create({
+          data: {
+            userId: newUser.userid,
+            providerId: "credential",
+            accountId: newUser.userid,
+            password: randomPassword,
+          },
+        })
+        .catch(() => {});
       break;
     }
 

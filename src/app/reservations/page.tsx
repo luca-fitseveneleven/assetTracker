@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import Breadcrumb from "@/components/Breadcrumb";
 import prisma from "@/lib/prisma";
 import ReservationsCalendarClient from "./ReservationsCalendarClient";
+import MyItemRequestsClient from "./MyItemRequestsClient";
 
 export const metadata = {
   title: "Asset Tracker - Reservations",
@@ -19,10 +20,13 @@ export default async function ReservationsPage() {
 
   // Self-service restriction: non-admins only see their own reservations
   const isAdmin = session.user.isadmin;
-  const whereClause = isAdmin ? {} : { userId: session.user.id };
+  const baseWhere = isAdmin ? {} : { userId: session.user.id };
 
   const reservations = await prisma.assetReservation.findMany({
-    where: whereClause,
+    where: {
+      ...baseWhere,
+      status: { notIn: ["cancelled", "rejected"] },
+    },
     include: {
       asset: {
         select: { assetid: true, assetname: true, assettag: true },
@@ -54,6 +58,7 @@ export default async function ReservationsPage() {
       />
       <h1 className="text-2xl font-bold">Reservations</h1>
       <ReservationsCalendarClient reservations={serialized} />
+      {!isAdmin && <MyItemRequestsClient />}
     </div>
   );
 }

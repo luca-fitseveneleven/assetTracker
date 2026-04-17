@@ -38,6 +38,13 @@ export async function DELETE(req: NextRequest) {
     // Remove dependent relations first to satisfy FK constraints
     await prisma.$transaction([
       prisma.userAssets.deleteMany({ where: { assetid: assetId } }),
+      prisma.assetCheckout.deleteMany({ where: { assetId: assetId } }),
+      prisma.assetReservation.deleteMany({ where: { assetId: assetId } }),
+      prisma.itemRequest.deleteMany({
+        where: { entityType: "asset", entityId: assetId },
+      }),
+      prisma.custom_field_values.deleteMany({ where: { entityId: assetId } }),
+      prisma.asset_attachments.deleteMany({ where: { assetId: assetId } }),
       prisma.asset.delete({ where: { assetid: assetId } }),
     ]);
 

@@ -1,4 +1,7 @@
 import React from "react";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import ConsumableCreateForm from "./ui/ConsumableCreateForm";
 import {
   getConsumableCategories,
@@ -12,6 +15,14 @@ export const metadata = {
 };
 
 export default async function Page() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    redirect("/login");
+  }
+  if (!session.user.isadmin) {
+    redirect("/dashboard");
+  }
+
   const [categories, manufacturers, suppliers] = await Promise.all([
     getConsumableCategories(),
     getManufacturers(),

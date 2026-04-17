@@ -7,6 +7,7 @@ import prisma from "@/lib/prisma";
 import UserSettingsClient from "./ui/UserSettingsClient";
 import MfaSettings from "./ui/MfaSettings";
 import NotificationPreferences from "./ui/NotificationPreferences";
+import ChangePasswordSection from "./ui/ChangePasswordSection";
 import SessionManagement from "./SessionManagement";
 
 export const metadata = {
@@ -71,6 +72,11 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     { label: "Settings", href: `/user/${user.userid}/settings` },
   ];
 
+  // Change-password is self-service only — an admin viewing another user's settings
+  // can't legitimately know that user's current password and should use the user
+  // edit form for admin-resets.
+  const isViewingSelf = session.user.id === params.id;
+
   return (
     <>
       <Breadcrumb options={breadcrumbOptions} />
@@ -78,6 +84,11 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       <div className="mt-6 max-w-2xl">
         <NotificationPreferences />
       </div>
+      {isViewingSelf && (
+        <div className="mt-6 max-w-2xl">
+          <ChangePasswordSection />
+        </div>
+      )}
       <div className="mt-6 max-w-2xl">
         <MfaSettings userId={user.userid} mfaEnabled={user.mfaEnabled} />
       </div>

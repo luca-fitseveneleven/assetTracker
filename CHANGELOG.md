@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Show/hide password toggle on login** — eye-icon button reveals or hides the typed password on the sign-in form, matching the toggle already used on the user-edit form. Toggle is keyboard-skipped (`tabIndex={-1}`) and labelled for screen readers
 - **Role-based dashboard** — non-admin users see "My Dashboard" with their assigned assets, pending requests, and open tickets
 - **Reservation notifications** — admins receive email when users request assets; requesters receive email on approval/rejection
 - **Ticket notifications** — email notifications on ticket assignment, comments, and status changes
@@ -41,6 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Notification dropdown — instant UI via `useOptimistic`** — mark-as-read, delete, mark-all-read, and delete-all now apply to the UI in the same frame the user clicks, instead of waiting for the server round-trip. Failed mutations auto-revert with a toast (rollback is automatic via React 19's `useOptimistic` when the surrounding transition ends without committing). Internally collapses the prior `notifications` + `unreadCount` `useState` pair into one source-of-truth `NotifState` driven by a typed reducer with four action variants, eliminating a class of dual-write desync bugs. "Mark all read" now fires one optimistic update + a single `Promise.allSettled` fan-out instead of N independent state updates that flickered the list. `unreadCount` is adjusted (not derived) because it represents the true server total, which can exceed the displayed limit of 10
 - **Performance** — parallelized data fetching with `Promise.all()` on assets, asset detail, and user settings pages
 - **Performance** — added 2-minute PostgreSQL cache to 10+ data functions (assets, accessories, consumables, licences, users, categories)
 - **Performance** — reduced Sentry trace sampling from 100% to 10% in production

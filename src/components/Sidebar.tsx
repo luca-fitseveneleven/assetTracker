@@ -48,6 +48,7 @@ import {
   filterSectionsForUser,
 } from "@/lib/nav-config";
 import { cn } from "@/lib/utils";
+import packageJson from "../../package.json";
 
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -383,6 +384,13 @@ const Sidebar = ({ initialCollapsed = false }) => {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        {/* ─── Version ─── */}
+        {!collapsed && (
+          <p className="text-muted-foreground/50 pb-2 text-center text-[10px]">
+            v{packageJson.version}
+          </p>
+        )}
       </aside>
     </TooltipProvider>
   );

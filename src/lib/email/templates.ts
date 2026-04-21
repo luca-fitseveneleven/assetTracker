@@ -421,6 +421,67 @@ export const emailTemplates = {
       </div>
     `,
   },
+  accessExpiry7Day: {
+    subject: "Access Expiring in 7 Days",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #d97706;">Access Expiry Warning</h2>
+        <p>Hello {{userName}},</p>
+        <p>Your access to the Asset Tracker will expire in <strong>7 days</strong> on <strong>{{expiryDate}}</strong>.</p>
+        <p>If you need continued access, please contact your administrator.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
+  accessExpiry1Day: {
+    subject: "Access Expiring Tomorrow",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #dc2626;">Access Expiring Tomorrow</h2>
+        <p>Hello {{userName}},</p>
+        <p>Your access to the Asset Tracker will expire <strong>tomorrow</strong> on <strong>{{expiryDate}}</strong>.</p>
+        <p>If you need continued access, please contact your administrator immediately.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
+  accessExpired: {
+    subject: "Access Has Been Revoked",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #dc2626;">Access Revoked</h2>
+        <p>Hello {{userName}},</p>
+        <p>Your access to the Asset Tracker has expired and has been revoked as of <strong>{{expiryDate}}</strong>.</p>
+        <p>If you believe this is an error, please contact your administrator.</p>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
+  scheduledReport: {
+    subject: "Your {{reportType}} Report",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">Scheduled Report</h2>
+        <p>Hello {{userName}},</p>
+        <p>Your <strong>{{reportType}}</strong> report is attached.</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5; width: 30%;"><strong>Report Type</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{reportType}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Format</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{format}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f5f5f5;"><strong>Generated</strong></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{generatedAt}}</td>
+          </tr>
+        </table>
+        <p>Best regards,<br>Asset Tracker System</p>
+      </div>
+    `,
+  },
 };
 
 export type TemplateType = keyof typeof emailTemplates;

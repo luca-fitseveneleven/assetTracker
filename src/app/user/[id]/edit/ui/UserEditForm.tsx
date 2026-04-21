@@ -47,6 +47,9 @@ export default function UserEditForm({
     isadmin: Boolean(initial.isadmin),
     canrequest: Boolean(initial.canrequest),
     departmentId: initial.departmentId ?? "",
+    accessExpiresAt: initial.accessExpiresAt
+      ? new Date(initial.accessExpiresAt).toISOString().slice(0, 16)
+      : "",
     password: "",
   });
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -126,6 +129,9 @@ export default function UserEditForm({
         isadmin: Boolean(initial.isadmin),
         canrequest: Boolean(initial.canrequest),
         departmentId: initial.departmentId ?? "",
+        accessExpiresAt: initial.accessExpiresAt
+          ? new Date(initial.accessExpiresAt).toISOString().slice(0, 16)
+          : "",
         password: "",
       }),
     [initial],
@@ -217,9 +223,18 @@ export default function UserEditForm({
         delete body.isadmin;
         delete body.canrequest;
         delete body.departmentId;
+        delete body.accessExpiresAt;
       } else {
         // Convert empty string to null for optional UUID field
         if (body.departmentId === "") body.departmentId = null;
+        // Convert accessExpiresAt to ISO string or null
+        if (body.accessExpiresAt) {
+          body.accessExpiresAt = new Date(
+            body.accessExpiresAt as string,
+          ).toISOString();
+        } else {
+          body.accessExpiresAt = null;
+        }
       }
       body._expectedVersion = initial.change_date ?? null;
       const res = await fetch("/api/user", {
@@ -548,6 +563,45 @@ export default function UserEditForm({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <Separator className="my-3" />
+
+                <div>
+                  <Label htmlFor="accessExpiresAt" className="mb-2 block">
+                    Access Expires
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="accessExpiresAt"
+                      type="datetime-local"
+                      className="h-8 text-xs"
+                      value={form.accessExpiresAt}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          accessExpiresAt: e.target.value,
+                        }))
+                      }
+                    />
+                    {form.accessExpiresAt && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() =>
+                          setForm((f) => ({ ...f, accessExpiresAt: "" }))
+                        }
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground mt-1 text-[11px]">
+                    Leave empty for permanent access. User will be deactivated
+                    automatically when this date passes.
+                  </p>
                 </div>
               </div>
             </section>

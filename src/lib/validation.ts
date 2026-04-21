@@ -80,6 +80,7 @@ export const createUserSchema = z.object({
   canrequest: z.boolean().default(false),
   lan: z.string().max(50).nullable().optional(),
   passwordMode: z.enum(["generate", "manual", "invite"]).default("manual"),
+  accessExpiresAt: z.string().datetime({ offset: true }).optional().nullable(),
 });
 
 export const updateUserSchema = z.object({
@@ -96,6 +97,13 @@ export const updateUserSchema = z.object({
   canrequest: z.boolean().optional(),
   lan: z.string().max(50).optional().nullable(),
   departmentId: z.string().uuid().optional().nullable(),
+  accessExpiresAt: z.string().datetime({ offset: true }).optional().nullable(),
+});
+
+export const createReportScheduleSchema = z.object({
+  reportType: z.enum(["summary", "depreciation", "warranty", "tco"]),
+  frequency: z.enum(["daily", "weekly", "monthly"]),
+  format: z.enum(["csv", "xlsx"]),
 });
 
 // ---------------------------------------------------------------------------

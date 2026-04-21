@@ -160,6 +160,33 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
                 Can Request
               </span>
             ) : null}
+            {user.accessExpiresAt &&
+              (() => {
+                const now = new Date();
+                const expires = new Date(user.accessExpiresAt);
+                const daysLeft = Math.ceil(
+                  (expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+                );
+                const color =
+                  daysLeft <= 0
+                    ? "bg-gray-100 text-gray-700"
+                    : daysLeft <= 7
+                      ? "bg-red-100 text-red-700"
+                      : daysLeft <= 30
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-green-100 text-green-700";
+                const label =
+                  daysLeft <= 0
+                    ? "Access Expired"
+                    : `Access expires in ${daysLeft}d`;
+                return (
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${color}`}
+                  >
+                    {label}
+                  </span>
+                );
+              })()}
             {userRoles.map((ur) => (
               <Badge key={ur.roleId} variant="secondary">
                 {ur.role.name}

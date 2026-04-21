@@ -37,7 +37,7 @@ function buildRows(
 // CSV generation
 // ---------------------------------------------------------------------------
 
-function generateCSV(
+export function generateCSV(
   data: Record<string, unknown>[],
   columns: ExportColumn[],
 ): string {
@@ -57,7 +57,7 @@ function generateCSV(
 // XLSX generation
 // ---------------------------------------------------------------------------
 
-async function generateXLSX(
+export async function generateXLSX(
   data: Record<string, unknown>[],
   columns: ExportColumn[],
   sheetName = "Export",

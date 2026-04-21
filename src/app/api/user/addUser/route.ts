@@ -57,6 +57,7 @@ export async function POST(request) {
       lan,
       password,
       passwordMode = "manual",
+      accessExpiresAt,
     } = validationResult.data;
 
     // Modes that need email
@@ -100,6 +101,7 @@ export async function POST(request) {
         password: hashedPassword,
         creation_date: new Date(),
         organizationId: orgContext?.organization?.id || null,
+        accessExpiresAt: accessExpiresAt ? new Date(accessExpiresAt) : null,
       } as Prisma.userUncheckedCreateInput,
     });
 

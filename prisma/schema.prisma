@@ -892,6 +892,7 @@ model user {
   ldapDN                           String?
   lastSyncedAt                     DateTime?                 @db.Timestamp(6)
   isActive                         Boolean                   @default(true)
+  accessExpiresAt                  DateTime?                 @db.Timestamp(6)
   // Phase 4B: SCIM fields
   scimProviderId                   String?                   @db.VarChar(255)
   scimLastSync                     DateTime?                 @db.Timestamp(6)
@@ -940,11 +941,13 @@ model user {
   apiKeys                          ApiKey[]
   itemRequestsCreated              ItemRequest[]              @relation("item_request_user")
   itemRequestsApproved             ItemRequest[]              @relation("item_request_approver")
+  reportSchedules                  ReportSchedule[]
 
   @@index([firstname, lastname])
   @@index([organizationId])
   @@index([departmentId])
   @@index([organizationId, lastname, firstname])
+  @@index([isActive, accessExpiresAt])
   @@schema("assettool")
 }
 
@@ -965,6 +968,27 @@ model ApiKey {
   @@index([keyPrefix])
   @@index([isActive])
   @@map("api_keys")
+  @@schema("assettool")
+}
+
+model ReportSchedule {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @db.Uuid
+  user           user      @relation(fields: [userId], references: [userid], onDelete: Cascade)
+  organizationId String?   @db.Uuid
+  reportType     String    @db.VarChar(30)
+  frequency      String    @db.VarChar(10)
+  format         String    @default("csv") @db.VarChar(10)
+  isActive       Boolean   @default(true)
+  lastSentAt     DateTime? @db.Timestamp(6)
+  nextRunAt      DateTime  @db.Timestamp(6)
+  createdAt      DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamp(6)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isActive, nextRunAt])
+  @@map("report_schedules")
   @@schema("assettool")
 }
 

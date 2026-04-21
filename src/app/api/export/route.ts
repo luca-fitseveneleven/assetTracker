@@ -11,6 +11,11 @@ import {
   type ExportFormat,
 } from "@/lib/export";
 import {
+  calculateDepreciation,
+  getMethodDisplayName,
+  type DepreciationMethod,
+} from "@/lib/depreciation";
+import {
   buildStreamingCsvResponse,
   type StreamingExportConfig,
 } from "@/lib/streaming-export";
@@ -65,6 +70,24 @@ const ACCESSORY_COLUMNS: ExportColumn[] = [
   { key: "creation_date", header: "Created" },
 ];
 
+const DEPRECIATION_COLUMNS: ExportColumn[] = [
+  { key: "assetName", header: "Asset Name" },
+  { key: "assetTag", header: "Asset Tag" },
+  { key: "serialNumber", header: "Serial Number" },
+  { key: "category", header: "Category" },
+  { key: "purchasePrice", header: "Purchase Price" },
+  { key: "purchaseDate", header: "Purchase Date" },
+  { key: "depreciationMethod", header: "Depreciation Method" },
+  { key: "usefulLifeYears", header: "Useful Life (Years)" },
+  { key: "salvagePercent", header: "Salvage Value (%)" },
+  { key: "salvageValue", header: "Salvage Value" },
+  { key: "currentValue", header: "Current Book Value" },
+  { key: "accumulatedDepreciation", header: "Accumulated Depreciation" },
+  { key: "annualDepreciation", header: "Annual Depreciation" },
+  { key: "percentDepreciated", header: "% Depreciated" },
+  { key: "isFullyDepreciated", header: "Fully Depreciated" },
+];
+
 const CONSUMABLE_COLUMNS: ExportColumn[] = [
   { key: "consumablename", header: "Name" },
   { key: "quantity", header: "Quantity" },
@@ -83,7 +106,8 @@ type EntityKey =
   | "users"
   | "licences"
   | "accessories"
-  | "consumables";
+  | "consumables"
+  | "depreciation";
 
 interface EntityConfig {
   columns: ExportColumn[];
@@ -313,7 +337,163 @@ const ENTITIES: Record<EntityKey, EntityConfig> = {
       return items as unknown as Record<string, unknown>[];
     },
   },
+  depreciation: {
+    columns: DEPRECIATION_COLUMNS,
+    sheetName: "Depreciation Schedule",
+    fetch: async (orgId) => {
+      const where = scopeToOrganization(
+        { purchaseprice: { not: null } },
+        orgId,
+      );
+      const assets = await prisma.asset.findMany({
+        where,
+        orderBy: { assetname: "asc" },
+        select: {
+          assetname: true,
+          assettag: true,
+          serialnumber: true,
+          purchaseprice: true,
+          purchasedate: true,
+          creation_date: true,
+          assetcategorytypeid: true,
+          assetCategoryType: {
+            select: { assetcategorytypename: true },
+          },
+        },
+      });
+
+      const depSettings = await prisma.depreciation_settings.findMany();
+      const settingsMap = new Map(depSettings.map((s) => [s.categoryId, s]));
+
+      return buildDepreciationRows(assets, settingsMap);
+    },
+    fetchBatch: async (orgId, { skip, take }) => {
+      const where = scopeToOrganization(
+        { purchaseprice: { not: null } },
+        orgId,
+      );
+
+      // Settings are a tiny table — always load all
+      const [assets, depSettings] = await Promise.all([
+        prisma.asset.findMany({
+          where,
+          orderBy: { assetname: "asc" },
+          skip,
+          take,
+          select: {
+            assetname: true,
+            assettag: true,
+            serialnumber: true,
+            purchaseprice: true,
+            purchasedate: true,
+            creation_date: true,
+            assetcategorytypeid: true,
+            assetCategoryType: {
+              select: { assetcategorytypename: true },
+            },
+          },
+        }),
+        prisma.depreciation_settings.findMany(),
+      ]);
+
+      const settingsMap = new Map(depSettings.map((s) => [s.categoryId, s]));
+
+      return buildDepreciationRows(assets, settingsMap);
+    },
+  },
 };
+
+// ---------------------------------------------------------------------------
+// Depreciation row builder
+// ---------------------------------------------------------------------------
+
+interface DepreciationAsset {
+  assetname: string;
+  assettag: string;
+  serialnumber: string;
+  purchaseprice: unknown;
+  purchasedate: Date | null;
+  creation_date: Date;
+  assetcategorytypeid: string | null;
+  assetCategoryType: { assetcategorytypename: string } | null;
+}
+
+interface DepreciationSetting {
+  categoryId: string;
+  method: string;
+  usefulLifeYears: number;
+  salvagePercent: unknown;
+}
+
+function buildDepreciationRows(
+  assets: DepreciationAsset[],
+  settingsMap: Map<string, DepreciationSetting>,
+): Record<string, unknown>[] {
+  return assets.map((asset) => {
+    const price = Number(asset.purchaseprice);
+    const settings = asset.assetcategorytypeid
+      ? settingsMap.get(asset.assetcategorytypeid)
+      : null;
+    const purchaseDate = asset.purchasedate ?? asset.creation_date;
+
+    if (!settings || !price || price <= 0 || !purchaseDate) {
+      return {
+        assetName: asset.assetname,
+        assetTag: asset.assettag,
+        serialNumber: asset.serialnumber,
+        category:
+          asset.assetCategoryType?.assetcategorytypename ?? "Uncategorized",
+        purchasePrice: price || 0,
+        purchaseDate: purchaseDate
+          ? new Date(purchaseDate).toISOString().split("T")[0]
+          : "",
+        depreciationMethod: "N/A",
+        usefulLifeYears: "",
+        salvagePercent: "",
+        salvageValue: "",
+        currentValue: price || 0,
+        accumulatedDepreciation: 0,
+        annualDepreciation: "",
+        percentDepreciated: 0,
+        isFullyDepreciated: "N/A",
+      };
+    }
+
+    const result = calculateDepreciation({
+      purchasePrice: price,
+      purchaseDate: new Date(purchaseDate),
+      method: settings.method as DepreciationMethod,
+      usefulLifeYears: settings.usefulLifeYears,
+      salvagePercent: Number(settings.salvagePercent),
+    });
+
+    // Annual depreciation: for straight-line all years are equal;
+    // for accelerated methods use year-1 rate as the representative value
+    const annualDep = result.depreciationPerYear[0] ?? 0;
+
+    return {
+      assetName: asset.assetname,
+      assetTag: asset.assettag,
+      serialNumber: asset.serialnumber,
+      category:
+        asset.assetCategoryType?.assetcategorytypename ?? "Uncategorized",
+      purchasePrice: price,
+      purchaseDate: new Date(purchaseDate).toISOString().split("T")[0],
+      depreciationMethod: getMethodDisplayName(
+        settings.method as DepreciationMethod,
+      ),
+      usefulLifeYears: settings.usefulLifeYears,
+      salvagePercent: Number(settings.salvagePercent),
+      salvageValue: Math.round(result.salvageValue * 100) / 100,
+      currentValue: Math.round(result.currentValue * 100) / 100,
+      accumulatedDepreciation:
+        Math.round(result.accumulatedDepreciation * 100) / 100,
+      annualDepreciation: Math.round(annualDep * 100) / 100,
+      percentDepreciated: Math.round(result.percentDepreciated * 10) / 10,
+      isFullyDepreciated: result.isFullyDepreciated ? "Yes" : "No",
+    };
+  });
+}
 
 // ---------------------------------------------------------------------------
 // GET /api/export?entity=assets&format=xlsx

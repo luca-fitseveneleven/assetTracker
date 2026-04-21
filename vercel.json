@@ -30,6 +30,14 @@
     {
       "path": "/api/cron/cleanup",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/scheduled-reports",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/access-expiry",
+      "schedule": "30 7 * * *"
     }
   ]
 }

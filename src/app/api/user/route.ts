@@ -176,6 +176,7 @@ export async function PUT(req: NextRequest) {
           isadmin: true,
           canrequest: true,
           departmentId: true,
+          accessExpiresAt: true,
         });
 
     // Convert empty strings to undefined so optional fields pass validation
@@ -202,6 +203,13 @@ export async function PUT(req: NextRequest) {
     // Strip password from profile update — it goes to accounts.password via setUserPassword.
     const newPassword = updateData.password as string | undefined;
     delete updateData.password;
+
+    // Convert accessExpiresAt string to Date or null
+    if ("accessExpiresAt" in updateData) {
+      updateData.accessExpiresAt = updateData.accessExpiresAt
+        ? new Date(updateData.accessExpiresAt as string)
+        : null;
+    }
 
     const updated = await prisma.user.update({
       where: { userid },

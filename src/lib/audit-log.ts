@@ -156,6 +156,7 @@ export const AUDIT_ACTIONS = {
   APPROVE: "APPROVE",
   REJECT: "REJECT",
   SECURITY_ALERT: "SECURITY_ALERT",
+  EXPIRE: "EXPIRE",
 } as const;
 
 /**
@@ -182,4 +183,5 @@ export const AUDIT_ENTITIES = {
   EULA_TEMPLATE: "eula_template",
   KIT: "kit",
   AUDIT_CAMPAIGN: "audit_campaign",
+  REPORT_SCHEDULE: "report_schedule",
 } as const;

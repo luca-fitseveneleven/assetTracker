@@ -751,6 +751,261 @@ function AssetMapWidget() {
   );
 }
 
+function HealthScoreWidget() {
+  const [data, setData] = useState<{
+    averageScore: number;
+    totalAssets: number;
+    distribution: { label: string; count: number }[];
+    lowestScoring: {
+      assetId: string;
+      name: string;
+      tag: string;
+      score: number;
+      label: string;
+    }[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard/health-score")
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <p className="text-muted-foreground text-sm">Loading health scores...</p>
+    );
+  }
+
+  if (!data || data.totalAssets === 0) {
+    return (
+      <p className="text-muted-foreground text-sm">No health data available</p>
+    );
+  }
+
+  const labelColors: Record<string, string> = {
+    excellent: "bg-green-500",
+    good: "bg-blue-500",
+    fair: "bg-yellow-500",
+    poor: "bg-orange-500",
+    critical: "bg-red-500",
+  };
+
+  const labelBadgeColors: Record<string, string> = {
+    excellent: "bg-green-100 text-green-800",
+    good: "bg-blue-100 text-blue-800",
+    fair: "bg-yellow-100 text-yellow-800",
+    poor: "bg-orange-100 text-orange-800",
+    critical: "bg-red-100 text-red-800",
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground text-sm">Average Score</span>
+        <span className="text-2xl font-bold">{data.averageScore}</span>
+      </div>
+
+      <div className="flex h-2 overflow-hidden rounded-full">
+        {data.distribution.map((d) =>
+          d.count > 0 ? (
+            <div
+              key={d.label}
+              className={`${labelColors[d.label] ?? "bg-gray-300"}`}
+              style={{
+                width: `${(d.count / data.totalAssets) * 100}%`,
+              }}
+              title={`${d.label}: ${d.count}`}
+            />
+          ) : null,
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2 text-xs">
+        {data.distribution
+          .filter((d) => d.count > 0)
+          .map((d) => (
+            <span
+              key={d.label}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium capitalize ${labelBadgeColors[d.label] ?? ""}`}
+            >
+              {d.label}: {d.count}
+            </span>
+          ))}
+      </div>
+
+      {data.lowestScoring.length > 0 && (
+        <div className="pt-1">
+          <p className="text-muted-foreground mb-1 text-xs font-medium">
+            Needs Attention
+          </p>
+          <ul className="space-y-1">
+            {data.lowestScoring.slice(0, 3).map((a) => (
+              <li
+                key={a.assetId}
+                className="flex items-center justify-between text-sm"
+              >
+                <span className="min-w-0 truncate">{a.name}</span>
+                <span
+                  className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${labelBadgeColors[a.label] ?? ""}`}
+                >
+                  {a.score}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TCOWidget() {
+  const [data, setData] = useState<{
+    totalPurchaseCost: number;
+    totalMaintenanceCost: number;
+    totalLicenceCost: number;
+    grandTotal: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard/tco")
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <p className="text-muted-foreground text-sm">Loading TCO data...</p>;
+  }
+
+  if (!data) {
+    return (
+      <p className="text-muted-foreground text-sm">No TCO data available</p>
+    );
+  }
+
+  const fmt = (v: number) =>
+    "$" +
+    v.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Purchase Costs</span>
+        <span className="font-medium">{fmt(data.totalPurchaseCost)}</span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Maintenance Costs</span>
+        <span className="font-medium">{fmt(data.totalMaintenanceCost)}</span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Licence Costs</span>
+        <span className="font-medium">{fmt(data.totalLicenceCost)}</span>
+      </div>
+      <div className="border-t pt-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-semibold">Grand Total</span>
+          <span className="text-lg font-bold">{fmt(data.grandTotal)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DuplicateDetectionWidget() {
+  const [data, setData] = useState<{
+    totalGroups: number;
+    groups: {
+      reason: string;
+      confidence: string;
+      assets: { assetId: string; assetName: string; assetTag: string }[];
+    }[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard/duplicates")
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        Scanning for duplicates...
+      </p>
+    );
+  }
+
+  if (!data || data.totalGroups === 0) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        No potential duplicates found
+      </p>
+    );
+  }
+
+  const reasonLabel: Record<string, string> = {
+    same_model_location: "Same Model & Location",
+    similar_serial: "Similar Serial",
+    similar_name: "Similar Name",
+  };
+
+  const confidenceColor: Record<string, string> = {
+    high: "bg-red-100 text-red-800",
+    medium: "bg-yellow-100 text-yellow-800",
+    low: "bg-blue-100 text-blue-800",
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground text-sm">Duplicate Groups</span>
+        <span className="text-2xl font-bold">{data.totalGroups}</span>
+      </div>
+
+      <ul className="space-y-2">
+        {data.groups.slice(0, 5).map((group, idx) => (
+          <li key={idx} className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${confidenceColor[group.confidence] ?? ""}`}
+              >
+                {group.confidence}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {reasonLabel[group.reason] ?? group.reason}
+              </span>
+            </div>
+            <div className="text-sm">
+              {group.assets
+                .slice(0, 3)
+                .map((a) => a.assetName)
+                .join(", ")}
+              {group.assets.length > 3 && (
+                <span className="text-muted-foreground">
+                  {" "}
+                  +{group.assets.length - 3} more
+                </span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function WidgetContent({
   widgetType,
   serverStats,
@@ -783,6 +1038,12 @@ function WidgetContent({
       return <MyRequestsWidget />;
     case "myTickets":
       return <MyTicketsWidget />;
+    case "healthScore":
+      return <HealthScoreWidget />;
+    case "tco":
+      return <TCOWidget />;
+    case "duplicateDetection":
+      return <DuplicateDetectionWidget />;
     default:
       return (
         <p className="text-muted-foreground text-sm">Unknown widget type</p>

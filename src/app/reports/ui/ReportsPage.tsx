@@ -217,6 +217,200 @@ function AdvancedCharts() {
   );
 }
 
+interface TCOData {
+  totalPurchaseCost: number;
+  totalMaintenanceCost: number;
+  totalLicenceCost: number;
+  totalDepreciationLoss: number;
+  totalCurrentValue: number;
+  grandTotal: number;
+  byCategory: Array<{
+    categoryName: string;
+    assetCount: number;
+    purchaseCost: number;
+    maintenanceCost: number;
+    depreciationLoss: number;
+    currentValue: number;
+    totalCostOfOwnership: number;
+  }>;
+}
+
+function TCOReport() {
+  const [data, setData] = useState<TCOData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard/tco")
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <p className="text-muted-foreground py-8 text-center">
+        No TCO data available.
+      </p>
+    );
+  }
+
+  const chartData = data.byCategory
+    .filter((c) => c.totalCostOfOwnership > 0)
+    .slice(0, 10)
+    .map((c) => ({
+      name:
+        c.categoryName.length > 15
+          ? c.categoryName.slice(0, 15) + "..."
+          : c.categoryName,
+      purchase: c.purchaseCost,
+      maintenance: c.maintenanceCost,
+    }));
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Purchase Costs</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {formatCurrency(data.totalPurchaseCost)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Maintenance Costs</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {formatCurrency(data.totalMaintenanceCost)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Licence Costs</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {formatCurrency(data.totalLicenceCost)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Grand Total TCO</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {formatCurrency(data.grandTotal)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {chartData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Cost by Category (Purchase vs Maintenance)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Legend />
+                <Bar
+                  dataKey="purchase"
+                  name="Purchase"
+                  fill="#0088FE"
+                  stackId="a"
+                />
+                <Bar
+                  dataKey="maintenance"
+                  name="Maintenance"
+                  fill="#FF8042"
+                  stackId="a"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {data.byCategory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Category Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="pb-2 font-medium">Category</th>
+                    <th className="pb-2 text-right font-medium">Assets</th>
+                    <th className="pb-2 text-right font-medium">Purchase</th>
+                    <th className="pb-2 text-right font-medium">Maintenance</th>
+                    <th className="pb-2 text-right font-medium">
+                      Depreciation
+                    </th>
+                    <th className="pb-2 text-right font-medium">
+                      Current Value
+                    </th>
+                    <th className="pb-2 text-right font-medium">Total TCO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.byCategory.map((cat) => (
+                    <tr
+                      key={cat.categoryName}
+                      className="border-b last:border-0"
+                    >
+                      <td className="py-2">{cat.categoryName}</td>
+                      <td className="py-2 text-right">{cat.assetCount}</td>
+                      <td className="py-2 text-right">
+                        {formatCurrency(cat.purchaseCost)}
+                      </td>
+                      <td className="py-2 text-right">
+                        {formatCurrency(cat.maintenanceCost)}
+                      </td>
+                      <td className="py-2 text-right text-red-600">
+                        {formatCurrency(cat.depreciationLoss)}
+                      </td>
+                      <td className="py-2 text-right text-green-600">
+                        {formatCurrency(cat.currentValue)}
+                      </td>
+                      <td className="py-2 text-right font-medium">
+                        {formatCurrency(cat.totalCostOfOwnership)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function ReportsPage({
   data,
   warrantyAssets,
@@ -510,6 +704,7 @@ export default function ReportsPage({
             <TabsTrigger value="warranty">Warranty</TabsTrigger>
             <TabsTrigger value="depreciation">Depreciation</TabsTrigger>
             <TabsTrigger value="advanced">Advanced</TabsTrigger>
+            <TabsTrigger value="tco">TCO</TabsTrigger>
           </TabsList>
         </div>
 
@@ -760,6 +955,10 @@ export default function ReportsPage({
 
         <TabsContent value="advanced" className="mt-6">
           <AdvancedCharts />
+        </TabsContent>
+
+        <TabsContent value="tco" className="mt-6">
+          <TCOReport />
         </TabsContent>
       </Tabs>
     </div>

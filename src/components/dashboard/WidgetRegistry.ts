@@ -71,6 +71,25 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     title: "My Tickets",
     description: "Your recent support tickets",
   },
+  {
+    type: "healthScore",
+    title: "Asset Health",
+    description: "Fleet health score overview",
+    adminOnly: true,
+  },
+  {
+    type: "tco",
+    title: "Total Cost of Ownership",
+    description: "Aggregate costs: purchase + maintenance + licences",
+    adminOnly: true,
+  },
+  {
+    type: "duplicateDetection",
+    title: "Potential Duplicates",
+    description: "Assets that may be duplicate entries",
+    icon: "Copy",
+    adminOnly: true,
+  },
 ];
 
 export const DEFAULT_WIDGETS = [

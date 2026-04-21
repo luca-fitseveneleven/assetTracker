@@ -23,6 +23,11 @@ import {
   getMethodDisplayName,
   type DepreciationMethod,
 } from "@/lib/depreciation";
+import {
+  calculateHealthScore,
+  frequencyToDays,
+  labelBgColor,
+} from "@/lib/health-score";
 import { getOrganizationContext } from "@/lib/organization-context";
 import AssetDetailHeader from "./ui/AssetDetailHeader";
 import AssetAttachments from "@/components/AssetAttachments";
@@ -116,6 +121,11 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       where: { assetId: params.id },
       include: {
         user: { select: { userid: true, firstname: true, lastname: true } },
+        maintenance_logs: {
+          orderBy: { completedAt: "desc" },
+          take: 1,
+          select: { completedAt: true },
+        },
       },
       orderBy: { nextDueDate: "asc" },
       take: 5,
@@ -183,6 +193,40 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       };
     }
   }
+  // Compute health score from data already fetched
+  const healthScoreMaintenanceData = (() => {
+    if (maintenanceSchedules.length === 0)
+      return { lastMaintenanceDate: null, maintenanceFrequencyDays: null };
+    let lastDate: Date | null = null;
+    let minFreqDays = Infinity;
+    for (const schedule of maintenanceSchedules) {
+      const freqDays = frequencyToDays(schedule.frequency);
+      if (freqDays < minFreqDays) minFreqDays = freqDays;
+      const log = schedule.maintenance_logs?.[0];
+      if (log?.completedAt && (!lastDate || log.completedAt > lastDate)) {
+        lastDate = log.completedAt;
+      }
+    }
+    return {
+      lastMaintenanceDate: lastDate,
+      maintenanceFrequencyDays: minFreqDays === Infinity ? null : minFreqDays,
+    };
+  })();
+
+  const healthScore = calculateHealthScore({
+    purchaseDate: asset.purchasedate ? new Date(asset.purchasedate) : null,
+    expectedEndOfLife: asset.expectedEndOfLife
+      ? new Date(asset.expectedEndOfLife)
+      : null,
+    warrantyExpires: asset.warrantyExpires
+      ? new Date(asset.warrantyExpires)
+      : null,
+    lastMaintenanceDate: healthScoreMaintenanceData.lastMaintenanceDate,
+    maintenanceFrequencyDays:
+      healthScoreMaintenanceData.maintenanceFrequencyDays,
+    percentDepreciated: depreciationData?.percentDepreciated ?? null,
+  });
+
   const cfValueMap = new Map(
     customFieldValues.map((v) => [v.fieldId, v.value]),
   );
@@ -422,6 +466,48 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         )}
 
         <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+          <section className="border-default-200 col-span-1 rounded-lg border p-4">
+            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
+              Health Score
+            </h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-sm font-semibold capitalize ${labelBgColor(healthScore.label)}`}
+                >
+                  {healthScore.label}
+                </span>
+                <span className="text-2xl font-bold">
+                  {healthScore.overall}
+                </span>
+              </div>
+              <dl className="grid grid-cols-1 gap-1.5 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-foreground-500">Age</dt>
+                  <dd className="font-medium">{healthScore.ageFactor}/25</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-foreground-500">Warranty</dt>
+                  <dd className="font-medium">
+                    {healthScore.warrantyFactor}/25
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-foreground-500">Maintenance</dt>
+                  <dd className="font-medium">
+                    {healthScore.maintenanceFactor}/25
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-foreground-500">Depreciation</dt>
+                  <dd className="font-medium">
+                    {healthScore.depreciationFactor}/25
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+
           <section className="border-default-200 col-span-1 rounded-lg border p-4">
             <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
               Warranty

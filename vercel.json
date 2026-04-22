@@ -38,6 +38,10 @@
     {
       "path": "/api/cron/access-expiry",
       "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron/intune-sync",
+      "schedule": "0 8 * * *"
     }
   ]
 }

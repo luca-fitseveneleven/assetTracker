@@ -23,6 +23,7 @@ import {
   FileKey,
   ScrollText,
   LayoutTemplate,
+  Monitor,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ import RolesTab from "./RolesTab";
 import WebhooksTab from "./WebhooksTab";
 import SSOSettingsTab from "./SSOSettingsTab";
 import LDAPSettingsTab from "./LDAPSettingsTab";
+import IntuneSettingsTab from "./IntuneSettingsTab";
 import IntegrationsTab from "./IntegrationsTab";
 import LocationTrackingTab from "./LocationTrackingTab";
 import RateLimitTab from "./RateLimitTab";
@@ -104,6 +106,7 @@ const settingsNav: NavGroup[] = [
       { value: "api-keys", label: "API Keys", icon: FileKey },
       { value: "sso", label: "SSO", icon: KeyRound },
       { value: "ldap", label: "LDAP", icon: Server },
+      { value: "intune", label: "Intune", icon: Monitor },
       { value: "locationTracking", label: "Location Tracking", icon: MapPin },
       { value: "rateLimits", label: "Rate Limits", icon: Gauge },
     ],
@@ -301,6 +304,7 @@ export default function AdminSettingsPage({
           {activeTab === "webhooks" && <WebhooksTab />}
           {activeTab === "sso" && <SSOSettingsTab />}
           {activeTab === "ldap" && <LDAPSettingsTab />}
+          {activeTab === "intune" && <IntuneSettingsTab />}
           {activeTab === "integrations" && <IntegrationsTab />}
           {activeTab === "locationTracking" && <LocationTrackingTab />}
           {activeTab === "rateLimits" && <RateLimitTab />}

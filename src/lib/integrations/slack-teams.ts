@@ -162,6 +162,11 @@ function getEventMessage(
         title: "LDAP Sync Completed",
         description: `LDAP sync: ${data.created ?? 0} created, ${data.updated ?? 0} updated, ${data.deactivated ?? 0} deactivated`,
       };
+    case "intune.sync_completed":
+      return {
+        title: "Intune Device Sync Completed",
+        description: `Intune sync: ${data.created ?? 0} created, ${data.updated ?? 0} updated, ${data.skipped ?? 0} skipped, ${data.errorCount ?? 0} errors`,
+      };
     case "user.sso_login":
       return {
         title: "SSO Login",

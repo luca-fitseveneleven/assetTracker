@@ -32,6 +32,7 @@ import {
   SearchCheck,
   Filter,
   CalendarDays,
+  HelpCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -155,6 +156,7 @@ export const navSections: NavSection[] = [
       },
       { label: "QR Scanner", href: "/scanner", icon: QrCode },
       { label: "Import", href: "/import", icon: Upload, adminOnly: true },
+      { label: "Help", href: "/help", icon: HelpCircle },
     ],
   },
   {

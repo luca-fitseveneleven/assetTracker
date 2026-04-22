@@ -18,7 +18,7 @@ Consolidated reference of architecture decisions, implementation history, and te
 
 ### Data Model
 
-69 Prisma models covering: assets, users, organizations, departments, roles, accessories, licences, consumables, manufacturers, suppliers, locations, models, categories, status types, audit logs, tickets, workflows, custom fields, webhooks, notifications, maintenance, reservations, transfers, approvals, billing, sessions, MFA, components, kits, EULA templates, audit campaigns, LDAP sync, dashboard widgets, item requests, and more.
+71 Prisma models covering: assets, users, organizations, departments, roles, accessories, licences, consumables, manufacturers, suppliers, locations, models, categories, status types, audit logs, tickets, workflows, custom fields, webhooks, notifications, maintenance, reservations, transfers, approvals, billing, sessions, MFA, components, kits, EULA templates, audit campaigns, LDAP sync, dashboard widgets, item requests, report schedules, Intune sync logs, and more.
 
 ### Multi-tenancy
 
@@ -91,6 +91,37 @@ GDPR audit log retention enforcement with configurable retention periods, cron e
 ### Phase 10: Slack/Teams Integration (2026-02-25)
 
 Notification module with settings reader, message formatters (Slack Block Kit / Teams Adaptive Cards), dispatcher. Wired to 8 API routes: asset CRUD, user creation, maintenance, stock alerts.
+
+### Phase 11: Analytics, Scheduled Reports & MDM (2026-04-17 — 2026-04-22)
+
+**v0.2.0 — Analytics & Insights:**
+
+- TCO dashboard widget + reports tab (purchase + maintenance + licence costs by category)
+- Asset health score (composite 0-100: age/warranty/maintenance/depreciation), dashboard widget + asset detail section
+- Duplicate detection engine (Levenshtein distance for serial/name similarity, model+location grouping)
+- Depreciation export (15-column accounting-friendly CSV/XLSX)
+- Version display in sidebar from package.json
+
+**v0.3.0 — Scheduled Reports & Temporary Access:**
+
+- ReportSchedule model with 4 report types, daily/weekly/monthly frequency, CSV/XLSX format
+- Report generator producing org-scoped buffers via existing export infrastructure
+- Cron at 7 AM UTC for report delivery via email queue
+- Temporary access grants via accessExpiresAt on user model
+- Auto-deactivation cron at 7:30 AM with 7-day/1-day warning emails
+- Access expiry badge on user detail, date picker on create/edit forms
+- Prisma 7.7.0 upgrade
+
+**v0.4.0 — Microsoft Intune MDM Sync:**
+
+- Graph API integration with client credentials flow (app-only auth)
+- Paginated device fetch from /deviceManagement/managedDevices
+- Asset creation with auto-created manufacturers, models, and categories
+- Category mapping: iPhone, iPad, Mac, Windows Laptop/Desktop, Android, Chromebook, etc.
+- Conflict resolution: match by externalId, fallback to serialNumber
+- Admin settings tab with Test Connection, Sync Now, encrypted credentials
+- IntuneSyncLog audit trail, webhook event, Slack/Teams notification
+- Daily cron at 8 AM UTC
 
 ---
 

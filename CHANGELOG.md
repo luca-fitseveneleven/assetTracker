@@ -4,6 +4,52 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] - 2026-04-22
+
+### Added
+
+- **Microsoft Intune device sync** — auto-import managed devices from Intune via Graph API. App-only auth (client credentials), paginated device fetch, conflict resolution by externalId/serialNumber. Auto-creates manufacturers, models, and categories by OS/device type (iPhone, iPad, Mac, Windows Laptop/Desktop, Android, Chromebook, etc.)
+- **Intune admin settings tab** — Tenant ID, Client ID, Client Secret (encrypted), Test Connection, Sync Now buttons, auto-sync toggle
+- **IntuneSyncLog audit trail** — tracks status, device counts, errors, duration for every sync
+- **Asset external tracking** — `externalId` + `externalSource` fields on asset model for MDM-synced devices
+- **Intune cron** — daily sync at 8 AM UTC via `/api/cron/intune-sync`
+- **Intune webhook + Slack/Teams** — `intune.sync_completed` event with device count notifications
+
+## [0.3.0] - 2026-04-21
+
+### Added
+
+- **Scheduled reports via email** — `ReportSchedule` model with per-user subscriptions for 4 report types (summary, depreciation, warranty, TCO). Daily/weekly/monthly frequency, CSV/XLSX format. Cron at 7 AM UTC generates and emails reports with download links
+- **Report subscriptions UI** — manage subscriptions in user settings with add/toggle/delete controls
+- **Temporary access grants** — `accessExpiresAt` field on users. Cron at 7:30 AM auto-deactivates expired users with email notifications (7-day warning, 1-day warning, expiry notice to user + org admins)
+- **Access expiry badge** — color-coded badge on user detail page (green >30d, yellow 7-30d, red <7d, gray expired)
+- **Access expiry date picker** — admin-only field on user create/edit forms with clear button
+
+### Changed
+
+- **Prisma** — updated from 7.6.0 to 7.7.0 (client, CLI, adapter-pg)
+- **Export utilities** — `generateCSV()` and `generateXLSX()` now exported for reuse by report generator
+
+## [0.2.1] - 2026-04-21
+
+### Added
+
+- **Auto-release GitHub Action** — creates GitHub Release with categorized release notes from conventional commits whenever package.json version changes
+
+## [0.2.0] - 2026-04-17
+
+### Added
+
+- **TCO (Total Cost of Ownership) dashboard** — aggregates purchase + maintenance + licence costs by category. Dashboard widget + Reports tab with stacked bar chart and breakdown table
+- **Asset health score** — composite 0-100 score from age, warranty, maintenance, and depreciation (4x25 points). Dashboard widget with distribution bar + bottom-5 list, per-asset API, health score section on asset detail page
+- **Duplicate detection** — flags potential duplicates by same model+location (high confidence), similar serial numbers via Levenshtein distance (medium), similar names (low). Dashboard widget with confidence badges
+- **Depreciation export** — 15-column accounting-friendly CSV/XLSX via `/api/export?entity=depreciation` with method, useful life, salvage %, current value, accumulated depreciation
+- **Version display** — sidebar shows app version below user profile, auto-read from package.json
+
+### Fixed
+
+- **Migration ordering** — renamed `20260414_item_requests` and `20260414_item_request_returned` to `20260414a_`/`20260414b_` to fix alphabetical ordering in `prisma migrate deploy`
+
 ## [Unreleased]
 
 ### Added

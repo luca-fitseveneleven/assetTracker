@@ -11,15 +11,18 @@ import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await requireApiAuth();
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
+    const url = new URL(req.url);
+    const returnAll = url.searchParams.get("all") === "true";
+
     const cacheKey = `duplicate_detection:${orgId ?? "global"}`;
 
-    const result = await cached(
+    const allGroups = await cached(
       cacheKey,
       async () => {
         const assets = await prisma.asset.findMany({
@@ -54,15 +57,15 @@ export async function GET() {
             confidenceOrder[a.confidence] - confidenceOrder[b.confidence],
         );
 
-        return {
-          totalGroups: groups.length,
-          groups: groups.slice(0, 20),
-        };
+        return groups;
       },
       5 * 60 * 1000, // 5-minute TTL (expensive computation)
     );
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      totalGroups: allGroups.length,
+      groups: returnAll ? allGroups : allGroups.slice(0, 20),
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

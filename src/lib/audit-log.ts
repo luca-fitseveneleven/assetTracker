@@ -184,4 +184,5 @@ export const AUDIT_ENTITIES = {
   KIT: "kit",
   AUDIT_CAMPAIGN: "audit_campaign",
   REPORT_SCHEDULE: "report_schedule",
+  INTUNE_SYNC: "intune_sync",
 } as const;

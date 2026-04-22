@@ -363,6 +363,8 @@ model asset {
   expectedEndOfLife     DateTime?               @db.Date
   warrantyExpires       DateTime?               @db.Date
   warrantyMonths        Int?
+  externalId            String?                 @db.VarChar(255)
+  externalSource        String?                 @db.VarChar(30)
   assetCategoryType     assetCategoryType?      @relation(fields: [assetcategorytypeid], references: [assetcategorytypeid], onDelete: NoAction, onUpdate: NoAction, map: "fk_asset_assetcategorytype_c_assetcategorytypeid")
   location              location?               @relation(fields: [locationid], references: [locationid], onDelete: NoAction, onUpdate: NoAction, map: "fk_asset_location_c_locationid")
   manufacturer          manufacturer?           @relation(fields: [manufacturerid], references: [manufacturerid], onDelete: NoAction, onUpdate: NoAction, map: "fk_asset_manufacturer_c_manufacturerid")
@@ -390,6 +392,25 @@ model asset {
   @@index([supplierid])
   @@index([manufacturerid])
   @@index([organizationId, creation_date])
+  @@index([externalId])
+  @@index([externalSource])
+  @@schema("assettool")
+}
+
+model IntuneSyncLog {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String?  @db.Uuid
+  status           String   @db.VarChar(20)
+  devicesCreated   Int      @default(0)
+  devicesUpdated   Int      @default(0)
+  devicesSkipped   Int      @default(0)
+  errors           Json?
+  triggeredBy      String?  @db.VarChar(50)
+  durationMs       Int?
+  createdAt        DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([createdAt])
+  @@map("intune_sync_logs")
   @@schema("assettool")
 }
 

@@ -9,7 +9,7 @@ import {
   getOrganizationContext,
   scopeToOrganization,
 } from "@/lib/organization-context";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 // GET /api/asset/checkout?assetId=<uuid>
 export async function GET(req: Request) {
@@ -175,7 +175,7 @@ export async function POST(req: Request) {
         checkedOutToType,
         targetLabel,
       },
-    }).catch(() => {});
+    }).catch(logCatchError("Audit log failed"));
 
     // Webhook
     triggerWebhook("asset.checked_out", {
@@ -192,7 +192,7 @@ export async function POST(req: Request) {
       assetTag: asset.assettag,
       checkedOutToType,
       targetLabel,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(checkout, { status: 201 });
   } catch (error: unknown) {

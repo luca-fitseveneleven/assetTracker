@@ -4,7 +4,7 @@ import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -45,9 +45,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // Summary stats
     const total = campaign.entries.length;
     const found = campaign.entries.filter((e) => e.status === "found").length;
-    const missing = campaign.entries.filter((e) => e.status === "missing").length;
+    const missing = campaign.entries.filter(
+      (e) => e.status === "missing",
+    ).length;
     const moved = campaign.entries.filter((e) => e.status === "moved").length;
-    const unscanned = campaign.entries.filter((e) => e.status === "unscanned").length;
+    const unscanned = campaign.entries.filter(
+      (e) => e.status === "unscanned",
+    ).length;
 
     await createAuditLog({
       userId: authUser.id,
@@ -68,7 +72,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       campaignName: campaign.name,
       found,
       total,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(
       { ...updated, summary: { total, found, missing, moved, unscanned } },

@@ -11,7 +11,7 @@ import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { checkUserLimit } from "@/lib/tenant-limits";
 import { sendSetPasswordLink } from "@/lib/magic-link";
 import crypto from "crypto";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import { getBaseUrl } from "@/lib/url";
 
 // POST /api/user/addUser
@@ -41,7 +41,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error: "Validation failed",
-          details: validationResult.error.issues,
+          details: validationResult.error.issues.map((i) => i.message),
         },
         { status: 400 },
       );
@@ -200,7 +200,7 @@ export async function POST(request) {
     ).catch(() => {});
     notifyIntegrations("user.created", {
       email: created.email,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = created;
@@ -217,15 +217,15 @@ export async function POST(request) {
     logger.error("POST /api/user/addUser error", { error });
 
     // Handle specific error types
-    if (error.message === "Unauthorized") {
+    if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (error.message.startsWith("Forbidden")) {
+    if (error instanceof Error && error.message.startsWith("Forbidden")) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
 
     // Handle unique constraint violations
-    if (error.code === "P2002") {
+    if (error instanceof Object && "code" in error && error.code === "P2002") {
       return NextResponse.json(
         {
           error: "A user with this username or email already exists",

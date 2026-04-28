@@ -1,24 +1,62 @@
 /**
- * Account lockout module
- * Implements account lockout after failed login attempts
+ * PostgreSQL-backed account lockout module.
+ *
+ * Uses the "account_lockouts" table for distributed lockout tracking that works
+ * correctly in serverless environments (Vercel) where each invocation has its
+ * own memory. All state is persisted in PostgreSQL via Prisma raw queries.
+ *
+ * Follows the same self-healing, fail-open pattern as rate-limit.ts.
  */
 
+import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 
-interface LockoutEntry {
-  failedAttempts: number;
-  lockedUntil: number | null;
-  lastAttempt: number;
+const S = process.env.DB_SCHEMA || "assettool";
+if (!/^[a-zA-Z0-9_]+$/.test(S)) {
+  throw new Error(
+    `Invalid DB_SCHEMA: "${S}". Only alphanumeric and underscores allowed.`,
+  );
+}
+const LOCKOUT_TABLE = `"${S}"."account_lockouts"`;
+
+// ---------------------------------------------------------------------------
+// Self-healing table creation
+// ---------------------------------------------------------------------------
+
+let tableChecked = false;
+let _ensurePromise: Promise<void> | null = null;
+
+async function ensureLockoutTable(): Promise<void> {
+  if (tableChecked) return;
+  if (_ensurePromise) return _ensurePromise;
+
+  _ensurePromise = (async () => {
+    try {
+      await prisma.$executeRawUnsafe(`
+				CREATE UNLOGGED TABLE IF NOT EXISTS ${LOCKOUT_TABLE} (
+					"key"             VARCHAR(255) PRIMARY KEY,
+					"failed_attempts" INTEGER NOT NULL DEFAULT 0,
+					"locked_until"    TIMESTAMPTZ,
+					"last_attempt"    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+				)
+			`);
+      tableChecked = true;
+    } catch (e) {
+      logger.error("[account-lockout] ensureLockoutTable failed", {
+        error: e,
+      });
+    } finally {
+      _ensurePromise = null;
+    }
+  })();
+  return _ensurePromise;
 }
 
-// In-memory storage for lockout tracking
-// In production, consider using Redis for distributed deployments
-const lockoutStore = new Map<string, LockoutEntry>();
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
 
-/**
- * Lockout configuration
- */
 export const LOCKOUT_CONFIG = {
   /** Maximum failed attempts before lockout */
   maxAttempts: 5,
@@ -26,208 +64,262 @@ export const LOCKOUT_CONFIG = {
   lockoutDurationMs: 15 * 60 * 1000,
   /** Time window for counting failed attempts (1 hour) */
   attemptWindowMs: 60 * 60 * 1000,
-  /** Progressive lockout - increase duration with repeated lockouts */
+  /** Progressive lockout — increase duration with repeated lockouts */
   progressiveLockout: true,
   /** Maximum lockout duration (24 hours) */
   maxLockoutDurationMs: 24 * 60 * 60 * 1000,
 };
 
-/**
- * Clean up expired entries periodically
- */
-const CLEANUP_INTERVAL = 60000; // 1 minute
-let cleanupTimer: NodeJS.Timeout | null = null;
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
-function startCleanup() {
-  if (cleanupTimer) return;
-  cleanupTimer = setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of lockoutStore.entries()) {
-      // Remove entries that are no longer locked and have old attempts
-      if (!entry.lockedUntil && now - entry.lastAttempt > LOCKOUT_CONFIG.attemptWindowMs) {
-        lockoutStore.delete(key);
-      }
-      // Remove entries where lockout has expired and no recent attempts
-      if (entry.lockedUntil && entry.lockedUntil < now && now - entry.lastAttempt > LOCKOUT_CONFIG.attemptWindowMs) {
-        lockoutStore.delete(key);
-      }
-    }
-  }, CLEANUP_INTERVAL);
-  
-  if (cleanupTimer.unref) {
-    cleanupTimer.unref();
-  }
-}
-
-startCleanup();
-
-/**
- * Get the lockout entry for a user
- */
-function getEntry(identifier: string): LockoutEntry {
-  let entry = lockoutStore.get(identifier);
-  
-  if (!entry) {
-    entry = {
-      failedAttempts: 0,
-      lockedUntil: null,
-      lastAttempt: 0,
-    };
-    lockoutStore.set(identifier, entry);
-  }
-
-  return entry;
+interface LockoutRow {
+  failed_attempts: number;
+  locked_until: Date | null;
+  last_attempt: Date;
 }
 
 /**
- * Check if an account is currently locked
+ * Check if an account is currently locked.
  */
-export function isAccountLocked(identifier: string): { locked: boolean; remainingMs?: number; unlockTime?: Date } {
-  // Check if feature is enabled
+export async function isAccountLocked(
+  identifier: string,
+): Promise<{ locked: boolean; remainingMs?: number; unlockTime?: Date }> {
   if (!isFeatureEnabled("accountLockout")) {
     return { locked: false };
   }
 
-  const entry = getEntry(identifier);
-  const now = Date.now();
+  try {
+    await ensureLockoutTable();
 
-  if (entry.lockedUntil && entry.lockedUntil > now) {
-    const remainingMs = entry.lockedUntil - now;
-    return {
-      locked: true,
-      remainingMs,
-      unlockTime: new Date(entry.lockedUntil),
-    };
+    const rows = await prisma.$queryRawUnsafe<LockoutRow[]>(
+      `SELECT "failed_attempts", "locked_until", "last_attempt"
+			 FROM ${LOCKOUT_TABLE}
+			 WHERE "key" = $1`,
+      identifier,
+    );
+
+    if (rows.length === 0) return { locked: false };
+
+    const row = rows[0];
+    if (row.locked_until && new Date(row.locked_until) > new Date()) {
+      const remainingMs = new Date(row.locked_until).getTime() - Date.now();
+      return {
+        locked: true,
+        remainingMs,
+        unlockTime: new Date(row.locked_until),
+      };
+    }
+
+    return { locked: false };
+  } catch (e) {
+    logger.error("[account-lockout] isAccountLocked failed", { error: e });
+    // Fail open — don't block logins if DB is down
+    return { locked: false };
   }
-
-  return { locked: false };
 }
 
 /**
- * Record a failed login attempt
- * Returns the lockout status after recording the attempt
+ * Record a failed login attempt.
+ * Returns the lockout status after recording the attempt.
  */
-export function recordFailedAttempt(
+export async function recordFailedAttempt(
   identifier: string,
-  context?: { ipAddress?: string; userAgent?: string }
-): {
+  context?: { ipAddress?: string; userAgent?: string },
+): Promise<{
   locked: boolean;
   attemptsRemaining: number;
   lockoutDurationMs?: number;
   unlockTime?: Date;
-} {
-  // Check if feature is enabled
+}> {
   if (!isFeatureEnabled("accountLockout")) {
     return { locked: false, attemptsRemaining: LOCKOUT_CONFIG.maxAttempts };
   }
 
-  const entry = getEntry(identifier);
-  const now = Date.now();
+  try {
+    await ensureLockoutTable();
 
-  // Reset attempts if outside the window
-  if (now - entry.lastAttempt > LOCKOUT_CONFIG.attemptWindowMs) {
-    entry.failedAttempts = 0;
-    entry.lockedUntil = null;
-  }
+    const windowSeconds = LOCKOUT_CONFIG.attemptWindowMs / 1000;
 
-  // Increment failed attempts
-  entry.failedAttempts++;
-  entry.lastAttempt = now;
-
-  logger.securityEvent("Failed login attempt", {
-    identifier,
-    failedAttempts: entry.failedAttempts,
-    maxAttempts: LOCKOUT_CONFIG.maxAttempts,
-    ...context,
-  });
-
-  // Check if we should lock the account
-  if (entry.failedAttempts >= LOCKOUT_CONFIG.maxAttempts) {
-    // Calculate lockout duration (progressive if enabled)
-    let lockoutDuration = LOCKOUT_CONFIG.lockoutDurationMs;
-    
-    if (LOCKOUT_CONFIG.progressiveLockout) {
-      // Double the lockout duration for each lockout (up to max)
-      const lockoutCount = Math.floor(entry.failedAttempts / LOCKOUT_CONFIG.maxAttempts);
-      lockoutDuration = Math.min(
-        LOCKOUT_CONFIG.lockoutDurationMs * Math.pow(2, lockoutCount - 1),
-        LOCKOUT_CONFIG.maxLockoutDurationMs
-      );
-    }
-
-    entry.lockedUntil = now + lockoutDuration;
-
-    logger.securityEvent("Account locked", {
+    // Atomic upsert: insert or increment failed_attempts.
+    // If last_attempt is older than the window, reset the counter.
+    const rows = await prisma.$queryRawUnsafe<LockoutRow[]>(
+      `INSERT INTO ${LOCKOUT_TABLE} ("key", "failed_attempts", "last_attempt")
+			 VALUES ($1, 1, NOW())
+			 ON CONFLICT ("key") DO UPDATE
+			   SET "failed_attempts" = CASE
+			                             WHEN ${LOCKOUT_TABLE}."last_attempt" < NOW() - make_interval(secs => $2)
+			                               THEN 1
+			                             ELSE ${LOCKOUT_TABLE}."failed_attempts" + 1
+			                           END,
+			       "last_attempt" = NOW(),
+			       "locked_until" = CASE
+			                          WHEN ${LOCKOUT_TABLE}."locked_until" IS NOT NULL
+			                               AND ${LOCKOUT_TABLE}."locked_until" > NOW()
+			                            THEN ${LOCKOUT_TABLE}."locked_until"
+			                          ELSE NULL
+			                        END
+			 RETURNING "failed_attempts", "locked_until", "last_attempt"`,
       identifier,
-      lockoutDurationMs: lockoutDuration,
-      unlockTime: new Date(entry.lockedUntil).toISOString(),
-      failedAttempts: entry.failedAttempts,
+      windowSeconds,
+    );
+
+    const row = rows[0];
+
+    logger.securityEvent("Failed login attempt", {
+      identifier,
+      failedAttempts: row.failed_attempts,
+      maxAttempts: LOCKOUT_CONFIG.maxAttempts,
       ...context,
     });
 
+    if (row.failed_attempts >= LOCKOUT_CONFIG.maxAttempts) {
+      // Calculate progressive lockout duration
+      const lockoutCount = Math.floor(
+        row.failed_attempts / LOCKOUT_CONFIG.maxAttempts,
+      );
+      const lockoutDuration = LOCKOUT_CONFIG.progressiveLockout
+        ? Math.min(
+            LOCKOUT_CONFIG.lockoutDurationMs * Math.pow(2, lockoutCount - 1),
+            LOCKOUT_CONFIG.maxLockoutDurationMs,
+          )
+        : LOCKOUT_CONFIG.lockoutDurationMs;
+
+      const lockoutSeconds = lockoutDuration / 1000;
+
+      // Set the locked_until timestamp
+      await prisma.$executeRawUnsafe(
+        `UPDATE ${LOCKOUT_TABLE}
+				 SET "locked_until" = NOW() + make_interval(secs => $2)
+				 WHERE "key" = $1`,
+        identifier,
+        lockoutSeconds,
+      );
+
+      const unlockTime = new Date(Date.now() + lockoutDuration);
+
+      logger.securityEvent("Account locked", {
+        identifier,
+        lockoutDurationMs: lockoutDuration,
+        unlockTime: unlockTime.toISOString(),
+        failedAttempts: row.failed_attempts,
+        ...context,
+      });
+
+      return {
+        locked: true,
+        attemptsRemaining: 0,
+        lockoutDurationMs: lockoutDuration,
+        unlockTime,
+      };
+    }
+
     return {
-      locked: true,
-      attemptsRemaining: 0,
-      lockoutDurationMs: lockoutDuration,
-      unlockTime: new Date(entry.lockedUntil),
+      locked: false,
+      attemptsRemaining: LOCKOUT_CONFIG.maxAttempts - row.failed_attempts,
+    };
+  } catch (e) {
+    logger.error("[account-lockout] recordFailedAttempt failed", {
+      error: e,
+    });
+    // Fail open
+    return {
+      locked: false,
+      attemptsRemaining: LOCKOUT_CONFIG.maxAttempts,
     };
   }
-
-  return {
-    locked: false,
-    attemptsRemaining: LOCKOUT_CONFIG.maxAttempts - entry.failedAttempts,
-  };
 }
 
 /**
- * Record a successful login (resets the lockout counter)
+ * Record a successful login (resets the lockout counter).
  */
-export function recordSuccessfulLogin(identifier: string): void {
-  const entry = lockoutStore.get(identifier);
-  
-  if (entry) {
-    logger.info("Successful login - resetting lockout counter", {
+export async function recordSuccessfulLogin(identifier: string): Promise<void> {
+  try {
+    await ensureLockoutTable();
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM ${LOCKOUT_TABLE} WHERE "key" = $1`,
       identifier,
-      previousFailedAttempts: entry.failedAttempts,
+    );
+  } catch (e) {
+    logger.error("[account-lockout] recordSuccessfulLogin failed", {
+      error: e,
     });
-    lockoutStore.delete(identifier);
   }
 }
 
 /**
- * Manually unlock an account (admin action)
+ * Manually unlock an account (admin action).
  */
-export function unlockAccount(identifier: string, adminId?: string): boolean {
-  const entry = lockoutStore.get(identifier);
-  
-  if (!entry) {
+export async function unlockAccount(
+  identifier: string,
+  adminId?: string,
+): Promise<boolean> {
+  try {
+    await ensureLockoutTable();
+
+    const rows = await prisma.$queryRawUnsafe<LockoutRow[]>(
+      `DELETE FROM ${LOCKOUT_TABLE} WHERE "key" = $1
+			 RETURNING "failed_attempts", "locked_until", "last_attempt"`,
+      identifier,
+    );
+
+    if (rows.length === 0) return false;
+
+    logger.securityEvent("Account manually unlocked", {
+      identifier,
+      adminId,
+      previousFailedAttempts: rows[0].failed_attempts,
+      wasLocked:
+        rows[0].locked_until !== null &&
+        new Date(rows[0].locked_until) > new Date(),
+    });
+
+    return true;
+  } catch (e) {
+    logger.error("[account-lockout] unlockAccount failed", { error: e });
     return false;
   }
-
-  logger.securityEvent("Account manually unlocked", {
-    identifier,
-    adminId,
-    previousFailedAttempts: entry.failedAttempts,
-    wasLocked: entry.lockedUntil !== null && entry.lockedUntil > Date.now(),
-  });
-
-  lockoutStore.delete(identifier);
-  return true;
 }
 
 /**
- * Get lockout status for an account (admin view)
+ * Get lockout status for an account (admin view).
  */
-export function getLockoutStatus(identifier: string): {
+export async function getLockoutStatus(identifier: string): Promise<{
   failedAttempts: number;
   lockedUntil: Date | null;
   lastAttempt: Date | null;
   isLocked: boolean;
-} {
-  const entry = lockoutStore.get(identifier);
-  const now = Date.now();
+}> {
+  try {
+    await ensureLockoutTable();
 
-  if (!entry) {
+    const rows = await prisma.$queryRawUnsafe<LockoutRow[]>(
+      `SELECT "failed_attempts", "locked_until", "last_attempt"
+			 FROM ${LOCKOUT_TABLE}
+			 WHERE "key" = $1`,
+      identifier,
+    );
+
+    if (rows.length === 0) {
+      return {
+        failedAttempts: 0,
+        lockedUntil: null,
+        lastAttempt: null,
+        isLocked: false,
+      };
+    }
+
+    const row = rows[0];
+    return {
+      failedAttempts: row.failed_attempts,
+      lockedUntil: row.locked_until ? new Date(row.locked_until) : null,
+      lastAttempt: new Date(row.last_attempt),
+      isLocked:
+        row.locked_until !== null && new Date(row.locked_until) > new Date(),
+    };
+  } catch (e) {
+    logger.error("[account-lockout] getLockoutStatus failed", { error: e });
     return {
       failedAttempts: 0,
       lockedUntil: null,
@@ -235,64 +327,67 @@ export function getLockoutStatus(identifier: string): {
       isLocked: false,
     };
   }
-
-  return {
-    failedAttempts: entry.failedAttempts,
-    lockedUntil: entry.lockedUntil ? new Date(entry.lockedUntil) : null,
-    lastAttempt: entry.lastAttempt ? new Date(entry.lastAttempt) : null,
-    isLocked: entry.lockedUntil !== null && entry.lockedUntil > now,
-  };
 }
 
 /**
- * Get all locked accounts (admin view)
+ * Get all currently locked accounts (admin view).
  */
-export function getAllLockedAccounts(): Array<{
-  identifier: string;
-  failedAttempts: number;
-  lockedUntil: Date;
-  lastAttempt: Date;
-}> {
-  const now = Date.now();
-  const locked: Array<{
+export async function getAllLockedAccounts(): Promise<
+  Array<{
     identifier: string;
     failedAttempts: number;
     lockedUntil: Date;
     lastAttempt: Date;
-  }> = [];
+  }>
+> {
+  try {
+    await ensureLockoutTable();
 
-  for (const [identifier, entry] of lockoutStore.entries()) {
-    if (entry.lockedUntil && entry.lockedUntil > now) {
-      locked.push({
-        identifier,
-        failedAttempts: entry.failedAttempts,
-        lockedUntil: new Date(entry.lockedUntil),
-        lastAttempt: new Date(entry.lastAttempt),
-      });
-    }
+    const rows = await prisma.$queryRawUnsafe<
+      Array<{
+        key: string;
+        failed_attempts: number;
+        locked_until: Date;
+        last_attempt: Date;
+      }>
+    >(
+      `SELECT "key", "failed_attempts", "locked_until", "last_attempt"
+			 FROM ${LOCKOUT_TABLE}
+			 WHERE "locked_until" IS NOT NULL AND "locked_until" > NOW()`,
+    );
+
+    return rows.map((r) => ({
+      identifier: r.key,
+      failedAttempts: r.failed_attempts,
+      lockedUntil: new Date(r.locked_until),
+      lastAttempt: new Date(r.last_attempt),
+    }));
+  } catch (e) {
+    logger.error("[account-lockout] getAllLockedAccounts failed", {
+      error: e,
+    });
+    return [];
   }
-
-  return locked;
 }
 
 /**
- * Format lockout message for user display
+ * Format lockout message for user display.
  */
 export function formatLockoutMessage(remainingMs: number): string {
   const minutes = Math.ceil(remainingMs / (60 * 1000));
-  
+
   if (minutes <= 1) {
     return "Your account is temporarily locked. Please try again in about a minute.";
   }
-  
+
   if (minutes < 60) {
     return `Your account is temporarily locked. Please try again in ${minutes} minutes.`;
   }
-  
+
   const hours = Math.ceil(minutes / 60);
   if (hours === 1) {
     return "Your account is temporarily locked. Please try again in about an hour.";
   }
-  
+
   return `Your account is temporarily locked. Please try again in ${hours} hours.`;
 }

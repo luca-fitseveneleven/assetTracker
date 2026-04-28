@@ -89,7 +89,7 @@ async function getEmailConfig(): Promise<EmailConfig | null> {
 
     return null;
   } catch (error) {
-    console.error("Failed to get email config:", error);
+    logger.error("Failed to get email config", { error });
     return null;
   }
 }

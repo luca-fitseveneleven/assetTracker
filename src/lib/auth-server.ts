@@ -394,7 +394,7 @@ export const auth = betterAuth({
       const lockoutKey = user?.email ?? rawIdentifier;
 
       // Check account lockout
-      const lockStatus = isAccountLocked(lockoutKey);
+      const lockStatus = await isAccountLocked(lockoutKey);
       if (lockStatus.locked) {
         logger.securityEvent("Login attempt on locked account", {
           identifier: lockoutKey,
@@ -479,7 +479,7 @@ export const auth = betterAuth({
       // Check if login succeeded (session cookie was set)
       const setCookie = ctx.context.responseHeaders?.get("set-cookie");
       if (setCookie) {
-        recordSuccessfulLogin(identifier);
+        await recordSuccessfulLogin(identifier);
 
         const user = await prisma.user.findFirst({
           where: {
@@ -568,7 +568,7 @@ export const auth = betterAuth({
         }
       } else {
         // Login failed — single place for recording failed attempts
-        recordFailedAttempt(identifier);
+        await recordFailedAttempt(identifier);
 
         // Record failed attempt for suspicious activity detection (IP-based)
         const failedIp =

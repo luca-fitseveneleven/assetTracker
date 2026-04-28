@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { headers } from "next/headers";
+import { logger } from "@/lib/logger";
 
 interface AuditLogParams {
   userId: string | null;
@@ -53,7 +54,7 @@ export async function createAuditLog({
     });
   } catch (error) {
     // Log error but don't throw - audit logging shouldn't break the application
-    console.error("Failed to create audit log:", error);
+    logger.error("Failed to create audit log", { error });
   }
 }
 

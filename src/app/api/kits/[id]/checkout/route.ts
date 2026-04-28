@@ -4,7 +4,7 @@ import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -54,7 +54,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const results: { entityType: string; entityId: string; status: string; detail?: string }[] = [];
+    const results: {
+      entityType: string;
+      entityId: string;
+      status: string;
+      detail?: string;
+    }[] = [];
 
     // Process each kit item
     await prisma.$transaction(async (tx) => {
@@ -178,7 +183,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     notifyIntegrations("kit.checked_out", {
       kitName: kit.name,
       userName: `${targetUser.firstname} ${targetUser.lastname}`,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json({ kitId: id, results }, { status: 201 });
   } catch (e: any) {

@@ -5,7 +5,7 @@ import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, componentCheckinSchema } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -145,7 +145,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     notifyIntegrations("component.checked_in", {
       componentName: existing.component.name,
       quantity: existing.quantity,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(checkin, { status: 200 });
   } catch (e: any) {

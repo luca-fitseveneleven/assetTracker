@@ -9,7 +9,7 @@ import {
   userToScim,
   scimListResponse,
 } from "@/lib/scim";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 
 const USER_SELECT = {
@@ -170,7 +170,7 @@ export async function POST(req: Request) {
           password: randomPassword,
         },
       })
-      .catch(() => {});
+      .catch(logCatchError("BetterAuth credential sync failed"));
 
     await createAuditLog({
       userId: user.userid,

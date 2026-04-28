@@ -1,6 +1,8 @@
 import prisma from "./prisma";
 import crypto from "crypto";
 import { decrypt } from "./encryption";
+import { validateOutboundUrl } from "./url-validation";
+import { logger } from "./logger";
 
 /**
  * Available webhook events
@@ -100,7 +102,7 @@ export async function triggerWebhook(
 
     await Promise.allSettled(deliveries);
   } catch (error) {
-    console.error("Error triggering webhooks:", error);
+    logger.error("Error triggering webhooks", { error });
   }
 }
 
@@ -132,6 +134,28 @@ async function deliverWebhook(
       payloadString,
       plaintextSecret,
     );
+  }
+
+  // SSRF protection: validate URL before making outbound request
+  const urlCheck = await validateOutboundUrl(webhook.url);
+  if (!urlCheck.valid) {
+    logger.warn("Webhook delivery blocked by SSRF protection", {
+      webhookId: webhook.id,
+      url: webhook.url,
+      reason: urlCheck.error,
+    });
+    await prisma.webhookDelivery.create({
+      data: {
+        webhookId: webhook.id,
+        event: payload.event,
+        payload: payload as object,
+        statusCode: 0,
+        response: `Blocked: ${urlCheck.error}`,
+        attempt,
+        success: false,
+      },
+    });
+    return;
   }
 
   try {

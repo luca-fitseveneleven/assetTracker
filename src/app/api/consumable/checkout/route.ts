@@ -9,7 +9,7 @@ import {
   getOrganizationContext,
   scopeToOrganization,
 } from "@/lib/organization-context";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 // GET /api/consumable/checkout?consumableId=...
 export async function GET(req: Request) {
@@ -186,7 +186,7 @@ export async function POST(req: Request) {
         consumableName: consumable!.consumablename,
         quantity: remainingStock,
         minQuantity: minQty,
-      }).catch(() => {});
+      }).catch(logCatchError("Integration notification failed"));
     } else if (minQty > 0 && remainingStock <= minQty) {
       triggerWebhook("consumable.low_stock", {
         consumableId,
@@ -198,7 +198,7 @@ export async function POST(req: Request) {
         consumableName: consumable!.consumablename,
         quantity: remainingStock,
         minQuantity: minQty,
-      }).catch(() => {});
+      }).catch(logCatchError("Integration notification failed"));
     }
 
     return NextResponse.json(checkout, { status: 201 });

@@ -25,7 +25,7 @@ import {
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { checkAssetLimit } from "@/lib/tenant-limits";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import { conflictResponse } from "@/lib/concurrency";
 import {
   createAuditLog,
@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
       entity: AUDIT_ENTITIES.ASSET,
       entityId: created.assetid,
       details: { assetname: created.assetname, assettag: created.assettag },
-    }).catch(() => {});
+    }).catch(logCatchError("Audit log failed"));
     triggerWebhook("asset.created", {
       assetId: created.assetid,
       assetName: created.assetname,
@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
     notifyIntegrations("asset.created", {
       assetName: created.assetname,
       assetTag: created.assettag,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
@@ -298,7 +298,7 @@ export async function PUT(req: NextRequest) {
       entityId: existing.assetid,
       before: existing as unknown as Record<string, unknown>,
       after: updated as unknown as Record<string, unknown>,
-    }).catch(() => {});
+    }).catch(logCatchError("Audit log failed"));
     triggerWebhook("asset.updated", {
       assetId: updated.assetid,
       assetName: updated.assetname,
@@ -307,7 +307,7 @@ export async function PUT(req: NextRequest) {
     notifyIntegrations("asset.updated", {
       assetName: updated.assetname,
       assetTag: updated.assettag,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {

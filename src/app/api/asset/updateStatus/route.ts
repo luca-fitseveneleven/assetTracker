@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import prisma from "../../../../lib/prisma";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import {
   getOrganizationContext,
@@ -146,7 +146,7 @@ export async function PUT(req: NextRequest) {
     notifyIntegrations("asset.updated", {
       assetName: updated.assetname,
       assetTag: updated.assettag,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     const duration = Date.now() - startTime;
     logger.apiResponse("PUT", "/api/asset/updateStatus", 200, duration, {

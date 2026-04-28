@@ -13,6 +13,25 @@ import { scopeToOrganization } from "@/lib/organization-context";
 import { logger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
+// Timeout helper — 30 s default for all Graph API calls
+// ---------------------------------------------------------------------------
+
+const GRAPH_API_TIMEOUT_MS = 30_000;
+
+function fetchWithTimeout(
+  url: string,
+  init?: RequestInit,
+  timeoutMs = GRAPH_API_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(url, { ...init, signal: controller.signal }).finally(() =>
+    clearTimeout(timer),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -98,7 +117,7 @@ async function getAccessToken(
     scope: "https://graph.microsoft.com/.default",
   });
 
-  const res = await fetch(tokenUrl, {
+  const res = await fetchWithTimeout(tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
@@ -125,7 +144,7 @@ async function fetchManagedDevices(
     "https://graph.microsoft.com/v1.0/deviceManagement/managedDevices?$select=id,deviceName,serialNumber,manufacturer,model,operatingSystem,osVersion,complianceState,deviceType,managedDeviceOwnerType,enrolledDateTime,lastSyncDateTime&$top=1000";
 
   while (url) {
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 

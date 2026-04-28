@@ -15,7 +15,7 @@ import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { z } from "zod";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 // Get all stock alerts with optional low-stock filter
 export async function GET(req: NextRequest) {
@@ -212,7 +212,7 @@ export async function PUT() {
           consumableName: alert.consumable.consumablename,
           quantity: qty,
           minQuantity: alert.criticalThreshold,
-        }).catch(() => {});
+        }).catch(logCatchError("Integration notification failed"));
         triggered.push({
           consumableName: alert.consumable.consumablename,
           quantity: qty,
@@ -241,7 +241,7 @@ export async function PUT() {
           consumableName: alert.consumable.consumablename,
           quantity: qty,
           minQuantity: alert.minThreshold,
-        }).catch(() => {});
+        }).catch(logCatchError("Integration notification failed"));
         triggered.push({
           consumableName: alert.consumable.consumablename,
           quantity: qty,

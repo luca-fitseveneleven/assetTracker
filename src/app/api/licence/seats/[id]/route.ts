@@ -4,7 +4,7 @@ import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import { getOrganizationContext } from "@/lib/organization-context";
 
 // GET /api/licence/seats/[id]
@@ -181,7 +181,7 @@ export async function DELETE(
       seatNumber: existing.seatNumber,
       userName,
       licenceName: existing.licence.licencekey,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e: any) {

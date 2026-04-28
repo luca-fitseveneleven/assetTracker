@@ -1,4 +1,22 @@
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+import { validateOutboundUrl } from "@/lib/url-validation";
+
+// 10 s timeout for webhook notifications — short because these are non-critical
+const WEBHOOK_TIMEOUT_MS = 10_000;
+
+function fetchWithTimeout(
+  url: string,
+  init?: RequestInit,
+  timeoutMs = WEBHOOK_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(url, { ...init, signal: controller.signal }).finally(() =>
+    clearTimeout(timer),
+  );
+}
 
 interface IntegrationConfig {
   enabled: boolean;
@@ -247,18 +265,27 @@ export async function notifyIntegrations(
       settings.slack.webhookUrl &&
       settings.slack.events.includes(event)
     ) {
-      const payload = formatSlackMessage(
-        event,
-        data,
-        settings.slack.channel || undefined,
+      const slackUrlCheck = await validateOutboundUrl(
+        settings.slack.webhookUrl,
       );
-      promises.push(
-        fetch(settings.slack.webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }).then(() => undefined),
-      );
+      if (slackUrlCheck.valid) {
+        const payload = formatSlackMessage(
+          event,
+          data,
+          settings.slack.channel || undefined,
+        );
+        promises.push(
+          fetchWithTimeout(settings.slack.webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).then(() => undefined),
+        );
+      } else {
+        logger.warn("Slack webhook blocked by SSRF protection", {
+          reason: slackUrlCheck.error,
+        });
+      }
     }
 
     if (
@@ -266,18 +293,27 @@ export async function notifyIntegrations(
       settings.teams.webhookUrl &&
       settings.teams.events.includes(event)
     ) {
-      const payload = formatTeamsMessage(event, data);
-      promises.push(
-        fetch(settings.teams.webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }).then(() => undefined),
+      const teamsUrlCheck = await validateOutboundUrl(
+        settings.teams.webhookUrl,
       );
+      if (teamsUrlCheck.valid) {
+        const payload = formatTeamsMessage(event, data);
+        promises.push(
+          fetchWithTimeout(settings.teams.webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).then(() => undefined),
+        );
+      } else {
+        logger.warn("Teams webhook blocked by SSRF protection", {
+          reason: teamsUrlCheck.error,
+        });
+      }
     }
 
     await Promise.allSettled(promises);
   } catch (error) {
-    console.error("Integration notification error:", error);
+    logger.warn("Integration notification error", { error, event });
   }
 }

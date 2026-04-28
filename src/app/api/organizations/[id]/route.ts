@@ -21,6 +21,13 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Prevent IDOR — users may only view their own organization
+    const userOrgId = (session.user as { organizationId?: string })
+      .organizationId;
+    if (userOrgId !== id && !session.user.isadmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const organization = await prisma.organization.findUnique({
       where: { id },
       include: {
@@ -126,7 +133,13 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   } catch (error) {
     logger.error("Error updating organization", { error });
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          details: error.issues.map((i) => i.message),
+        },
+        { status: 400 },
+      );
     }
     return NextResponse.json(
       { error: "Failed to update organization" },

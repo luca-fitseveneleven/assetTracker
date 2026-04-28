@@ -343,3 +343,17 @@ export const logger = new Logger();
 
 // Export class for custom instances
 export { Logger };
+
+/**
+ * Returns a catch handler that logs the error as a warning.
+ * Use in fire-and-forget promise chains instead of silent `.catch(() => {})`.
+ *
+ * @example
+ * createAuditLog({ ... }).catch(logCatchError("Audit log failed"));
+ * notifyIntegrations("asset.created", { ... }).catch(logCatchError("Integration notification failed"));
+ */
+export function logCatchError(context: string) {
+  return (err: unknown) => {
+    logger.warn(context, { error: err });
+  };
+}

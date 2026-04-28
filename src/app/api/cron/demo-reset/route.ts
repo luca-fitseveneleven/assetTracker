@@ -477,6 +477,17 @@ export async function GET(req: Request) {
     );
   }
 
+  // Extra safety: never allow demo reset when DEMO_ALLOW_RESET is not explicitly set
+  if (process.env.DEMO_ALLOW_RESET !== "true") {
+    logger.warn(
+      "Demo reset blocked: DEMO_ALLOW_RESET is not set. Set DEMO_ALLOW_RESET=true to enable.",
+    );
+    return NextResponse.json(
+      { error: "Demo reset is disabled. Set DEMO_ALLOW_RESET=true to enable." },
+      { status: 403 },
+    );
+  }
+
   const startTime = Date.now();
 
   try {

@@ -12,6 +12,30 @@ import { isImageMimeType, generateThumbnails } from "@/lib/storage/thumbnails";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
+// Magic bytes (file signatures) for content-type validation
+// Prevents extension spoofing by checking actual file content
+const MAGIC_BYTES: Record<string, number[][]> = {
+  // Images
+  ".png": [[0x89, 0x50, 0x4e, 0x47]],
+  ".jpg": [[0xff, 0xd8, 0xff]],
+  ".jpeg": [[0xff, 0xd8, 0xff]],
+  ".gif": [[0x47, 0x49, 0x46, 0x38]],
+  ".webp": [[0x52, 0x49, 0x46, 0x46]], // RIFF header
+  ".svg": [], // Text-based, skip magic check
+  // Documents
+  ".pdf": [[0x25, 0x50, 0x44, 0x46]], // %PDF
+  ".docx": [[0x50, 0x4b, 0x03, 0x04]], // ZIP (OOXML)
+  ".xlsx": [[0x50, 0x4b, 0x03, 0x04]], // ZIP (OOXML)
+  ".csv": [], // Text-based, skip magic check
+  ".txt": [], // Text-based, skip magic check
+};
+
+function validateMagicBytes(buffer: Buffer, ext: string): boolean {
+  const signatures = MAGIC_BYTES[ext];
+  if (!signatures || signatures.length === 0) return true; // Text-based or unlisted formats skip check
+  return signatures.some((sig) => sig.every((byte, i) => buffer[i] === byte));
+}
+
 const ALLOWED_EXTENSIONS = new Set([
   ".jpg",
   ".jpeg",
@@ -144,6 +168,14 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    // Validate file content matches its extension (prevents extension spoofing)
+    if (!validateMagicBytes(buffer, ext)) {
+      return NextResponse.json(
+        { error: "File content does not match its extension" },
+        { status: 400 },
+      );
+    }
 
     const storage = await getStorage();
     await storage.upload(uniqueFilename, buffer, file.type);

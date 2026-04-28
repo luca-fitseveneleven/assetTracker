@@ -14,7 +14,7 @@ import {
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import {
   createAuditLog,
   createAuditLogWithDiff,
@@ -156,7 +156,10 @@ export async function POST(req: NextRequest) {
     const validationResult = accessorySchema.safeParse(normalized);
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: "Validation failed", details: validationResult.error.issues },
+        {
+          error: "Validation failed",
+          details: validationResult.error.issues.map((i) => i.message),
+        },
         { status: 400 },
       );
     }
@@ -204,7 +207,7 @@ export async function POST(req: NextRequest) {
         accessoriename: created.accessoriename,
         accessorietag: created.accessorietag,
       },
-    }).catch(() => {});
+    }).catch(logCatchError("Audit log failed"));
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
     logger.error("POST /api/accessories error", { error: e });
@@ -262,7 +265,10 @@ export async function PUT(req: NextRequest) {
     const validationResult = updateSchema.safeParse(normalized);
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: "Validation failed", details: validationResult.error.issues },
+        {
+          error: "Validation failed",
+          details: validationResult.error.issues.map((i) => i.message),
+        },
         { status: 400 },
       );
     }
@@ -291,7 +297,7 @@ export async function PUT(req: NextRequest) {
       entityId: existing.accessorieid,
       before: existing as unknown as Record<string, unknown>,
       after: updated as unknown as Record<string, unknown>,
-    }).catch(() => {});
+    }).catch(logCatchError("Audit log failed"));
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
     logger.error("PUT /api/accessories error", { error: e });

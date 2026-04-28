@@ -9,7 +9,7 @@ import {
 } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
     }).catch(() => {});
     notifyIntegrations("audit.campaign_created", {
       campaignName: campaign.name,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(campaign, { status: 201 });
   } catch (e: any) {

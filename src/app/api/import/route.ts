@@ -5,7 +5,7 @@ import { importJobSchema } from "@/lib/validation-organization";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -302,7 +302,7 @@ export async function POST(req: NextRequest) {
       successCount,
       errorCount: errors.length,
       totalRows: lines.length - 1,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(completedJob, { status: 201 });
   } catch (error) {
@@ -592,7 +592,7 @@ async function createEntity(
             password: randomPassword,
           },
         })
-        .catch(() => {});
+        .catch(logCatchError("BetterAuth credential sync failed"));
       break;
     }
 

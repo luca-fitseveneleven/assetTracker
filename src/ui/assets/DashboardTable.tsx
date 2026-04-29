@@ -114,15 +114,19 @@ export default function App({
   isAdmin = true,
   currentUserId = null,
 }) {
-  // -- URL-synced state for shareable filter / pagination / sort URLs --
+  // -- URL-synced state for shareable filter / pagination URLs --
   const allStatusUids = statusOptions.map((s) => s.uid).join(",");
   const [urlState, setUrlState] = useUrlState({
     search: "",
     page: "1",
     pageSize: selectOptions[0].value,
-    sortCol: "assettag",
-    sortDir: "ascending",
     status: allStatusUids,
+  });
+
+  // -- Client-only sort state (not persisted in URL) --
+  const [sortDescriptor, setSortDescriptor] = useState({
+    column: "assettag",
+    direction: "ascending",
   });
 
   // Derived values from URL state
@@ -132,10 +136,6 @@ export default function App({
   const rowsPerPage = showAll
     ? Infinity
     : Number(urlState.pageSize) || Number(selectOptions[0].value);
-  const sortDescriptor = useMemo(
-    () => ({ column: urlState.sortCol, direction: urlState.sortDir }),
-    [urlState.sortCol, urlState.sortDir],
-  );
   const statusFilter = useMemo<Set<string>>(
     () => new Set(urlState.status ? urlState.status.split(",") : []),
     [urlState.status],
@@ -152,11 +152,6 @@ export default function App({
   );
   const setRowsPerPage = useCallback(
     (v: string) => setUrlState({ pageSize: v, page: "1" }),
-    [setUrlState],
-  );
-  const setSortDescriptor = useCallback(
-    (desc: { column: string; direction: string }) =>
-      setUrlState({ sortCol: desc.column, sortDir: desc.direction }),
     [setUrlState],
   );
   const setStatusFilter = useCallback(

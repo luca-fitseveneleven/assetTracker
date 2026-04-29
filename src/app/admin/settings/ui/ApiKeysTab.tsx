@@ -16,6 +16,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Table,
   TableBody,
   TableCell,
@@ -353,30 +358,41 @@ export default function ApiKeysTab() {
                       </span>
                     </TableCell>
                     <TableCell className="hidden px-4 py-3 text-center md:table-cell">
-                      <details className="inline">
-                        <summary className="cursor-pointer list-none">
-                          <Badge variant="secondary" className="text-xs">
-                            {apiKey.scopes.length} scope
-                            {apiKey.scopes.length !== 1 ? "s" : ""}
-                          </Badge>
-                        </summary>
-                        <div className="mt-2 flex max-w-xs flex-wrap gap-1 text-left">
-                          {apiKey.scopes.map((scope) => {
-                            const matched = ALL_SCOPES.find(
-                              (s) => s.value === scope,
-                            );
-                            return (
-                              <Badge
-                                key={scope}
-                                variant="outline"
-                                className="text-[10px]"
-                              >
-                                {matched?.label ?? scope}
-                              </Badge>
-                            );
-                          })}
-                        </div>
-                      </details>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="cursor-pointer">
+                            <Badge variant="secondary" className="text-xs">
+                              {apiKey.scopes.length} scope
+                              {apiKey.scopes.length !== 1 ? "s" : ""}
+                            </Badge>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-72 p-3"
+                          align="start"
+                          side="bottom"
+                        >
+                          <p className="mb-2 text-xs font-medium">
+                            Assigned Scopes
+                          </p>
+                          <div className="flex max-h-48 flex-wrap gap-1 overflow-y-auto">
+                            {apiKey.scopes.map((scope) => {
+                              const matched = ALL_SCOPES.find(
+                                (s) => s.value === scope,
+                              );
+                              return (
+                                <Badge
+                                  key={scope}
+                                  variant="outline"
+                                  className="text-[10px]"
+                                >
+                                  {matched?.label ?? scope}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </TableCell>
                     <TableCell className="text-muted-foreground hidden px-4 py-3 sm:table-cell">
                       {new Date(apiKey.createdAt).toLocaleDateString()}

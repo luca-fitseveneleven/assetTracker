@@ -130,7 +130,8 @@ export const auth = betterAuth({
   user: {
     modelName: "user",
     fields: {
-      id: "userid",
+      // Note: `id` is excluded from BetterAuth's fields type on purpose.
+      // The id ↔ userid translation is handled by the authPrisma extension above.
       name: "firstname", // BetterAuth expects 'name', map to firstname
       email: "email",
       emailVerified: "emailVerified",

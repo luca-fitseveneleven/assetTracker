@@ -10,6 +10,7 @@
  */
 
 import * as crypto from "crypto";
+import { logger } from "@/lib/logger";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // 96 bits — recommended for GCM
@@ -26,9 +27,8 @@ function getKey(): Buffer | null {
   const hex = process.env.ENCRYPTION_KEY;
   if (!hex) {
     if (!_warnedMissingKey) {
-      console.warn(
-        "[encryption] ENCRYPTION_KEY is not set — sensitive data will NOT be " +
-          "encrypted at rest. Generate one with: openssl rand -hex 32",
+      logger.warn(
+        "[encryption] ENCRYPTION_KEY is not set — sensitive data will NOT be encrypted at rest. Generate one with: openssl rand -hex 32",
       );
       _warnedMissingKey = true;
     }

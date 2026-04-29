@@ -16,6 +16,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Table,
   TableBody,
   TableCell,
@@ -63,22 +68,147 @@ interface CreatedKeyResponse {
 // Constants
 // ---------------------------------------------------------------------------
 
-const AVAILABLE_SCOPES = [
-  { value: "assets:read", label: "Assets (Read)" },
-  { value: "assets:write", label: "Assets (Write)" },
-  { value: "accessories:read", label: "Accessories (Read)" },
-  { value: "accessories:write", label: "Accessories (Write)" },
-  { value: "consumables:read", label: "Consumables (Read)" },
-  { value: "consumables:write", label: "Consumables (Write)" },
-  { value: "licences:read", label: "Licences (Read)" },
-  { value: "licences:write", label: "Licences (Write)" },
-  { value: "components:read", label: "Components (Read)" },
-  { value: "components:write", label: "Components (Write)" },
-  { value: "users:read", label: "Users (Read)" },
-  { value: "maintenance:read", label: "Maintenance (Read)" },
-  { value: "maintenance:write", label: "Maintenance (Write)" },
-  { value: "reports:read", label: "Reports (Read)" },
+const READ_SCOPES = [
+  { value: "asset:view", label: "Assets" },
+  { value: "accessory:view", label: "Accessories" },
+  { value: "consumable:view", label: "Consumables" },
+  { value: "license:view", label: "Licences" },
+  { value: "component:view", label: "Components" },
+  { value: "user:view", label: "Users" },
+  { value: "kit:view", label: "Kits" },
+  { value: "report:view", label: "Reports" },
+  { value: "report:export", label: "Report Export" },
+  { value: "audit:view", label: "Audit Logs" },
+  { value: "audit_campaign:view", label: "Audit Campaigns" },
+  { value: "reservation:view", label: "Reservations" },
+  { value: "org:view", label: "Organizations" },
+  { value: "dept:view", label: "Departments" },
+  { value: "webhook:view", label: "Webhooks" },
+  { value: "eula:view", label: "EULA Templates" },
+  { value: "settings:view", label: "Settings" },
 ];
+
+const WRITE_SCOPES = [
+  { value: "asset:create", label: "Assets — Create" },
+  { value: "asset:edit", label: "Assets — Edit" },
+  { value: "asset:delete", label: "Assets — Delete" },
+  { value: "asset:assign", label: "Assets — Assign" },
+  { value: "accessory:create", label: "Accessories — Create" },
+  { value: "accessory:edit", label: "Accessories — Edit" },
+  { value: "accessory:delete", label: "Accessories — Delete" },
+  { value: "consumable:create", label: "Consumables — Create" },
+  { value: "consumable:edit", label: "Consumables — Edit" },
+  { value: "consumable:delete", label: "Consumables — Delete" },
+  { value: "license:create", label: "Licences — Create" },
+  { value: "license:edit", label: "Licences — Edit" },
+  { value: "license:delete", label: "Licences — Delete" },
+  { value: "license:assign", label: "Licences — Assign" },
+  { value: "component:create", label: "Components — Create" },
+  { value: "component:edit", label: "Components — Edit" },
+  { value: "component:delete", label: "Components — Delete" },
+  { value: "user:create", label: "Users — Create" },
+  { value: "user:edit", label: "Users — Edit" },
+  { value: "user:delete", label: "Users — Delete" },
+  { value: "kit:create", label: "Kits — Create" },
+  { value: "kit:edit", label: "Kits — Edit" },
+  { value: "kit:delete", label: "Kits — Delete" },
+  { value: "kit:checkout", label: "Kits — Checkout" },
+  { value: "audit_campaign:create", label: "Audit Campaigns — Create" },
+  { value: "audit_campaign:edit", label: "Audit Campaigns — Edit" },
+  { value: "audit_campaign:scan", label: "Audit Campaigns — Scan" },
+  { value: "reservation:create", label: "Reservations — Create" },
+  { value: "reservation:approve", label: "Reservations — Approve" },
+  { value: "org:manage", label: "Organizations — Manage" },
+  { value: "dept:manage", label: "Departments — Manage" },
+  { value: "webhook:manage", label: "Webhooks — Manage" },
+  { value: "eula:manage", label: "EULA Templates — Manage" },
+  { value: "settings:edit", label: "Settings — Edit" },
+  { value: "import:execute", label: "Import — Execute" },
+];
+
+const ALL_SCOPES = [...READ_SCOPES, ...WRITE_SCOPES];
+
+// Maps a scope action to a display category
+const ACTION_CATEGORIES: Record<string, { label: string; order: number }> = {
+  view: { label: "Read", order: 0 },
+  create: { label: "Create", order: 1 },
+  edit: { label: "Edit", order: 2 },
+  delete: { label: "Delete", order: 3 },
+  assign: { label: "Assign", order: 4 },
+  manage: { label: "Manage", order: 5 },
+  approve: { label: "Approve", order: 6 },
+  checkout: { label: "Checkout", order: 7 },
+  scan: { label: "Scan", order: 8 },
+  execute: { label: "Execute", order: 9 },
+  export: { label: "Export", order: 10 },
+};
+
+/** Extract the resource name from a scope like "asset:view" → "Assets" */
+function scopeResourceLabel(scope: string): string {
+  const matched = ALL_SCOPES.find((s) => s.value === scope);
+  if (matched) {
+    // Strip action suffix: "Assets — Create" → "Assets", "Assets" → "Assets"
+    return matched.label.split("—")[0].trim();
+  }
+  return scope.split(":")[0];
+}
+
+/** Group scopes by action category for display */
+function groupScopesByCategory(
+  scopes: string[],
+): Array<{ category: string; resources: string[] }> {
+  const groups = new Map<string, string[]>();
+
+  for (const scope of scopes) {
+    const action = scope.split(":")[1] ?? "other";
+    const cat = ACTION_CATEGORIES[action]?.label ?? action;
+    const resources = groups.get(cat) ?? [];
+    resources.push(scopeResourceLabel(scope));
+    groups.set(cat, resources);
+  }
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => {
+      const orderA =
+        Object.values(ACTION_CATEGORIES).find((c) => c.label === a)?.order ??
+        99;
+      const orderB =
+        Object.values(ACTION_CATEGORIES).find((c) => c.label === b)?.order ??
+        99;
+      return orderA - orderB;
+    })
+    .map(([category, resources]) => ({ category, resources }));
+}
+
+/** Compact, grouped scopes display used in popover and reveal dialog */
+function ScopesSummary({ scopes }: { scopes: string[] }) {
+  const grouped = groupScopesByCategory(scopes);
+  return (
+    <div className="max-h-64 overflow-y-auto p-3">
+      <p className="text-muted-foreground mb-2 text-[11px] font-medium tracking-wide uppercase">
+        {scopes.length} scope{scopes.length !== 1 ? "s" : ""} assigned
+      </p>
+      <div className="space-y-2">
+        {grouped.map(({ category, resources }) => (
+          <div key={category}>
+            <p className="mb-1 text-xs font-semibold">{category}</p>
+            <div className="flex flex-wrap gap-1">
+              {resources.map((r, i) => (
+                <Badge
+                  key={`${category}-${r}-${i}`}
+                  variant="outline"
+                  className="text-[10px] font-normal"
+                >
+                  {r}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -310,9 +440,23 @@ export default function ApiKeysTab() {
                       </span>
                     </TableCell>
                     <TableCell className="hidden px-4 py-3 text-center md:table-cell">
-                      <Badge variant="secondary" className="text-xs">
-                        {apiKey.scopes.length}
-                      </Badge>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="cursor-pointer">
+                            <Badge variant="secondary" className="text-xs">
+                              {apiKey.scopes.length} scope
+                              {apiKey.scopes.length !== 1 ? "s" : ""}
+                            </Badge>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-80 p-0"
+                          align="start"
+                          side="bottom"
+                        >
+                          <ScopesSummary scopes={apiKey.scopes} />
+                        </PopoverContent>
+                      </Popover>
                     </TableCell>
                     <TableCell className="text-muted-foreground hidden px-4 py-3 sm:table-cell">
                       {new Date(apiKey.createdAt).toLocaleDateString()}
@@ -409,25 +553,104 @@ export default function ApiKeysTab() {
               <div className="flex items-center justify-between">
                 <Label className="text-base">Scopes</Label>
                 <span className="text-muted-foreground text-xs">
-                  {formScopes.length} of {AVAILABLE_SCOPES.length} selected
+                  {formScopes.length} of {ALL_SCOPES.length} selected
                 </span>
               </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {AVAILABLE_SCOPES.map((scope) => (
-                  <div key={scope.value} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`scope-${scope.value}`}
-                      checked={formScopes.includes(scope.value)}
-                      onCheckedChange={() => toggleScope(scope.value)}
-                    />
-                    <Label
-                      htmlFor={`scope-${scope.value}`}
-                      className="cursor-pointer text-sm font-normal"
-                    >
-                      {scope.label}
-                    </Label>
-                  </div>
-                ))}
+
+              {/* Read Scopes */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Read</Label>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground text-xs underline"
+                    onClick={() => {
+                      const readValues = READ_SCOPES.map((s) => s.value);
+                      const allSelected = readValues.every((v) =>
+                        formScopes.includes(v),
+                      );
+                      if (allSelected) {
+                        setFormScopes((prev) =>
+                          prev.filter((s) => !readValues.includes(s)),
+                        );
+                      } else {
+                        setFormScopes((prev) => [
+                          ...new Set([...prev, ...readValues]),
+                        ]);
+                      }
+                    }}
+                  >
+                    {READ_SCOPES.every((s) => formScopes.includes(s.value))
+                      ? "Deselect all"
+                      : "Select all"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {READ_SCOPES.map((scope) => (
+                    <div key={scope.value} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`scope-${scope.value}`}
+                        checked={formScopes.includes(scope.value)}
+                        onCheckedChange={() => toggleScope(scope.value)}
+                      />
+                      <Label
+                        htmlFor={`scope-${scope.value}`}
+                        className="cursor-pointer text-sm font-normal"
+                      >
+                        {scope.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Write Scopes */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Write</Label>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground text-xs underline"
+                    onClick={() => {
+                      const writeValues = WRITE_SCOPES.map((s) => s.value);
+                      const allSelected = writeValues.every((v) =>
+                        formScopes.includes(v),
+                      );
+                      if (allSelected) {
+                        setFormScopes((prev) =>
+                          prev.filter((s) => !writeValues.includes(s)),
+                        );
+                      } else {
+                        setFormScopes((prev) => [
+                          ...new Set([...prev, ...writeValues]),
+                        ]);
+                      }
+                    }}
+                  >
+                    {WRITE_SCOPES.every((s) => formScopes.includes(s.value))
+                      ? "Deselect all"
+                      : "Select all"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {WRITE_SCOPES.map((scope) => (
+                    <div key={scope.value} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`scope-${scope.value}`}
+                        checked={formScopes.includes(scope.value)}
+                        onCheckedChange={() => toggleScope(scope.value)}
+                      />
+                      <Label
+                        htmlFor={`scope-${scope.value}`}
+                        className="cursor-pointer text-sm font-normal"
+                      >
+                        {scope.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -490,6 +713,12 @@ export default function ApiKeysTab() {
                   </Button>
                 </div>
               </div>
+
+              {/* Scopes summary */}
+              <div className="rounded-md border">
+                <ScopesSummary scopes={createdKey.scopes} />
+              </div>
+
               <p className="text-muted-foreground text-xs">
                 Store this API key in a secure location. You will not be able to
                 retrieve it after closing this dialog.

@@ -18,6 +18,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
 // Schema-qualified table name — ensures raw queries work regardless of
@@ -62,7 +63,7 @@ async function ensureCacheTable(): Promise<void> {
       );
       tableChecked = true;
     } catch (e) {
-      console.error("[cache] ensureCacheTable failed:", e);
+      logger.error("[cache] ensureCacheTable failed", { error: e });
     } finally {
       _ensurePromise = null;
     }
@@ -90,7 +91,7 @@ export const cache = {
       if (rows.length === 0) return null;
       return rows[0].value as T;
     } catch (error) {
-      console.error("[cache] get failed:", error);
+      logger.error("[cache] get failed", { error });
       return null;
     }
   },
@@ -113,7 +114,7 @@ export const cache = {
         ttlSeconds,
       );
     } catch (error) {
-      console.error("[cache] set failed:", error);
+      logger.error("[cache] set failed", { error });
     }
   },
 
@@ -127,7 +128,7 @@ export const cache = {
         key,
       );
     } catch (error) {
-      console.error("[cache] del failed:", error);
+      logger.error("[cache] del failed", { error });
     }
   },
 
@@ -141,7 +142,7 @@ export const cache = {
         prefix + "%",
       );
     } catch (error) {
-      console.error("[cache] invalidatePattern failed:", error);
+      logger.error("[cache] invalidatePattern failed", { error });
     }
   },
 
@@ -152,7 +153,7 @@ export const cache = {
     try {
       await prisma.$executeRawUnsafe(`DELETE FROM ${CACHE_TABLE}`);
     } catch (error) {
-      console.error("[cache] clear failed:", error);
+      logger.error("[cache] clear failed", { error });
     }
   },
 };

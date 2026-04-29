@@ -7,7 +7,7 @@ import {
   requireNotDemoMode,
 } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 // Transaction client type — works with both the full PrismaClient and the
 // transaction-scoped client that Prisma passes into $transaction callbacks.
@@ -255,7 +255,7 @@ export async function POST(req: NextRequest) {
       entity: entityType,
       entityId,
       details: { entityName, status: initialStatus, notes: notes || null },
-    }).catch(() => {});
+    }).catch(logCatchError("Audit log failed"));
 
     // Notify all admins (in-app via notification_queue)
     try {
@@ -458,7 +458,7 @@ export async function PUT(req: NextRequest) {
         newStatus: status,
         notes: notes || null,
       },
-    }).catch(() => {});
+    }).catch(logCatchError("Audit log failed"));
 
     // Notify the requester
     try {

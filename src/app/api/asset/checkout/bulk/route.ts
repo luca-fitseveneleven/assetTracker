@@ -9,7 +9,7 @@ import {
   getOrganizationContext,
   scopeToOrganization,
 } from "@/lib/organization-context";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 // POST /api/asset/checkout/bulk
 // Body: { assetIds, checkedOutToType, checkedOutTo?, checkedOutToLocationId?, checkedOutToAssetId?, expectedReturn?, notes? }
@@ -130,7 +130,7 @@ export async function POST(req: Request) {
         targetLabel,
         assetIds: foundAssets.map((a) => a.assetid),
       },
-    }).catch(() => {});
+    }).catch(logCatchError("Audit log failed"));
 
     // Webhook
     triggerWebhook("asset.bulk_checked_out", {
@@ -145,7 +145,7 @@ export async function POST(req: Request) {
       count: checkouts.length,
       targetLabel,
       checkedOutToType,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     const failed = missingAssetIds.map((id: string) => ({
       assetId: id,

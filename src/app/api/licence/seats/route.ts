@@ -5,7 +5,7 @@ import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, assignLicenceSeatSchema } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 // GET /api/licence/seats?licenceId=...
 export async function GET(req: Request) {
@@ -208,7 +208,7 @@ export async function POST(req: Request) {
       seatNumber: assignment.seatNumber,
       userName:
         `${assignment.user.firstname ?? ""} ${assignment.user.lastname ?? ""}`.trim(),
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(assignment, { status: 201 });
   } catch (e: any) {

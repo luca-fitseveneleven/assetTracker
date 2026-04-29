@@ -8,7 +8,7 @@ import { createAssetSchema } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { checkAssetLimit } from "@/lib/tenant-limits";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 
 const assetSchema = createAssetSchema
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
       entity: AUDIT_ENTITIES.ASSET,
       entityId: created.assetid,
       details: { assetname: created.assetname, assettag: created.assettag },
-    }).catch(() => {});
+    }).catch(logCatchError("Audit log failed"));
     triggerWebhook(
       "asset.created",
       {
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     notifyIntegrations("asset.created", {
       assetName: created.assetname,
       assetTag: created.assettag,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return new Response(JSON.stringify(created), { status: 201 });
   } catch (error) {

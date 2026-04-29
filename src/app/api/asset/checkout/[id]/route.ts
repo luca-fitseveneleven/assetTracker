@@ -4,7 +4,7 @@ import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -135,7 +135,7 @@ export async function PUT(
         checkedOutToType: existing.checkedOutToType,
         action: "check_in",
       },
-    }).catch(() => {});
+    }).catch(logCatchError("Audit log failed"));
 
     // Webhook
     triggerWebhook("asset.checked_in", {
@@ -150,7 +150,7 @@ export async function PUT(
       assetName: existing.asset?.assetname,
       assetTag: existing.asset?.assettag,
       checkedOutToType: existing.checkedOutToType,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error: unknown) {

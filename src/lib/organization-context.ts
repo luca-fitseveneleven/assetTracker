@@ -16,17 +16,35 @@ export interface OrganizationContext {
 }
 
 /**
- * Get the organization context for the current user session
+ * Get the organization context for the current user.
+ * Works with both session (cookie) and API key authentication.
  */
 export async function getOrganizationContext(): Promise<OrganizationContext | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  // Try session auth first
+  let userId: string | undefined;
 
-  if (!session?.user?.id) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (session?.user?.id) {
+    userId = session.user.id;
+  }
+
+  // Fall back to API key auth if no session
+  if (!userId) {
+    try {
+      const { getAuthUser } = await import("./api-auth");
+      const authUser = await getAuthUser();
+      userId = authUser.id;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!userId) {
     return null;
   }
 
   const user = await prisma.user.findUnique({
-    where: { userid: session.user.id },
+    where: { userid: userId },
     include: {
       organization: true,
       roles: {

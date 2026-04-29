@@ -12,7 +12,7 @@ import {
   buildPrismaArgs,
   buildPaginatedResponse,
 } from "@/lib/pagination";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 const MAINTENANCE_SORT_FIELDS = [
   "title",
@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
     notifyIntegrations("maintenance.due", {
       maintenanceTitle: schedule.title,
       assetName: schedule.asset?.assetname,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(schedule, { status: 201 });
   } catch (error) {

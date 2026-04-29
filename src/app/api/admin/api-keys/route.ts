@@ -4,24 +4,10 @@ import { requireApiAdmin } from "@/lib/api-auth";
 import { requireNotDemoMode } from "@/lib/api-auth";
 import { generateApiKey } from "@/lib/api-keys";
 import { logger } from "@/lib/logger";
+import { PERMISSIONS } from "@/lib/rbac";
 
-// Valid scopes that can be assigned to API keys
-const VALID_SCOPES = [
-  "assets:read",
-  "assets:write",
-  "accessories:read",
-  "accessories:write",
-  "consumables:read",
-  "consumables:write",
-  "licences:read",
-  "licences:write",
-  "components:read",
-  "components:write",
-  "users:read",
-  "maintenance:read",
-  "maintenance:write",
-  "reports:read",
-];
+// Valid scopes = all RBAC permission keys
+const VALID_SCOPES = Object.keys(PERMISSIONS);
 
 // POST /api/admin/api-keys - Create a new API key
 export async function POST(req: Request) {
@@ -45,17 +31,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate scopes
-    if (scopes && Array.isArray(scopes)) {
-      const invalidScopes = scopes.filter(
-        (s: string) => !VALID_SCOPES.includes(s),
+    // Validate scopes — at least one scope is required
+    if (!scopes || !Array.isArray(scopes) || scopes.length === 0) {
+      return NextResponse.json(
+        { error: "At least one scope is required" },
+        { status: 400 },
       );
-      if (invalidScopes.length > 0) {
-        return NextResponse.json(
-          { error: `Invalid scopes: ${invalidScopes.join(", ")}` },
-          { status: 400 },
-        );
-      }
+    }
+
+    const invalidScopes = scopes.filter(
+      (s: string) => !VALID_SCOPES.includes(s),
+    );
+    if (invalidScopes.length > 0) {
+      return NextResponse.json(
+        { error: `Invalid scopes: ${invalidScopes.join(", ")}` },
+        { status: 400 },
+      );
     }
 
     // Validate expiresAt if provided
@@ -78,7 +69,7 @@ export async function POST(req: Request) {
         name: name.trim(),
         keyPrefix: prefix,
         keyHash: hash,
-        scopes: scopes || [],
+        scopes,
         expiresAt: parsedExpiry,
       },
       select: {

@@ -5,7 +5,7 @@ import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, componentCheckoutSchema } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 
 // GET /api/components/checkout?componentId=...
 export async function GET(req: Request) {
@@ -140,7 +140,7 @@ export async function POST(req: Request) {
     notifyIntegrations("component.checked_out", {
       componentName: component.name,
       quantity,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     // Check remaining stock after checkout and trigger low stock alerts
     const remainingStock = component.remainingQuantity - quantity;
@@ -156,7 +156,7 @@ export async function POST(req: Request) {
         componentName: component.name,
         quantity: remainingStock,
         minQuantity: minQty,
-      }).catch(() => {});
+      }).catch(logCatchError("Integration notification failed"));
     }
 
     return NextResponse.json(checkout, { status: 201 });

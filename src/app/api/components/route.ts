@@ -10,7 +10,7 @@ import {
 } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
-import { logger } from "@/lib/logger";
+import { logger, logCatchError } from "@/lib/logger";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -172,7 +172,7 @@ export async function POST(req: Request) {
     }).catch(() => {});
     notifyIntegrations("component.created", {
       componentName: created.name,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(created, { status: 201 });
   } catch (e: any) {
@@ -273,7 +273,7 @@ export async function PUT(req: Request) {
     }).catch(() => {});
     notifyIntegrations("component.updated", {
       componentName: updated.name,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e: any) {
@@ -352,7 +352,7 @@ export async function DELETE(req: Request) {
     }).catch(() => {});
     notifyIntegrations("component.deleted", {
       componentName: component.name,
-    }).catch(() => {});
+    }).catch(logCatchError("Integration notification failed"));
 
     return NextResponse.json(
       { message: "Component deleted successfully" },

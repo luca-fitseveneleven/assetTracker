@@ -128,6 +128,88 @@ const WRITE_SCOPES = [
 
 const ALL_SCOPES = [...READ_SCOPES, ...WRITE_SCOPES];
 
+// Maps a scope action to a display category
+const ACTION_CATEGORIES: Record<string, { label: string; order: number }> = {
+  view: { label: "Read", order: 0 },
+  create: { label: "Create", order: 1 },
+  edit: { label: "Edit", order: 2 },
+  delete: { label: "Delete", order: 3 },
+  assign: { label: "Assign", order: 4 },
+  manage: { label: "Manage", order: 5 },
+  approve: { label: "Approve", order: 6 },
+  checkout: { label: "Checkout", order: 7 },
+  scan: { label: "Scan", order: 8 },
+  execute: { label: "Execute", order: 9 },
+  export: { label: "Export", order: 10 },
+};
+
+/** Extract the resource name from a scope like "asset:view" → "Assets" */
+function scopeResourceLabel(scope: string): string {
+  const matched = ALL_SCOPES.find((s) => s.value === scope);
+  if (matched) {
+    // Strip action suffix: "Assets — Create" → "Assets", "Assets" → "Assets"
+    return matched.label.split("—")[0].trim();
+  }
+  return scope.split(":")[0];
+}
+
+/** Group scopes by action category for display */
+function groupScopesByCategory(
+  scopes: string[],
+): Array<{ category: string; resources: string[] }> {
+  const groups = new Map<string, string[]>();
+
+  for (const scope of scopes) {
+    const action = scope.split(":")[1] ?? "other";
+    const cat = ACTION_CATEGORIES[action]?.label ?? action;
+    const resources = groups.get(cat) ?? [];
+    resources.push(scopeResourceLabel(scope));
+    groups.set(cat, resources);
+  }
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => {
+      const orderA =
+        Object.values(ACTION_CATEGORIES).find((c) => c.label === a)?.order ??
+        99;
+      const orderB =
+        Object.values(ACTION_CATEGORIES).find((c) => c.label === b)?.order ??
+        99;
+      return orderA - orderB;
+    })
+    .map(([category, resources]) => ({ category, resources }));
+}
+
+/** Compact, grouped scopes display used in popover and reveal dialog */
+function ScopesSummary({ scopes }: { scopes: string[] }) {
+  const grouped = groupScopesByCategory(scopes);
+  return (
+    <div className="max-h-64 overflow-y-auto p-3">
+      <p className="text-muted-foreground mb-2 text-[11px] font-medium tracking-wide uppercase">
+        {scopes.length} scope{scopes.length !== 1 ? "s" : ""} assigned
+      </p>
+      <div className="space-y-2">
+        {grouped.map(({ category, resources }) => (
+          <div key={category}>
+            <p className="mb-1 text-xs font-semibold">{category}</p>
+            <div className="flex flex-wrap gap-1">
+              {resources.map((r, i) => (
+                <Badge
+                  key={`${category}-${r}-${i}`}
+                  variant="outline"
+                  className="text-[10px] font-normal"
+                >
+                  {r}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -368,29 +450,11 @@ export default function ApiKeysTab() {
                           </button>
                         </PopoverTrigger>
                         <PopoverContent
-                          className="w-72 p-3"
+                          className="w-80 p-0"
                           align="start"
                           side="bottom"
                         >
-                          <p className="mb-2 text-xs font-medium">
-                            Assigned Scopes
-                          </p>
-                          <div className="flex max-h-48 flex-wrap gap-1 overflow-y-auto">
-                            {apiKey.scopes.map((scope) => {
-                              const matched = ALL_SCOPES.find(
-                                (s) => s.value === scope,
-                              );
-                              return (
-                                <Badge
-                                  key={scope}
-                                  variant="outline"
-                                  className="text-[10px]"
-                                >
-                                  {matched?.label ?? scope}
-                                </Badge>
-                              );
-                            })}
-                          </div>
+                          <ScopesSummary scopes={apiKey.scopes} />
                         </PopoverContent>
                       </Popover>
                     </TableCell>
@@ -651,24 +715,8 @@ export default function ApiKeysTab() {
               </div>
 
               {/* Scopes summary */}
-              <div className="space-y-2">
-                <Label>Scopes ({createdKey.scopes.length})</Label>
-                <div className="bg-muted max-h-40 overflow-y-auto rounded-md border p-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {createdKey.scopes.map((scope) => {
-                      const matched = ALL_SCOPES.find((s) => s.value === scope);
-                      return (
-                        <Badge
-                          key={scope}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {matched?.label ?? scope}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </div>
+              <div className="rounded-md border">
+                <ScopesSummary scopes={createdKey.scopes} />
               </div>
 
               <p className="text-muted-foreground text-xs">

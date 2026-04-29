@@ -353,9 +353,30 @@ export default function ApiKeysTab() {
                       </span>
                     </TableCell>
                     <TableCell className="hidden px-4 py-3 text-center md:table-cell">
-                      <Badge variant="secondary" className="text-xs">
-                        {apiKey.scopes.length}
-                      </Badge>
+                      <details className="inline">
+                        <summary className="cursor-pointer list-none">
+                          <Badge variant="secondary" className="text-xs">
+                            {apiKey.scopes.length} scope
+                            {apiKey.scopes.length !== 1 ? "s" : ""}
+                          </Badge>
+                        </summary>
+                        <div className="mt-2 flex max-w-xs flex-wrap gap-1 text-left">
+                          {apiKey.scopes.map((scope) => {
+                            const matched = ALL_SCOPES.find(
+                              (s) => s.value === scope,
+                            );
+                            return (
+                              <Badge
+                                key={scope}
+                                variant="outline"
+                                className="text-[10px]"
+                              >
+                                {matched?.label ?? scope}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </details>
                     </TableCell>
                     <TableCell className="text-muted-foreground hidden px-4 py-3 sm:table-cell">
                       {new Date(apiKey.createdAt).toLocaleDateString()}
@@ -612,6 +633,28 @@ export default function ApiKeysTab() {
                   </Button>
                 </div>
               </div>
+
+              {/* Scopes summary */}
+              <div className="space-y-2">
+                <Label>Scopes ({createdKey.scopes.length})</Label>
+                <div className="bg-muted max-h-40 overflow-y-auto rounded-md border p-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {createdKey.scopes.map((scope) => {
+                      const matched = ALL_SCOPES.find((s) => s.value === scope);
+                      return (
+                        <Badge
+                          key={scope}
+                          variant="secondary"
+                          className="text-xs"
+                        >
+                          {matched?.label ?? scope}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
               <p className="text-muted-foreground text-xs">
                 Store this API key in a secure location. You will not be able to
                 retrieve it after closing this dialog.

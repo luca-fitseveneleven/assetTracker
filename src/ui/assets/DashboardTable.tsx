@@ -638,6 +638,17 @@ export default function App({
           first = statusA ? statusA.statustypename : "";
           second = statusB ? statusB.statustypename : "";
           break;
+        case "creation_date":
+        case "change_date":
+        case "purchasedate":
+        case "warrantyExpires":
+          first = a[sortDescriptor.column]
+            ? new Date(a[sortDescriptor.column]).getTime()
+            : 0;
+          second = b[sortDescriptor.column]
+            ? new Date(b[sortDescriptor.column]).getTime()
+            : 0;
+          break;
         case "mobile":
         case "requestable":
           first = a[sortDescriptor.column] ? 1 : 0;
@@ -1171,6 +1182,29 @@ export default function App({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            <Select
+              value={`${sortDescriptor.column}:${sortDescriptor.direction}`}
+              onValueChange={(v) => {
+                const [col, dir] = v.split(":");
+                setSortDescriptor({ column: col, direction: dir });
+              }}
+            >
+              <SelectTrigger className="hidden w-[160px] sm:flex">
+                <SelectValue placeholder="Sort by..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="creation_date:descending">
+                  Newest first
+                </SelectItem>
+                <SelectItem value="creation_date:ascending">
+                  Oldest first
+                </SelectItem>
+                <SelectItem value="assetname:ascending">Name A–Z</SelectItem>
+                <SelectItem value="assetname:descending">Name Z–A</SelectItem>
+                <SelectItem value="assettag:ascending">Tag A–Z</SelectItem>
+                <SelectItem value="assettag:descending">Tag Z–A</SelectItem>
+              </SelectContent>
+            </Select>
             <DropdownMenu>
               <DropdownMenuTrigger asChild className="hidden sm:flex">
                 <Button variant="outline">

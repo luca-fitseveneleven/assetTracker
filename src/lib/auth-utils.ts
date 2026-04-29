@@ -50,7 +50,7 @@ export async function verifyUserPassword(
     return bcrypt.compare(plaintextPassword, account.password);
   }
 
-  // Legacy fallback: user.password (set by NextAuth-era code paths)
+  // Legacy fallback: user.password column
   const user = await prisma.user.findUnique({
     where: { userid: userId },
     select: { password: true },
@@ -69,8 +69,8 @@ export async function verifyUserPassword(
  *
  * BetterAuth verifies passwords against `accounts.password` (see
  * `auth-server.ts` `account.fields.password`). Writing only to `user.password`
- * is silently ignored — the legacy column exists only for the NextAuth → BetterAuth
- * migration path in the auth `before` hook.
+ * is silently ignored — the legacy column exists only for backward compatibility
+ * with the migration path in the auth `before` hook.
  *
  * Always use this helper instead of writing to either column directly. It hashes
  * the password internally so callers cannot accidentally store plaintext.

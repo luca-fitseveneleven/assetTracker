@@ -1,7 +1,7 @@
 /**
  * BetterAuth server instance
  *
- * Central auth configuration replacing the old NextAuth setup.
+ * Central auth configuration.
  * Uses database-backed sessions with cookie caching.
  */
 
@@ -107,9 +107,9 @@ const authPrisma = (
 
 export const auth = betterAuth({
   appName: "AssetTracker",
-  baseURL: process.env.BETTER_AUTH_URL || process.env.NEXTAUTH_URL,
+  baseURL: process.env.BETTER_AUTH_URL,
   basePath: "/api/auth",
-  secret: process.env.BETTER_AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  secret: process.env.BETTER_AUTH_SECRET,
 
   database: prismaAdapter(authPrisma, { provider: "postgresql" }),
 
@@ -130,7 +130,8 @@ export const auth = betterAuth({
   user: {
     modelName: "user",
     fields: {
-      id: "userid",
+      // Note: `id` is excluded from BetterAuth's fields type on purpose.
+      // The id ↔ userid translation is handled by the authPrisma extension above.
       name: "firstname", // BetterAuth expects 'name', map to firstname
       email: "email",
       emailVerified: "emailVerified",
@@ -443,7 +444,7 @@ export const auth = betterAuth({
         });
       }
 
-      // Migrate local users from NextAuth: create credential account from user.password
+      // Migrate legacy users: create credential account from user.password if missing
       if (user && user.authProvider !== "ldap") {
         const fullUser = await prisma.user.findUnique({
           where: { userid: user.userid },

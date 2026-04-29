@@ -183,24 +183,19 @@ export async function requirePermission(
     throw new Error("Unauthorized");
   }
 
-  // Admin users bypass permission checks
-  if (user.isAdmin) {
-    // API key scope check still applies even for admins
-    if (user.apiKeyScopes && user.apiKeyScopes.length > 0) {
-      const hasScope = permissions.some((p) => user.apiKeyScopes!.includes(p));
-      if (!hasScope) {
-        throw new Error("Forbidden: API key lacks required scope");
-      }
-    }
-    return user;
-  }
-
-  // API key scope check for non-admin users
-  if (user.apiKeyScopes && user.apiKeyScopes.length > 0) {
+  // API key scope enforcement — applies to ALL users, including admins.
+  // apiKeyScopes is defined (even if empty) when authenticated via API key,
+  // and undefined when authenticated via session cookie.
+  if (user.apiKeyScopes !== undefined) {
     const hasScope = permissions.some((p) => user.apiKeyScopes!.includes(p));
     if (!hasScope) {
       throw new Error("Forbidden: API key lacks required scope");
     }
+    return user;
+  }
+
+  // Admin users bypass RBAC permission checks (session auth only)
+  if (user.isAdmin) {
     return user;
   }
 

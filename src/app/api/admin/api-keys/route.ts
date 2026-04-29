@@ -31,17 +31,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate scopes
-    if (scopes && Array.isArray(scopes)) {
-      const invalidScopes = scopes.filter(
-        (s: string) => !VALID_SCOPES.includes(s),
+    // Validate scopes — at least one scope is required
+    if (!scopes || !Array.isArray(scopes) || scopes.length === 0) {
+      return NextResponse.json(
+        { error: "At least one scope is required" },
+        { status: 400 },
       );
-      if (invalidScopes.length > 0) {
-        return NextResponse.json(
-          { error: `Invalid scopes: ${invalidScopes.join(", ")}` },
-          { status: 400 },
-        );
-      }
+    }
+
+    const invalidScopes = scopes.filter(
+      (s: string) => !VALID_SCOPES.includes(s),
+    );
+    if (invalidScopes.length > 0) {
+      return NextResponse.json(
+        { error: `Invalid scopes: ${invalidScopes.join(", ")}` },
+        { status: 400 },
+      );
     }
 
     // Validate expiresAt if provided
@@ -64,7 +69,7 @@ export async function POST(req: Request) {
         name: name.trim(),
         keyPrefix: prefix,
         keyHash: hash,
-        scopes: scopes || [],
+        scopes,
         expiresAt: parsedExpiry,
       },
       select: {

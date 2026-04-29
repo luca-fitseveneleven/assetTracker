@@ -63,22 +63,65 @@ interface CreatedKeyResponse {
 // Constants
 // ---------------------------------------------------------------------------
 
-const AVAILABLE_SCOPES = [
-  { value: "assets:read", label: "Assets (Read)" },
-  { value: "assets:write", label: "Assets (Write)" },
-  { value: "accessories:read", label: "Accessories (Read)" },
-  { value: "accessories:write", label: "Accessories (Write)" },
-  { value: "consumables:read", label: "Consumables (Read)" },
-  { value: "consumables:write", label: "Consumables (Write)" },
-  { value: "licences:read", label: "Licences (Read)" },
-  { value: "licences:write", label: "Licences (Write)" },
-  { value: "components:read", label: "Components (Read)" },
-  { value: "components:write", label: "Components (Write)" },
-  { value: "users:read", label: "Users (Read)" },
-  { value: "maintenance:read", label: "Maintenance (Read)" },
-  { value: "maintenance:write", label: "Maintenance (Write)" },
-  { value: "reports:read", label: "Reports (Read)" },
+const READ_SCOPES = [
+  { value: "asset:view", label: "Assets" },
+  { value: "accessory:view", label: "Accessories" },
+  { value: "consumable:view", label: "Consumables" },
+  { value: "license:view", label: "Licences" },
+  { value: "component:view", label: "Components" },
+  { value: "user:view", label: "Users" },
+  { value: "kit:view", label: "Kits" },
+  { value: "report:view", label: "Reports" },
+  { value: "report:export", label: "Report Export" },
+  { value: "audit:view", label: "Audit Logs" },
+  { value: "audit_campaign:view", label: "Audit Campaigns" },
+  { value: "reservation:view", label: "Reservations" },
+  { value: "org:view", label: "Organizations" },
+  { value: "dept:view", label: "Departments" },
+  { value: "webhook:view", label: "Webhooks" },
+  { value: "eula:view", label: "EULA Templates" },
+  { value: "settings:view", label: "Settings" },
 ];
+
+const WRITE_SCOPES = [
+  { value: "asset:create", label: "Assets — Create" },
+  { value: "asset:edit", label: "Assets — Edit" },
+  { value: "asset:delete", label: "Assets — Delete" },
+  { value: "asset:assign", label: "Assets — Assign" },
+  { value: "accessory:create", label: "Accessories — Create" },
+  { value: "accessory:edit", label: "Accessories — Edit" },
+  { value: "accessory:delete", label: "Accessories — Delete" },
+  { value: "consumable:create", label: "Consumables — Create" },
+  { value: "consumable:edit", label: "Consumables — Edit" },
+  { value: "consumable:delete", label: "Consumables — Delete" },
+  { value: "license:create", label: "Licences — Create" },
+  { value: "license:edit", label: "Licences — Edit" },
+  { value: "license:delete", label: "Licences — Delete" },
+  { value: "license:assign", label: "Licences — Assign" },
+  { value: "component:create", label: "Components — Create" },
+  { value: "component:edit", label: "Components — Edit" },
+  { value: "component:delete", label: "Components — Delete" },
+  { value: "user:create", label: "Users — Create" },
+  { value: "user:edit", label: "Users — Edit" },
+  { value: "user:delete", label: "Users — Delete" },
+  { value: "kit:create", label: "Kits — Create" },
+  { value: "kit:edit", label: "Kits — Edit" },
+  { value: "kit:delete", label: "Kits — Delete" },
+  { value: "kit:checkout", label: "Kits — Checkout" },
+  { value: "audit_campaign:create", label: "Audit Campaigns — Create" },
+  { value: "audit_campaign:edit", label: "Audit Campaigns — Edit" },
+  { value: "audit_campaign:scan", label: "Audit Campaigns — Scan" },
+  { value: "reservation:create", label: "Reservations — Create" },
+  { value: "reservation:approve", label: "Reservations — Approve" },
+  { value: "org:manage", label: "Organizations — Manage" },
+  { value: "dept:manage", label: "Departments — Manage" },
+  { value: "webhook:manage", label: "Webhooks — Manage" },
+  { value: "eula:manage", label: "EULA Templates — Manage" },
+  { value: "settings:edit", label: "Settings — Edit" },
+  { value: "import:execute", label: "Import — Execute" },
+];
+
+const ALL_SCOPES = [...READ_SCOPES, ...WRITE_SCOPES];
 
 // ---------------------------------------------------------------------------
 // Component
@@ -409,25 +452,104 @@ export default function ApiKeysTab() {
               <div className="flex items-center justify-between">
                 <Label className="text-base">Scopes</Label>
                 <span className="text-muted-foreground text-xs">
-                  {formScopes.length} of {AVAILABLE_SCOPES.length} selected
+                  {formScopes.length} of {ALL_SCOPES.length} selected
                 </span>
               </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {AVAILABLE_SCOPES.map((scope) => (
-                  <div key={scope.value} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`scope-${scope.value}`}
-                      checked={formScopes.includes(scope.value)}
-                      onCheckedChange={() => toggleScope(scope.value)}
-                    />
-                    <Label
-                      htmlFor={`scope-${scope.value}`}
-                      className="cursor-pointer text-sm font-normal"
-                    >
-                      {scope.label}
-                    </Label>
-                  </div>
-                ))}
+
+              {/* Read Scopes */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Read</Label>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground text-xs underline"
+                    onClick={() => {
+                      const readValues = READ_SCOPES.map((s) => s.value);
+                      const allSelected = readValues.every((v) =>
+                        formScopes.includes(v),
+                      );
+                      if (allSelected) {
+                        setFormScopes((prev) =>
+                          prev.filter((s) => !readValues.includes(s)),
+                        );
+                      } else {
+                        setFormScopes((prev) => [
+                          ...new Set([...prev, ...readValues]),
+                        ]);
+                      }
+                    }}
+                  >
+                    {READ_SCOPES.every((s) => formScopes.includes(s.value))
+                      ? "Deselect all"
+                      : "Select all"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {READ_SCOPES.map((scope) => (
+                    <div key={scope.value} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`scope-${scope.value}`}
+                        checked={formScopes.includes(scope.value)}
+                        onCheckedChange={() => toggleScope(scope.value)}
+                      />
+                      <Label
+                        htmlFor={`scope-${scope.value}`}
+                        className="cursor-pointer text-sm font-normal"
+                      >
+                        {scope.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Write Scopes */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Write</Label>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground text-xs underline"
+                    onClick={() => {
+                      const writeValues = WRITE_SCOPES.map((s) => s.value);
+                      const allSelected = writeValues.every((v) =>
+                        formScopes.includes(v),
+                      );
+                      if (allSelected) {
+                        setFormScopes((prev) =>
+                          prev.filter((s) => !writeValues.includes(s)),
+                        );
+                      } else {
+                        setFormScopes((prev) => [
+                          ...new Set([...prev, ...writeValues]),
+                        ]);
+                      }
+                    }}
+                  >
+                    {WRITE_SCOPES.every((s) => formScopes.includes(s.value))
+                      ? "Deselect all"
+                      : "Select all"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {WRITE_SCOPES.map((scope) => (
+                    <div key={scope.value} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`scope-${scope.value}`}
+                        checked={formScopes.includes(scope.value)}
+                        onCheckedChange={() => toggleScope(scope.value)}
+                      />
+                      <Label
+                        htmlFor={`scope-${scope.value}`}
+                        className="cursor-pointer text-sm font-normal"
+                      >
+                        {scope.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

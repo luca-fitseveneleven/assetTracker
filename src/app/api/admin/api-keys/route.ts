@@ -4,24 +4,10 @@ import { requireApiAdmin } from "@/lib/api-auth";
 import { requireNotDemoMode } from "@/lib/api-auth";
 import { generateApiKey } from "@/lib/api-keys";
 import { logger } from "@/lib/logger";
+import { PERMISSIONS } from "@/lib/rbac";
 
-// Valid scopes that can be assigned to API keys
-const VALID_SCOPES = [
-  "assets:read",
-  "assets:write",
-  "accessories:read",
-  "accessories:write",
-  "consumables:read",
-  "consumables:write",
-  "licences:read",
-  "licences:write",
-  "components:read",
-  "components:write",
-  "users:read",
-  "maintenance:read",
-  "maintenance:write",
-  "reports:read",
-];
+// Valid scopes = all RBAC permission keys
+const VALID_SCOPES = Object.keys(PERMISSIONS);
 
 // POST /api/admin/api-keys - Create a new API key
 export async function POST(req: Request) {

@@ -2,11 +2,13 @@
  * BetterAuth React client
  *
  * Client-side auth hooks and methods for use in React components.
- * Replaces NextAuth's useSession, signIn, signOut.
  */
 
 import { createAuthClient } from "better-auth/react";
-import { twoFactorClient, genericOAuthClient } from "better-auth/client/plugins";
+import {
+  twoFactorClient,
+  genericOAuthClient,
+} from "better-auth/client/plugins";
 
 /** User fields available in BetterAuth session (includes additionalFields) */
 export interface SessionUser {

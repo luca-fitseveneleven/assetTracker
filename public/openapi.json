@@ -19,8 +19,14 @@
   ],
   "tags": [
     { "name": "Assets", "description": "Asset management endpoints" },
-    { "name": "Organizations", "description": "Multi-tenancy organization management" },
-    { "name": "Departments", "description": "Department management within organizations" },
+    {
+      "name": "Organizations",
+      "description": "Multi-tenancy organization management"
+    },
+    {
+      "name": "Departments",
+      "description": "Department management within organizations"
+    },
     { "name": "Roles", "description": "Role-based access control" },
     { "name": "Webhooks", "description": "Webhook configuration and delivery" },
     { "name": "Reservations", "description": "Asset reservation and booking" },
@@ -32,8 +38,8 @@
       "cookieAuth": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "next-auth.session-token",
-        "description": "Session token from NextAuth authentication"
+        "name": "better-auth.session_token",
+        "description": "Session token from BetterAuth authentication"
       }
     },
     "schemas": {
@@ -72,7 +78,11 @@
           "description": { "type": "string", "nullable": true },
           "permissions": { "type": "array", "items": { "type": "string" } },
           "isSystem": { "type": "boolean" },
-          "organizationId": { "type": "string", "format": "uuid", "nullable": true },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         },
@@ -88,7 +98,11 @@
           "events": { "type": "array", "items": { "type": "string" } },
           "isActive": { "type": "boolean" },
           "retryAttempts": { "type": "integer", "minimum": 0, "maximum": 5 },
-          "organizationId": { "type": "string", "format": "uuid", "nullable": true },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         },
@@ -102,14 +116,38 @@
           "userId": { "type": "string", "format": "uuid" },
           "startDate": { "type": "string", "format": "date-time" },
           "endDate": { "type": "string", "format": "date-time" },
-          "status": { "type": "string", "enum": ["pending", "approved", "rejected", "cancelled", "completed"] },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "cancelled",
+              "completed"
+            ]
+          },
           "notes": { "type": "string", "nullable": true },
-          "approvedBy": { "type": "string", "format": "uuid", "nullable": true },
-          "approvedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "approvedBy": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "approvedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         },
-        "required": ["id", "assetId", "userId", "startDate", "endDate", "status"]
+        "required": [
+          "id",
+          "assetId",
+          "userId",
+          "startDate",
+          "endDate",
+          "status"
+        ]
       },
       "StockAlert": {
         "type": "object",
@@ -120,7 +158,11 @@
           "criticalThreshold": { "type": "integer", "minimum": 0 },
           "emailNotify": { "type": "boolean" },
           "webhookNotify": { "type": "boolean" },
-          "lastAlertSentAt": { "type": "string", "format": "date-time", "nullable": true },
+          "lastAlertSentAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         },
@@ -131,20 +173,52 @@
         "properties": {
           "id": { "type": "string", "format": "uuid" },
           "userId": { "type": "string", "format": "uuid" },
-          "entityType": { "type": "string", "enum": ["asset", "accessory", "consumable", "licence", "user", "location"] },
+          "entityType": {
+            "type": "string",
+            "enum": [
+              "asset",
+              "accessory",
+              "consumable",
+              "licence",
+              "user",
+              "location"
+            ]
+          },
           "fileName": { "type": "string" },
           "fileSize": { "type": "integer" },
           "totalRows": { "type": "integer" },
           "processedRows": { "type": "integer" },
           "successCount": { "type": "integer" },
           "errorCount": { "type": "integer" },
-          "status": { "type": "string", "enum": ["pending", "processing", "completed", "failed"] },
-          "errors": { "type": "array", "items": { "type": "object" }, "nullable": true },
-          "startedAt": { "type": "string", "format": "date-time", "nullable": true },
-          "completedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "processing", "completed", "failed"]
+          },
+          "errors": {
+            "type": "array",
+            "items": { "type": "object" },
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "createdAt": { "type": "string", "format": "date-time" }
         },
-        "required": ["id", "userId", "entityType", "fileName", "fileSize", "status"]
+        "required": [
+          "id",
+          "userId",
+          "entityType",
+          "fileName",
+          "fileSize",
+          "status"
+        ]
       },
       "Asset": {
         "type": "object",
@@ -157,10 +231,18 @@
           "specs": { "type": "string", "nullable": true },
           "notes": { "type": "string", "nullable": true },
           "purchaseprice": { "type": "number", "nullable": true },
-          "purchasedate": { "type": "string", "format": "date", "nullable": true },
+          "purchasedate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
           "mobile": { "type": "boolean", "nullable": true },
           "requestable": { "type": "boolean", "nullable": true },
-          "organizationId": { "type": "string", "format": "uuid", "nullable": true }
+          "organizationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
         },
         "required": ["assetid", "assetname", "assettag", "serialnumber"]
       },
@@ -234,7 +316,12 @@
         "tags": ["Organizations"],
         "summary": "Get organization by ID",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
         ],
         "responses": {
           "200": {
@@ -252,7 +339,12 @@
         "tags": ["Organizations"],
         "summary": "Update an organization",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
         ],
         "requestBody": {
           "content": {
@@ -271,11 +363,18 @@
         "tags": ["Organizations"],
         "summary": "Delete an organization",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
         ],
         "responses": {
           "200": { "description": "Organization deleted" },
-          "400": { "description": "Cannot delete organization with existing data" },
+          "400": {
+            "description": "Cannot delete organization with existing data"
+          },
           "403": { "description": "Forbidden - Admin only" },
           "404": { "description": "Organization not found" }
         }
@@ -286,7 +385,11 @@
         "tags": ["Departments"],
         "summary": "List departments",
         "parameters": [
-          { "name": "organizationId", "in": "query", "schema": { "type": "string", "format": "uuid" } }
+          {
+            "name": "organizationId",
+            "in": "query",
+            "schema": { "type": "string", "format": "uuid" }
+          }
         ],
         "responses": {
           "200": {
@@ -358,7 +461,10 @@
                 "properties": {
                   "name": { "type": "string" },
                   "description": { "type": "string" },
-                  "permissions": { "type": "array", "items": { "type": "string" } }
+                  "permissions": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
                 },
                 "required": ["name", "permissions"]
               }
@@ -461,8 +567,16 @@
         "tags": ["Reservations"],
         "summary": "List asset reservations",
         "parameters": [
-          { "name": "assetId", "in": "query", "schema": { "type": "string", "format": "uuid" } },
-          { "name": "userId", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          {
+            "name": "assetId",
+            "in": "query",
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": { "type": "string", "format": "uuid" }
+          },
           { "name": "status", "in": "query", "schema": { "type": "string" } }
         ],
         "responses": {
@@ -510,7 +624,12 @@
         "tags": ["Reservations"],
         "summary": "Update reservation (approve/reject/cancel)",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
         ],
         "requestBody": {
           "content": {
@@ -518,7 +637,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "status": { "type": "string", "enum": ["approved", "rejected", "cancelled"] },
+                  "status": {
+                    "type": "string",
+                    "enum": ["approved", "rejected", "cancelled"]
+                  },
                   "notes": { "type": "string" }
                 }
               }
@@ -536,7 +658,11 @@
         "tags": ["Stock Alerts"],
         "summary": "List stock alerts",
         "parameters": [
-          { "name": "lowStockOnly", "in": "query", "schema": { "type": "boolean" } },
+          {
+            "name": "lowStockOnly",
+            "in": "query",
+            "schema": { "type": "boolean" }
+          },
           { "name": "critical", "in": "query", "schema": { "type": "boolean" } }
         ],
         "responses": {
@@ -630,7 +756,17 @@
                 "type": "object",
                 "properties": {
                   "file": { "type": "string", "format": "binary" },
-                  "entityType": { "type": "string", "enum": ["asset", "accessory", "consumable", "licence", "user", "location"] }
+                  "entityType": {
+                    "type": "string",
+                    "enum": [
+                      "asset",
+                      "accessory",
+                      "consumable",
+                      "licence",
+                      "user",
+                      "location"
+                    ]
+                  }
                 },
                 "required": ["file", "entityType"]
               }
@@ -653,7 +789,11 @@
         "tags": ["Import"],
         "summary": "Get expected CSV fields for entity types",
         "parameters": [
-          { "name": "entityType", "in": "query", "schema": { "type": "string" } }
+          {
+            "name": "entityType",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
         ],
         "responses": {
           "200": {
@@ -667,7 +807,12 @@
         "tags": ["Assets"],
         "summary": "List all assets",
         "parameters": [
-          { "name": "id", "in": "query", "schema": { "type": "string", "format": "uuid" }, "description": "Get specific asset by ID" }
+          {
+            "name": "id",
+            "in": "query",
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Get specific asset by ID"
+          }
         ],
         "responses": {
           "200": {

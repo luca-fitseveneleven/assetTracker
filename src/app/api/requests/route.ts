@@ -8,6 +8,10 @@ import {
 } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { logger, logCatchError } from "@/lib/logger";
+import {
+  getOrganizationContext,
+  verifyEntityOrgOwnership,
+} from "@/lib/organization-context";
 
 // Transaction client type — works with both the full PrismaClient and the
 // transaction-scoped client that Prisma passes into $transaction callbacks.
@@ -160,6 +164,18 @@ export async function POST(req: NextRequest) {
         { error: "Invalid entity type" },
         { status: 400 },
       );
+    }
+
+    // Verify the target entity belongs to the requester's organization
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    const entityOwned = await verifyEntityOrgOwnership(
+      entityType,
+      entityId,
+      orgId,
+    );
+    if (!entityOwned) {
+      return NextResponse.json({ error: "Entity not found" }, { status: 404 });
     }
 
     // Atomic duplicate check + create inside a serializable transaction

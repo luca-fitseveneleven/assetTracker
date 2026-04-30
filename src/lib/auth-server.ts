@@ -164,7 +164,6 @@ export const auth = betterAuth({
       organizationId: {
         type: "string",
         required: false,
-        input: true,
       },
       departmentId: {
         type: "string",

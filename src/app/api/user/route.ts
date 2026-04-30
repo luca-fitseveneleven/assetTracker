@@ -44,7 +44,19 @@ export async function GET(req: NextRequest) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
       }
-      const user = await prisma.user.findUnique({ where: { userid: id } });
+
+      // Scope to organization (except for own profile)
+      let user;
+      if (authUser.id === id) {
+        user = await prisma.user.findUnique({ where: { userid: id } });
+      } else {
+        const orgContext = await getOrganizationContext();
+        const orgId = orgContext?.organization?.id;
+        user = await prisma.user.findFirst({
+          where: scopeToOrganization({ userid: id }, orgId),
+        });
+      }
+
       if (!user) {
         return NextResponse.json(
           { error: `User with id ${id} not found` },
@@ -168,6 +180,19 @@ export async function PUT(req: NextRequest) {
 
     if (!authUser.isAdmin && authUser.id !== userid) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Verify target user belongs to requester's org (skip for own profile)
+    if (authUser.id !== userid) {
+      const orgContext = await getOrganizationContext();
+      const orgId = orgContext?.organization?.id;
+      const targetUser = await prisma.user.findFirst({
+        where: scopeToOrganization({ userid }, orgId),
+        select: { userid: true },
+      });
+      if (!targetUser) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
     }
 
     const schema = authUser.isAdmin

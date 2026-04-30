@@ -148,6 +148,41 @@ export async function canAccessResource(
 }
 
 /**
+ * Verify that an entity (asset, accessory, consumable, licence) belongs to
+ * the given organization. Used to prevent cross-tenant data access.
+ */
+export async function verifyEntityOrgOwnership(
+  entityType: string,
+  entityId: string,
+  organizationId: string | null | undefined,
+): Promise<boolean> {
+  const modelMap: Record<
+    string,
+    { delegate: keyof typeof prisma; idField: string }
+  > = {
+    asset: { delegate: "asset", idField: "assetid" },
+    accessory: { delegate: "accessory", idField: "accessoryid" },
+    consumable: { delegate: "consumable", idField: "consumableid" },
+    licence: { delegate: "licence", idField: "licenceid" },
+    component: { delegate: "component", idField: "componentid" },
+  };
+
+  const config = modelMap[entityType];
+  if (!config) return false;
+
+  const model = prisma[config.delegate] as { findFirst: Function };
+  const entity = await model.findFirst({
+    where: {
+      [config.idField]: entityId,
+      organizationId: organizationId ?? null,
+    },
+    select: { [config.idField]: true },
+  });
+
+  return !!entity;
+}
+
+/**
  * Get organization by slug
  */
 export async function getOrganizationBySlug(slug: string) {

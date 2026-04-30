@@ -15,8 +15,8 @@ const nextConfig = {
 
   async headers() {
     // Security headers applied to every route.
-    // The HSTS header is only included when NOT running on localhost (checked
-    // at build/startup time via NODE_ENV / VERCEL_URL).
+    // CSP is handled by middleware (src/middleware.ts) for per-request nonce generation.
+    // The HSTS header is only included when NOT on localhost.
     const isLocal =
       !process.env.VERCEL_URL && process.env.NODE_ENV !== "production";
 
@@ -29,23 +29,6 @@ const nextConfig = {
       {
         key: "Permissions-Policy",
         value: "camera=(), microphone=(), geolocation=()",
-      },
-      {
-        key: "Content-Security-Policy",
-        value: [
-          "default-src 'self'",
-          `script-src 'self' 'unsafe-inline' https://analytics.711x.de${isLocal ? " 'unsafe-eval'" : ""}`,
-          "style-src 'self' 'unsafe-inline'",
-          "img-src 'self' data: blob: https:",
-          "font-src 'self' data:",
-          "connect-src 'self' https://*.sentry.io https://*.stripe.com https://*.basemaps.cartocdn.com https://*.cartocdn.com https://nominatim.openstreetmap.org https://analytics.711x.de https://127.0.0.1:41951",
-          "worker-src 'self' blob:",
-          "frame-src 'self' https://*.stripe.com",
-          "object-src 'none'",
-          "base-uri 'self'",
-          "form-action 'self'",
-          "frame-ancestors 'none'",
-        ].join("; "),
       },
     ];
 

@@ -3,6 +3,10 @@ import prisma from "@/lib/prisma";
 import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { logger } from "@/lib/logger";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -15,9 +19,11 @@ export async function GET(req: Request, { params }: RouteParams) {
     await requireApiAdmin();
     const { id } = await params;
 
-    // Verify user exists
-    const user = await prisma.user.findUnique({
-      where: { userid: id },
+    // Verify user exists and belongs to admin's org
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    const user = await prisma.user.findFirst({
+      where: scopeToOrganization({ userid: id }, orgId),
       select: { userid: true },
     });
 
@@ -84,9 +90,11 @@ export async function POST(req: Request, { params }: RouteParams) {
       );
     }
 
-    // Verify user exists
-    const user = await prisma.user.findUnique({
-      where: { userid: id },
+    // Verify user exists and belongs to admin's org
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    const user = await prisma.user.findFirst({
+      where: scopeToOrganization({ userid: id }, orgId),
       select: { userid: true, username: true },
     });
 
@@ -94,13 +102,17 @@ export async function POST(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Verify role exists
+    // Verify role exists and belongs to admin's org (or is a system role)
     const role = await prisma.role.findUnique({
       where: { id: roleId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, organizationId: true },
     });
 
     if (!role) {
+      return NextResponse.json({ error: "Role not found" }, { status: 404 });
+    }
+
+    if (role.organizationId && role.organizationId !== (orgId ?? null)) {
       return NextResponse.json({ error: "Role not found" }, { status: 404 });
     }
 
@@ -188,6 +200,17 @@ export async function DELETE(req: Request, { params }: RouteParams) {
         { error: "roleId is required" },
         { status: 400 },
       );
+    }
+
+    // Verify target user belongs to admin's org
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    const targetUser = await prisma.user.findFirst({
+      where: scopeToOrganization({ userid: id }, orgId),
+      select: { userid: true },
+    });
+    if (!targetUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Find the user-role assignment

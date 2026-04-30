@@ -34,6 +34,13 @@ export async function GET(req: NextRequest) {
       where.status = status;
     }
 
+    // Scope all requests to user's organization
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    if (orgId) {
+      where.user = { organizationId: orgId };
+    }
+
     // Non-admins only see their own requests
     if (!user.isAdmin || mine === "true") {
       where.userId = user.id;
@@ -327,6 +334,18 @@ export async function PUT(req: NextRequest) {
 
     const existing = await prisma.itemRequest.findUnique({ where: { id } });
     if (!existing) {
+      return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    }
+
+    // Verify the request's entity belongs to admin's org
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    const entityOwned = await verifyEntityOrgOwnership(
+      existing.entityType,
+      existing.entityId,
+      orgId,
+    );
+    if (!entityOwned) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
     }
 

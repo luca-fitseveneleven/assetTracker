@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 interface RouteParams {
   params: Promise<{ userId: string }>;
@@ -37,6 +38,13 @@ export async function GET(req: Request, { params }: RouteParams) {
     });
 
     if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Verify target user belongs to admin's organization
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    if ((orgId ?? null) !== (user.organizationId ?? null)) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 

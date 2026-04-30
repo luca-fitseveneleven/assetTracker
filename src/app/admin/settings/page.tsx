@@ -45,8 +45,9 @@ async function getSystemSettings() {
   return grouped;
 }
 
-async function getUsers() {
+async function getUsers(organizationId: string | null) {
   return await prisma.user.findMany({
+    where: { organizationId },
     select: {
       userid: true,
       username: true,
@@ -95,6 +96,12 @@ export default async function Page() {
     redirect("/dashboard");
   }
 
+  // Get admin's org for scoping user list
+  const adminUser = await prisma.user.findUnique({
+    where: { userid: session.user.id },
+    select: { organizationId: true },
+  });
+
   const [
     settings,
     users,
@@ -105,7 +112,7 @@ export default async function Page() {
     statuses,
   ] = await Promise.all([
     getSystemSettings(),
-    getUsers(),
+    getUsers(adminUser?.organizationId ?? null),
     getEmailTemplates(),
     getLabelTemplates(),
     getCustomFields(),

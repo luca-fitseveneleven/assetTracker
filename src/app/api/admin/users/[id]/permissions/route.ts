@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
+import {
+  getOrganizationContext,
+  scopeToOrganization,
+} from "@/lib/organization-context";
 
 // PATCH /api/admin/users/[id]/permissions
-export async function PATCH(req, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  req,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const startTime = Date.now();
 
   try {
@@ -20,12 +27,16 @@ export async function PATCH(req, { params }: { params: Promise<{ id: string }> }
       logger.warn("PATCH /api/admin/users/[id]/permissions - Missing user ID");
       return NextResponse.json(
         { error: "User ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Build update data object with only provided fields
-    const updateData: { isadmin?: boolean; canrequest?: boolean; change_date?: Date } = {};
+    const updateData: {
+      isadmin?: boolean;
+      canrequest?: boolean;
+      change_date?: Date;
+    } = {};
     if (typeof isadmin === "boolean") {
       updateData.isadmin = isadmin;
     }
@@ -34,12 +45,18 @@ export async function PATCH(req, { params }: { params: Promise<{ id: string }> }
     }
 
     if (Object.keys(updateData).length === 0) {
-      logger.warn("PATCH /api/admin/users/[id]/permissions - No permissions provided", {
-        userId: id,
-      });
+      logger.warn(
+        "PATCH /api/admin/users/[id]/permissions - No permissions provided",
+        {
+          userId: id,
+        },
+      );
       return NextResponse.json(
-        { error: "At least one permission field (isadmin or canrequest) is required" },
-        { status: 400 }
+        {
+          error:
+            "At least one permission field (isadmin or canrequest) is required",
+        },
+        { status: 400 },
       );
     }
 
@@ -50,6 +67,17 @@ export async function PATCH(req, { params }: { params: Promise<{ id: string }> }
       permissions: updateData,
       type: "permission_update",
     });
+
+    // Verify target user belongs to admin's organization
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    const targetUser = await prisma.user.findFirst({
+      where: scopeToOrganization({ userid: id }, orgId),
+      select: { userid: true },
+    });
+    if (!targetUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const updatedUser = await prisma.user.update({
       where: { userid: id },
@@ -66,9 +94,15 @@ export async function PATCH(req, { params }: { params: Promise<{ id: string }> }
     });
 
     const duration = Date.now() - startTime;
-    logger.apiResponse("PATCH", `/api/admin/users/${id}/permissions`, 200, duration, {
-      userId: id,
-    });
+    logger.apiResponse(
+      "PATCH",
+      `/api/admin/users/${id}/permissions`,
+      200,
+      duration,
+      {
+        userId: id,
+      },
+    );
 
     return NextResponse.json(updatedUser, { status: 200 });
   } catch (error) {
@@ -84,15 +118,12 @@ export async function PATCH(req, { params }: { params: Promise<{ id: string }> }
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
     if (error.code === "P2025") {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     return NextResponse.json(
       { error: "Failed to update user permissions" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

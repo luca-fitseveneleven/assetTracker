@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 // PATCH /api/admin/users/bulk-permissions
 export async function PATCH(req: NextRequest) {
@@ -45,12 +46,14 @@ export async function PATCH(req: NextRequest) {
 
     updateData.change_date = new Date();
 
-    // Update multiple users at once
+    // Scope to admin's organization to prevent cross-tenant updates
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+
     const result = await prisma.user.updateMany({
       where: {
-        userid: {
-          in: userIds,
-        },
+        userid: { in: userIds },
+        organizationId: orgId ?? null,
       },
       data: updateData,
     });

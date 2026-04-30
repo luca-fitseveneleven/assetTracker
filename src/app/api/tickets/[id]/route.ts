@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { createFreshdeskClient } from "@/lib/freshdesk";
 import { logger } from "@/lib/logger";
+import { getOrganizationContext } from "@/lib/organization-context";
 import {
   notifyTicketAssigned,
   notifyTicketStatusChanged,
@@ -90,9 +91,17 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     const { status, priority, assignedTo } = body || {};
 
-    // Fetch the existing ticket to detect changes
-    const existingTicket = await prisma.tickets.findUnique({
-      where: { id },
+    // Fetch the existing ticket and verify it belongs to admin's org
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+
+    const existingTicket = await prisma.tickets.findFirst({
+      where: {
+        id,
+        ...(orgId
+          ? { user_tickets_createdByTouser: { organizationId: orgId } }
+          : {}),
+      },
       select: { status: true, assignedTo: true, title: true },
     });
 

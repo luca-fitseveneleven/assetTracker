@@ -170,7 +170,9 @@ export async function verifyEntityOrgOwnership(
   if (!config) return false;
 
   // Dynamic Prisma model access — delegate names are validated by the map above
-  const model = (prisma as Record<string, unknown>)[config.delegate] as {
+  const model = (prisma as unknown as Record<string, unknown>)[
+    config.delegate
+  ] as {
     findFirst: (args: Record<string, unknown>) => Promise<unknown>;
   };
   if (!model?.findFirst) return false;

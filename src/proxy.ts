@@ -42,8 +42,9 @@ export async function proxy(req: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const cspHeader = buildCspHeader(nonce);
 
-  // Stamp security headers (CSP + nonce + correlation ID) on every response
-  function withHeaders(response: NextResponse): NextResponse {
+  // Stamp security headers (CSP + nonce + correlation ID) on every response.
+  // Accepts both NextResponse and plain Response (e.g. from createRateLimitResponse).
+  function withHeaders<T extends Response>(response: T): T {
     response.headers.set("Content-Security-Policy", cspHeader);
     response.headers.set("x-nonce", nonce);
     response.headers.set("x-correlation-id", correlationId);

@@ -156,21 +156,25 @@ export async function verifyEntityOrgOwnership(
   entityId: string,
   organizationId: string | null | undefined,
 ): Promise<boolean> {
-  const modelMap: Record<
-    string,
-    { delegate: keyof typeof prisma; idField: string }
-  > = {
+  // Maps request entity types to Prisma model delegates and their PK field.
+  // Model names must match the Prisma schema exactly.
+  const modelMap: Record<string, { delegate: string; idField: string }> = {
     asset: { delegate: "asset", idField: "assetid" },
-    accessory: { delegate: "accessory", idField: "accessoryid" },
+    accessory: { delegate: "accessories", idField: "accessorieid" },
     consumable: { delegate: "consumable", idField: "consumableid" },
     licence: { delegate: "licence", idField: "licenceid" },
-    component: { delegate: "component", idField: "componentid" },
+    component: { delegate: "Component", idField: "id" },
   };
 
   const config = modelMap[entityType];
   if (!config) return false;
 
-  const model = prisma[config.delegate] as { findFirst: Function };
+  // Dynamic Prisma model access — delegate names are validated by the map above
+  const model = (prisma as Record<string, unknown>)[config.delegate] as {
+    findFirst: (args: Record<string, unknown>) => Promise<unknown>;
+  };
+  if (!model?.findFirst) return false;
+
   const entity = await model.findFirst({
     where: {
       [config.idField]: entityId,

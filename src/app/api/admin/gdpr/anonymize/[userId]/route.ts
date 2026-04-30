@@ -4,6 +4,7 @@ import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 interface RouteParams {
   params: Promise<{ userId: string }>;
@@ -32,10 +33,18 @@ export async function POST(req: Request, { params }: RouteParams) {
         email: true,
         username: true,
         isadmin: true,
+        organizationId: true,
       },
     });
 
     if (!targetUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Verify target user belongs to admin's organization
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    if ((orgId ?? null) !== (targetUser.organizationId ?? null)) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 

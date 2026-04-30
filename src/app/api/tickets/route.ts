@@ -145,12 +145,12 @@ async function getLocalTickets(url: URL) {
   }
 }
 
-// Fetch tickets from Freshdesk API
+// Fetch tickets from Freshdesk API (admin-only)
 async function getFreshdeskTickets(req: Request, url: URL) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.isadmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get Freshdesk configuration from database

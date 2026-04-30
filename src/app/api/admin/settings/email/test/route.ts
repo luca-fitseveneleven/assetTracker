@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { requireSuperAdmin } from "@/lib/api-auth";
 import { sendEmail } from "@/lib/email";
 import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.isadmin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin();
 
     const body = await req.json();
     const { email } = body;

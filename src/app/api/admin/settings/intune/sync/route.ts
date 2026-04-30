@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireSuperAdmin } from "@/lib/api-auth";
 import { getOrganizationContext } from "@/lib/organization-context";
 import { syncIntuneDevices } from "@/lib/integrations/intune";
 import { triggerWebhook } from "@/lib/webhooks";
@@ -7,7 +7,7 @@ import { logger } from "@/lib/logger";
 
 export async function POST() {
   try {
-    await requireApiAdmin();
+    await requireSuperAdmin();
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireApiAdmin } from "@/lib/api-auth";
+import { requireSuperAdmin } from "@/lib/api-auth";
 import { testIntuneConnection } from "@/lib/integrations/intune";
 import { logger } from "@/lib/logger";
 
 export async function POST() {
   try {
-    await requireApiAdmin();
+    await requireSuperAdmin();
 
     const result = await testIntuneConnection();
 

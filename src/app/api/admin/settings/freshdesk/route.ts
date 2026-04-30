@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import { createFreshdeskClient } from "@/lib/freshdesk";
 import { encrypt } from "@/lib/encryption";
-import { requireNotDemoMode } from "@/lib/api-auth";
+import { requireNotDemoMode, requireSuperAdmin } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 /**
@@ -13,10 +13,7 @@ import { logger } from "@/lib/logger";
  */
 export async function GET() {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.isadmin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin();
 
     const settings = await prisma.system_settings.findMany({
       where: {
@@ -56,10 +53,7 @@ export async function POST(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
 
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user?.isadmin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requireSuperAdmin();
 
     const body = await req.json();
     const { domain, apiKey } = body;

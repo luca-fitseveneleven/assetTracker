@@ -6,6 +6,7 @@ import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import { createFreshdeskClient } from "@/lib/freshdesk";
 import { logger } from "@/lib/logger";
 import { getOrganizationContext } from "@/lib/organization-context";
+import { decrypt } from "@/lib/encryption";
 import {
   notifyTicketAssigned,
   notifyTicketStatusChanged,
@@ -22,8 +23,8 @@ interface RouteParams {
 export async function GET(req: Request, { params }: RouteParams) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.isadmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
@@ -55,7 +56,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     const client = createFreshdeskClient({
       domain: domainSetting.settingValue,
-      apiKey: apiKeySetting.settingValue,
+      apiKey: decrypt(apiKeySetting.settingValue),
     });
 
     const result = await client.getTicket(ticketId);

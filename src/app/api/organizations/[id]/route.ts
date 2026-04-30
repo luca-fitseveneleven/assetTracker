@@ -73,6 +73,18 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Admins can only update their own organization
+    const adminUser = await prisma.user.findUnique({
+      where: { userid: session.user.id },
+      select: { organizationId: true },
+    });
+    if (!adminUser?.organizationId || adminUser.organizationId !== id) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 },
+      );
+    }
+
     const body = await req.json();
     const validated = updateOrganizationSchema.parse(body);
 
@@ -157,6 +169,18 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user?.isadmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Admins can only delete their own organization
+    const adminUser = await prisma.user.findUnique({
+      where: { userid: session.user.id },
+      select: { organizationId: true },
+    });
+    if (!adminUser?.organizationId || adminUser.organizationId !== id) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 },
+      );
     }
 
     // Check if organization has any associated data

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
-import { requireNotDemoMode, requireApiAdmin } from "@/lib/api-auth";
+import { requireNotDemoMode, requireSuperAdmin } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 export async function POST(req: Request) {
@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
 
-    await requireApiAdmin();
+    await requireSuperAdmin();
 
     const body = await req.json();
     const {

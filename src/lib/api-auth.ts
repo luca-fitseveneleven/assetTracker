@@ -158,6 +158,32 @@ export async function requireApiAdmin(): Promise<AuthUser> {
 }
 
 /**
+ * Require platform super-admin access for global settings.
+ *
+ * Super-admins are identified by email via the SUPER_ADMIN_EMAILS env var
+ * (comma-separated). This gates access to platform-wide configuration
+ * (SSO, LDAP, Freshdesk, integrations) that affects all tenants.
+ */
+export async function requireSuperAdmin(): Promise<AuthUser> {
+  const user = await requireApiAdmin();
+
+  const superAdminEmails = process.env.SUPER_ADMIN_EMAILS;
+  if (!superAdminEmails) {
+    // If no super-admin list is configured, all admins have access (single-tenant mode)
+    return user;
+  }
+
+  const allowed = superAdminEmails
+    .split(",")
+    .map((e) => e.trim().toLowerCase());
+  if (!user.email || !allowed.includes(user.email.toLowerCase())) {
+    throw new Error("Forbidden: Super-admin access required");
+  }
+
+  return user;
+}
+
+/**
  * Check if user has request permission
  */
 export async function requireApiCanRequest(): Promise<AuthUser> {

@@ -11,6 +11,24 @@ import {
 } from "@/lib/rate-limit";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 
+function buildCspHeader(nonce: string): string {
+  const directives = [
+    "default-src 'self'",
+    `script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' 'unsafe-eval'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    `connect-src 'self' https://*.sentry.io https://*.stripe.com https://*.basemaps.cartocdn.com https://*.cartocdn.com https://nominatim.openstreetmap.org https://analytics.711x.de https://challenges.cloudflare.com${process.env.NODE_ENV !== "production" ? " https://127.0.0.1:41951" : ""}`,
+    "worker-src 'self' blob:",
+    "frame-src 'self' https://*.stripe.com https://challenges.cloudflare.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ];
+  return directives.join("; ");
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const session = getSessionCookie(req);
@@ -19,6 +37,28 @@ export async function proxy(req: NextRequest) {
   // Generate correlation ID for request tracing
   const correlationId =
     req.headers.get("x-correlation-id") || generateCorrelationId();
+
+  // Generate per-request CSP nonce
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const cspHeader = buildCspHeader(nonce);
+
+  // Stamp security headers (CSP + nonce + correlation ID) on every response
+  function withHeaders(response: NextResponse): NextResponse {
+    response.headers.set("Content-Security-Policy", cspHeader);
+    response.headers.set("x-nonce", nonce);
+    response.headers.set("x-correlation-id", correlationId);
+    return response;
+  }
+
+  // For NextResponse.next(), also pass the nonce as a request header so
+  // the app (layout.tsx) can read it via headers().get("x-nonce")
+  function nextWithNonce(): NextResponse {
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-nonce", nonce);
+    return withHeaders(
+      NextResponse.next({ request: { headers: requestHeaders } }),
+    );
+  }
 
   // Public routes that don't require authentication
   const publicRoutes = [
@@ -59,9 +99,7 @@ export async function proxy(req: NextRequest) {
 
   // Allow health endpoints without authentication or rate limiting
   if (isHealthRoute) {
-    const response = NextResponse.next();
-    response.headers.set("x-correlation-id", correlationId);
-    return response;
+    return nextWithNonce();
   }
 
   // Apply rate limiting if enabled
@@ -83,50 +121,34 @@ export async function proxy(req: NextRequest) {
     const rateLimitResult = await checkRateLimit(identifier, limiterConfig);
 
     if (!rateLimitResult.success) {
-      const rateLimitResponse = createRateLimitResponse(
-        rateLimitResult,
-        limiterConfig.message,
+      return withHeaders(
+        createRateLimitResponse(rateLimitResult, limiterConfig.message),
       );
-      rateLimitResponse.headers.set("x-correlation-id", correlationId);
-      return rateLimitResponse;
     }
 
     // Add rate limit headers to response for API routes
-    const response = NextResponse.next();
+    const response = nextWithNonce();
     const rateLimitHeaders = createRateLimitHeaders(rateLimitResult);
     rateLimitHeaders.forEach((value, key) => {
       response.headers.set(key, value);
     });
-    response.headers.set("x-correlation-id", correlationId);
-
-    // If we got here with auth, continue to auth check
-    if (isApiRoute && !isLoggedIn && !isPublicRoute) {
-      // API routes handle their own auth, just return with headers
-      return response;
-    }
 
     return response;
   }
 
   // Redirect logged-in users away from login page
   if (isLoggedIn && pathname === "/login") {
-    const response = NextResponse.redirect(new URL("/dashboard", req.url));
-    response.headers.set("x-correlation-id", correlationId);
-    return response;
+    return withHeaders(NextResponse.redirect(new URL("/dashboard", req.url)));
   }
 
   // Redirect non-logged-in users to login (except for API routes)
   if (!isLoggedIn && !isPublicRoute && !isApiRoute) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
-    const response = NextResponse.redirect(loginUrl);
-    response.headers.set("x-correlation-id", correlationId);
-    return response;
+    return withHeaders(NextResponse.redirect(loginUrl));
   }
 
-  const response = NextResponse.next();
-  response.headers.set("x-correlation-id", correlationId);
-  return response;
+  return nextWithNonce();
 }
 
 export const config = {

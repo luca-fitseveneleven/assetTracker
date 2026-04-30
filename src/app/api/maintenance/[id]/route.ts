@@ -125,9 +125,12 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       updateData.estimatedCost = body.estimatedCost;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
     if (body.assetId !== undefined) {
-      // Verify asset exists if changing it
-      const asset = await prisma.asset.findUnique({
-        where: { assetid: body.assetId },
+      // Verify asset exists and belongs to admin's org
+      const asset = await prisma.asset.findFirst({
+        where: {
+          assetid: body.assetId,
+          ...(orgId2 ? { organizationId: orgId2 } : {}),
+        },
       });
       if (!asset) {
         return NextResponse.json({ error: "Asset not found" }, { status: 404 });

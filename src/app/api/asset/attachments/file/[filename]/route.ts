@@ -55,9 +55,16 @@ export async function GET(
 
     // Local storage: stream the file
     const { buffer, contentType } = await storage.download(key);
+
+    // Force download for non-image types (defense-in-depth against XSS)
+    const isImage = /^image\/(png|jpe?g|gif|webp)$/.test(contentType);
+    const disposition = isImage ? "inline" : "attachment";
+
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": contentType,
+        "Content-Disposition": `${disposition}; filename="${encodeURIComponent(attachment.originalName || key)}"`,
+        "X-Content-Type-Options": "nosniff",
         "Cache-Control": "private, max-age=86400",
         "Content-Length": buffer.length.toString(),
       },

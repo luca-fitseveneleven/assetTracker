@@ -98,7 +98,9 @@ export async function POST(request: NextRequest) {
       logger.warn("Failed to send invitation email", { error: emailError });
     }
 
-    return NextResponse.json(invitation, { status: 201 });
+    // Never expose the token in the API response — it should only travel via email.
+    const { token: _token, ...safeInvitation } = invitation;
+    return NextResponse.json(safeInvitation, { status: 201 });
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "Unauthorized") {

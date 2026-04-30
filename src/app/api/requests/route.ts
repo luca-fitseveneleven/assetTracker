@@ -8,6 +8,10 @@ import {
 } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { logger, logCatchError } from "@/lib/logger";
+import {
+  getOrganizationContext,
+  verifyEntityOrgOwnership,
+} from "@/lib/organization-context";
 
 // Transaction client type — works with both the full PrismaClient and the
 // transaction-scoped client that Prisma passes into $transaction callbacks.
@@ -28,6 +32,13 @@ export async function GET(req: NextRequest) {
 
     if (status && status !== "all") {
       where.status = status;
+    }
+
+    // Scope all requests to user's organization
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    if (orgId) {
+      where.user = { organizationId: orgId };
     }
 
     // Non-admins only see their own requests
@@ -160,6 +171,18 @@ export async function POST(req: NextRequest) {
         { error: "Invalid entity type" },
         { status: 400 },
       );
+    }
+
+    // Verify the target entity belongs to the requester's organization
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    const entityOwned = await verifyEntityOrgOwnership(
+      entityType,
+      entityId,
+      orgId,
+    );
+    if (!entityOwned) {
+      return NextResponse.json({ error: "Entity not found" }, { status: 404 });
     }
 
     // Atomic duplicate check + create inside a serializable transaction
@@ -311,6 +334,18 @@ export async function PUT(req: NextRequest) {
 
     const existing = await prisma.itemRequest.findUnique({ where: { id } });
     if (!existing) {
+      return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    }
+
+    // Verify the request's entity belongs to admin's org
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    const entityOwned = await verifyEntityOrgOwnership(
+      existing.entityType,
+      existing.entityId,
+      orgId,
+    );
+    if (!entityOwned) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 });
     }
 

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
+import {
+  getOrganizationContext,
+  verifyEntityOrgOwnership,
+} from "@/lib/organization-context";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,8 +17,20 @@ export async function GET(request: NextRequest) {
     if (!entityType || !entityId) {
       return NextResponse.json(
         { error: "entityType and entityId are required" },
-        { status: 400 }
+        { status: 400 },
       );
+    }
+
+    // Verify entity belongs to user's organization
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    const entityOwned = await verifyEntityOrgOwnership(
+      entityType,
+      entityId,
+      orgId,
+    );
+    if (!entityOwned) {
+      return NextResponse.json({ error: "Entity not found" }, { status: 404 });
     }
 
     const definitions = await prisma.custom_field_definitions.findMany({
@@ -48,7 +64,7 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(
       { error: "Failed to fetch custom field values" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -66,8 +82,20 @@ export async function POST(request: NextRequest) {
     if (!entityId || !entityType || !values) {
       return NextResponse.json(
         { error: "entityId, entityType, and values are required" },
-        { status: 400 }
+        { status: 400 },
       );
+    }
+
+    // Verify entity belongs to user's organization
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
+    const entityOwned = await verifyEntityOrgOwnership(
+      entityType,
+      entityId,
+      orgId,
+    );
+    if (!entityOwned) {
+      return NextResponse.json({ error: "Entity not found" }, { status: 404 });
     }
 
     const fieldIds = Object.keys(values);
@@ -105,7 +133,7 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json(
       { error: "Failed to save custom field values" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

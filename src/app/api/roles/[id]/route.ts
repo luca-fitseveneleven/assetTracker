@@ -13,6 +13,14 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+async function getAdminOrgId(userId: string): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { userid: userId },
+    select: { organizationId: true },
+  });
+  return user?.organizationId ?? null;
+}
+
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
@@ -46,6 +54,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Role not found" }, { status: 404 });
     }
 
+    // Verify role belongs to admin's org (system roles are readable by all)
+    if (role.organizationId) {
+      const adminOrgId = await getAdminOrgId(session.user.id!);
+      if (role.organizationId !== adminOrgId) {
+        return NextResponse.json({ error: "Role not found" }, { status: 404 });
+      }
+    }
+
     return NextResponse.json(role);
   } catch (error) {
     logger.error("Error fetching role", { error });
@@ -73,6 +89,14 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     if (!existingRole) {
       return NextResponse.json({ error: "Role not found" }, { status: 404 });
+    }
+
+    // Verify role belongs to admin's org
+    if (existingRole.organizationId) {
+      const adminOrgId = await getAdminOrgId(session.user.id!);
+      if (existingRole.organizationId !== adminOrgId) {
+        return NextResponse.json({ error: "Role not found" }, { status: 404 });
+      }
     }
 
     if (existingRole.isSystem) {
@@ -171,6 +195,14 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
     if (!role) {
       return NextResponse.json({ error: "Role not found" }, { status: 404 });
+    }
+
+    // Verify role belongs to admin's org
+    if (role.organizationId) {
+      const adminOrgId = await getAdminOrgId(session.user.id!);
+      if (role.organizationId !== adminOrgId) {
+        return NextResponse.json({ error: "Role not found" }, { status: 404 });
+      }
     }
 
     if (role.isSystem) {

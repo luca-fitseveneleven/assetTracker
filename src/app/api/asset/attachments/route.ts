@@ -21,7 +21,7 @@ const MAGIC_BYTES: Record<string, number[][]> = {
   ".jpeg": [[0xff, 0xd8, 0xff]],
   ".gif": [[0x47, 0x49, 0x46, 0x38]],
   ".webp": [[0x52, 0x49, 0x46, 0x46]], // RIFF header
-  ".svg": [], // Text-based, skip magic check
+  // SVG removed — can contain embedded scripts (XSS risk when served same-origin)
   // Documents
   ".pdf": [[0x25, 0x50, 0x44, 0x46]], // %PDF
   ".docx": [[0x50, 0x4b, 0x03, 0x04]], // ZIP (OOXML)
@@ -42,7 +42,6 @@ const ALLOWED_EXTENSIONS = new Set([
   ".png",
   ".gif",
   ".webp",
-  ".svg",
   ".pdf",
   ".doc",
   ".docx",

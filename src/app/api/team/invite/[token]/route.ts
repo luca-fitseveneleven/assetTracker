@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { requireNotDemoMode } from "@/lib/api-auth";
 import { setUserPassword } from "@/lib/auth-utils";
 import { logger } from "@/lib/logger";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +101,21 @@ export async function POST(
     });
 
     if (existingUser) {
+      // Existing users must be authenticated and own the invited email.
+      // Without this, anyone with the token can hijack the user into another org.
+      const session = await auth.api.getSession({
+        headers: await headers(),
+      });
+      if (!session?.user?.email || session.user.email !== invitation.email) {
+        return NextResponse.json(
+          {
+            error:
+              "You must be logged in as the invited user to accept this invitation",
+          },
+          { status: 401 },
+        );
+      }
+
       // Link existing user to the organization
       await prisma.user.update({
         where: { userid: existingUser.userid },

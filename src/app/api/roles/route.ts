@@ -122,15 +122,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user's organization if not specified
-    let organizationId = validated.organizationId;
-    if (!organizationId) {
-      const user = await prisma.user.findUnique({
-        where: { userid: session.user.id! },
-        select: { organizationId: true },
-      });
-      organizationId = user?.organizationId || null;
-    }
+    // Force organization from admin's own org — never accept from request body
+    const adminUser = await prisma.user.findUnique({
+      where: { userid: session.user.id! },
+      select: { organizationId: true },
+    });
+    const organizationId = adminUser?.organizationId || null;
 
     // Check for duplicate name within organization
     const existingRole = await prisma.role.findFirst({

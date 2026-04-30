@@ -22,8 +22,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const webhook = await prisma.webhook.findUnique({
-      where: { id },
+    // Scope to user's organization to prevent cross-tenant access
+    const user = await prisma.user.findUnique({
+      where: { userid: session.user.id },
+      select: { organizationId: true },
+    });
+
+    const webhook = await prisma.webhook.findFirst({
+      where: { id, organizationId: user?.organizationId ?? null },
       include: {
         organization: {
           select: { id: true, name: true },
@@ -89,6 +95,19 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       data.secret = encrypt(validated.secret);
     }
 
+    // Verify webhook belongs to user's organization
+    const user = await prisma.user.findUnique({
+      where: { userid: session.user.id },
+      select: { organizationId: true },
+    });
+    const existing = await prisma.webhook.findFirst({
+      where: { id, organizationId: user?.organizationId ?? null },
+      select: { id: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
+    }
+
     const webhook = await prisma.webhook.update({
       where: { id },
       data,
@@ -126,8 +145,13 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const webhook = await prisma.webhook.findUnique({
-      where: { id },
+    // Verify webhook belongs to user's organization
+    const user = await prisma.user.findUnique({
+      where: { userid: session.user.id },
+      select: { organizationId: true },
+    });
+    const webhook = await prisma.webhook.findFirst({
+      where: { id, organizationId: user?.organizationId ?? null },
     });
 
     if (!webhook) {

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { createFreshdeskClient, SUPPORTED_TICKET_TYPES } from "@/lib/freshdesk";
 import { decrypt } from "@/lib/encryption";
+import { getOrganizationContext } from "@/lib/organization-context";
 import {
   parsePaginationParams,
   buildPrismaArgs,
@@ -41,9 +42,13 @@ async function getLocalTickets(url: URL) {
     const user = await requireApiAuth();
     const searchParams = url.searchParams;
 
-    // Admins see all tickets, users see only their own
+    // Scope tickets to user's organization (through creator's org)
+    const orgContext = await getOrganizationContext();
+    const orgId = orgContext?.organization?.id;
     const where: Record<string, unknown> = user.isAdmin
-      ? {}
+      ? orgId
+        ? { user_tickets_createdByTouser: { organizationId: orgId } }
+        : {}
       : { createdBy: user.id };
 
     const include = {

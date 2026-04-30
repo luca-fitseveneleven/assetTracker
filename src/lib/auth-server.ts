@@ -164,7 +164,6 @@ export const auth = betterAuth({
       organizationId: {
         type: "string",
         required: false,
-        input: true,
       },
       departmentId: {
         type: "string",
@@ -320,6 +319,12 @@ export const auth = betterAuth({
 
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      // Block BetterAuth's built-in sign-up — all registration must go through
+      // /api/auth/register which enforces org creation and rate limiting.
+      if (ctx.path === "/sign-up/email") {
+        throw new Error("Registration is not available via this endpoint");
+      }
+
       if (ctx.path !== "/sign-in/email") return;
 
       const body = ctx.body as

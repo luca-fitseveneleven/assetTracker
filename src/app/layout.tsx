@@ -38,6 +38,8 @@ export default async function RootLayout({ children }) {
   const initialSidebarCollapsed = sidebarPref?.value === "true";
   const isDemo = process.env.DEMO_MODE === "true";
 
+  const nonce = headersList.get("x-nonce") ?? undefined;
+
   // Pass initial pathname so AppShell can render correctly on first frame
   const pathname = new URL(
     headersList.get("x-url") || headersList.get("x-invoke-path") || "/",
@@ -55,6 +57,7 @@ export default async function RootLayout({ children }) {
           src="https://analytics.711x.de/script.js"
           data-website-id="733bdd9f-8777-407e-826b-3042eb417e4f"
           strategy="afterInteractive"
+          nonce={nonce}
         />
         <SkipToContent />
         <OfflineBanner />

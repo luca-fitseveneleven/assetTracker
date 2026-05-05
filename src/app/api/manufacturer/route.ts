@@ -19,6 +19,7 @@ import {
 } from "@/lib/pagination";
 import { logger } from "@/lib/logger";
 import { invalidateCache } from "@/lib/cache";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 const MANUFACTURER_SORT_FIELDS = ["manufacturername", "creation_date"];
 
@@ -28,11 +29,15 @@ export async function GET(req: NextRequest) {
     // Require authentication to view manufacturers
     await requireApiAuth();
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const searchParams = req.nextUrl.searchParams;
 
     // If no `page` param, return all results for backward compatibility
     if (!searchParams.has("page")) {
       const items = await prisma.manufacturer.findMany({
+        where: { organizationId: orgId ?? null },
         orderBy: { manufacturername: "asc" },
       });
       return NextResponse.json(items, { status: 200 });
@@ -42,7 +47,7 @@ export async function GET(req: NextRequest) {
     const params = parsePaginationParams(searchParams);
     const prismaArgs = buildPrismaArgs(params, MANUFACTURER_SORT_FIELDS);
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { organizationId: orgId ?? null };
 
     // Search filter
     if (params.search) {
@@ -97,10 +102,14 @@ export async function POST(req: NextRequest) {
 
     const { manufacturername } = validationResult.data;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const created = await prisma.manufacturer.create({
       data: {
         manufacturername,
         creation_date: new Date(),
+        organizationId: orgId ?? null,
       } as Prisma.manufacturerUncheckedCreateInput,
     });
 
@@ -165,6 +174,20 @@ export async function PUT(req: NextRequest) {
 
     const { manufacturerid, manufacturername } = body;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership before update
+    const existing = await prisma.manufacturer.findFirst({
+      where: { manufacturerid, organizationId: orgId ?? null },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Manufacturer not found" },
+        { status: 404 },
+      );
+    }
+
     const updated = await prisma.manufacturer.update({
       where: { manufacturerid },
       data: {
@@ -227,9 +250,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Get manufacturer details before deletion for audit log
-    const manufacturer = await prisma.manufacturer.findUnique({
-      where: { manufacturerid },
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership before deletion
+    const manufacturer = await prisma.manufacturer.findFirst({
+      where: { manufacturerid, organizationId: orgId ?? null },
       select: { manufacturername: true },
     });
 

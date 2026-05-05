@@ -5,6 +5,7 @@ import { importJobSchema } from "@/lib/validation-organization";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
+import { checkAssetLimit, checkUserLimit } from "@/lib/tenant-limits";
 import { logger, logCatchError } from "@/lib/logger";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -171,6 +172,52 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Check quota limits before processing
+    const rowCount = lines.length - 1;
+    if (validatedInput.entityType === "asset") {
+      const limitCheck = await checkAssetLimit();
+      if (!limitCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: `Asset limit reached (${limitCheck.current}/${limitCheck.max}). Upgrade your plan to import more assets.`,
+          },
+          { status: 403 },
+        );
+      }
+      if (
+        limitCheck.max !== -1 &&
+        limitCheck.current + rowCount > limitCheck.max
+      ) {
+        return NextResponse.json(
+          {
+            error: `Import would exceed asset limit. You have ${limitCheck.max - limitCheck.current} slots remaining but are trying to import ${rowCount} assets.`,
+          },
+          { status: 403 },
+        );
+      }
+    } else if (validatedInput.entityType === "user") {
+      const limitCheck = await checkUserLimit();
+      if (!limitCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: `User limit reached (${limitCheck.current}/${limitCheck.max}). Upgrade your plan to import more users.`,
+          },
+          { status: 403 },
+        );
+      }
+      if (
+        limitCheck.max !== -1 &&
+        limitCheck.current + rowCount > limitCheck.max
+      ) {
+        return NextResponse.json(
+          {
+            error: `Import would exceed user limit. You have ${limitCheck.max - limitCheck.current} slots remaining but are trying to import ${rowCount} users.`,
+          },
+          { status: 403 },
+        );
+      }
+    }
+
     // Create import job
     const job = await prisma.importJob.create({
       data: {
@@ -178,13 +225,14 @@ export async function POST(req: NextRequest) {
         entityType: validatedInput.entityType,
         fileName: validatedInput.fileName,
         fileSize: validatedInput.fileSize,
-        totalRows: lines.length - 1, // Exclude header
+        totalRows: rowCount,
         status: "processing",
         startedAt: new Date(),
       },
     });
 
-    // Fetch default reference records for FK fields that may not be in the CSV
+    // Fetch default reference records scoped to the importing user's org
+    const orgWhere = { organizationId: importOrgId };
     const [
       defaultManufacturer,
       defaultStatus,
@@ -196,15 +244,15 @@ export async function POST(req: NextRequest) {
       defaultConsumableCategory,
       defaultLicenceCategory,
     ] = await Promise.all([
-      prisma.manufacturer.findFirst(),
-      prisma.statusType.findFirst(),
-      prisma.location.findFirst(),
-      prisma.supplier.findFirst(),
-      prisma.model.findFirst(),
-      prisma.assetCategoryType.findFirst(),
-      prisma.accessorieCategoryType.findFirst(),
-      prisma.consumableCategoryType.findFirst(),
-      prisma.licenceCategoryType.findFirst(),
+      prisma.manufacturer.findFirst({ where: orgWhere }),
+      prisma.statusType.findFirst({ where: orgWhere }),
+      prisma.location.findFirst({ where: orgWhere }),
+      prisma.supplier.findFirst({ where: orgWhere }),
+      prisma.model.findFirst({ where: orgWhere }),
+      prisma.assetCategoryType.findFirst({ where: orgWhere }),
+      prisma.accessorieCategoryType.findFirst({ where: orgWhere }),
+      prisma.consumableCategoryType.findFirst({ where: orgWhere }),
+      prisma.licenceCategoryType.findFirst({ where: orgWhere }),
     ]);
 
     const defaultRefs = {

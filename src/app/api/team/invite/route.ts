@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import { sendEmail } from "@/lib/email/service";
 import { emailTemplates, renderTemplate } from "@/lib/email/templates";
+import { checkUserLimit } from "@/lib/tenant-limits";
 import { logger } from "@/lib/logger";
 import { getBaseUrl } from "@/lib/url";
 
@@ -43,6 +44,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "A pending invitation already exists for this email address" },
         { status: 409 },
+      );
+    }
+
+    // Check user limit before sending invitation
+    const limitCheck = await checkUserLimit();
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: `User limit reached (${limitCheck.current}/${limitCheck.max}). Upgrade your plan to invite more users.`,
+        },
+        { status: 403 },
       );
     }
 

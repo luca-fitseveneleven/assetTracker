@@ -19,6 +19,7 @@ import {
 } from "@/lib/pagination";
 import { logger } from "@/lib/logger";
 import { invalidateCache } from "@/lib/cache";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 const SUPPLIER_SORT_FIELDS = ["suppliername", "email", "creation_date"];
 
@@ -28,11 +29,15 @@ export async function GET(req: NextRequest) {
     // Require authentication to view suppliers
     await requireApiAuth();
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const searchParams = req.nextUrl.searchParams;
 
     // If no `page` param, return all results for backward compatibility
     if (!searchParams.has("page")) {
       const items = await prisma.supplier.findMany({
+        where: { organizationId: orgId ?? null },
         orderBy: { suppliername: "asc" },
       });
       return NextResponse.json(items, { status: 200 });
@@ -42,7 +47,7 @@ export async function GET(req: NextRequest) {
     const params = parsePaginationParams(searchParams);
     const prismaArgs = buildPrismaArgs(params, SUPPLIER_SORT_FIELDS);
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { organizationId: orgId ?? null };
 
     // Search filter
     if (params.search) {
@@ -109,6 +114,9 @@ export async function POST(req: NextRequest) {
       website,
     } = validationResult.data;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const created = await prisma.supplier.create({
       data: {
         suppliername,
@@ -119,6 +127,7 @@ export async function POST(req: NextRequest) {
         phonenumber: phonenumber ?? null,
         website: website ?? null,
         creation_date: new Date(),
+        organizationId: orgId ?? null,
       } as Prisma.supplierUncheckedCreateInput,
     });
 
@@ -193,6 +202,20 @@ export async function PUT(req: NextRequest) {
       website,
     } = body;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership before update
+    const existing = await prisma.supplier.findFirst({
+      where: { supplierid, organizationId: orgId ?? null },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Supplier not found" },
+        { status: 404 },
+      );
+    }
+
     const updated = await prisma.supplier.update({
       where: { supplierid },
       data: {
@@ -262,9 +285,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Get supplier details before deletion for audit log
-    const supplier = await prisma.supplier.findUnique({
-      where: { supplierid },
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership before deletion
+    const supplier = await prisma.supplier.findFirst({
+      where: { supplierid, organizationId: orgId ?? null },
       select: { suppliername: true },
     });
 

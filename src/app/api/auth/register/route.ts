@@ -9,6 +9,8 @@ import {
   createRateLimitResponse,
 } from "@/lib/rate-limit";
 import { requireNotDemoMode } from "@/lib/api-auth";
+import { seedOrgDefaults } from "@/lib/org-defaults";
+import { isSelfHosted } from "@/lib/deployment-mode";
 import { logger } from "@/lib/logger";
 
 const registerSchema = z.object({
@@ -90,6 +92,7 @@ export async function POST(req: Request) {
       data: {
         name: organization,
         slug: generateSlug(organization),
+        ...(isSelfHosted() && { maxAssets: -1, maxUsers: -1 }),
       },
     });
 
@@ -117,6 +120,9 @@ export async function POST(req: Request) {
         password: hashedPassword,
       },
     });
+
+    // Seed default status types and categories for the new organization
+    await seedOrgDefaults(org.id);
 
     return NextResponse.json(
       { message: "Registration successful" },

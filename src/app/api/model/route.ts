@@ -19,6 +19,7 @@ import {
 } from "@/lib/pagination";
 import { logger } from "@/lib/logger";
 import { invalidateCache } from "@/lib/cache";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 const MODEL_SORT_FIELDS = ["modelname", "modelnumber", "creation_date"];
 
@@ -28,11 +29,15 @@ export async function GET(req: NextRequest) {
     // Require authentication to view models
     await requireApiAuth();
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const searchParams = req.nextUrl.searchParams;
 
     // If no `page` param, return all results for backward compatibility
     if (!searchParams.has("page")) {
       const items = await prisma.model.findMany({
+        where: { organizationId: orgId ?? null },
         orderBy: { modelname: "asc" },
       });
       return NextResponse.json(items, { status: 200 });
@@ -42,7 +47,7 @@ export async function GET(req: NextRequest) {
     const params = parsePaginationParams(searchParams);
     const prismaArgs = buildPrismaArgs(params, MODEL_SORT_FIELDS);
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { organizationId: orgId ?? null };
 
     // Search filter
     if (params.search) {
@@ -98,11 +103,15 @@ export async function POST(req: NextRequest) {
 
     const { modelname, modelnumber } = validationResult.data;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const created = await prisma.model.create({
       data: {
         modelname,
         modelnumber: modelnumber || null,
         creation_date: new Date(),
+        organizationId: orgId ?? null,
       } as Prisma.modelUncheckedCreateInput,
     });
 
@@ -164,6 +173,17 @@ export async function PUT(req: NextRequest) {
 
     const { modelid, modelname, modelnumber } = body;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership before update
+    const existing = await prisma.model.findFirst({
+      where: { modelid, organizationId: orgId ?? null },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Model not found" }, { status: 404 });
+    }
+
     const updated = await prisma.model.update({
       where: { modelid },
       data: {
@@ -221,9 +241,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Invalid model ID" }, { status: 400 });
     }
 
-    // Get model details before deletion for audit log
-    const model = await prisma.model.findUnique({
-      where: { modelid },
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership before deletion
+    const model = await prisma.model.findFirst({
+      where: { modelid, organizationId: orgId ?? null },
       select: { modelname: true },
     });
 

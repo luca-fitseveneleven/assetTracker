@@ -74,6 +74,7 @@ export async function proxy(req: NextRequest) {
     "/privacy",
     "/offline",
     "/invite",
+    "/suspended",
   ];
   const isPublicRoute = publicRoutes.some(
     (r) => pathname === r || pathname.startsWith(r + "/"),

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Settings,
   Mail,
@@ -192,6 +192,7 @@ interface AdminSettingsPageProps {
     statustypeid: string;
     statustypename: string;
   }>;
+  isSuperAdmin?: boolean;
 }
 
 export default function AdminSettingsPage({
@@ -203,8 +204,25 @@ export default function AdminSettingsPage({
   depreciationSettings,
   envEmailConfig,
   statuses = [],
+  isSuperAdmin = false,
 }: AdminSettingsPageProps) {
   const [activeTab, setActiveTab] = useState("general");
+
+  // Super-admin-only tabs — hidden for tenant admins
+  const superAdminOnlyTabs = new Set(["organizations"]);
+
+  const filteredNav = useMemo(
+    () =>
+      settingsNav
+        .map((group) => ({
+          ...group,
+          items: group.items.filter(
+            (item) => isSuperAdmin || !superAdminOnlyTabs.has(item.value),
+          ),
+        }))
+        .filter((group) => group.items.length > 0),
+    [isSuperAdmin],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -222,7 +240,7 @@ export default function AdminSettingsPage({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {settingsNav.map((group) =>
+              {filteredNav.map((group) =>
                 group.items.map((item) => (
                   <SelectItem key={item.value} value={item.value}>
                     {group.title} — {item.label}
@@ -241,7 +259,7 @@ export default function AdminSettingsPage({
           aria-label="Settings navigation"
         >
           <div className="sticky top-0 max-h-[calc(100vh-8rem)] space-y-6 overflow-y-auto">
-            {settingsNav.map((group) => (
+            {filteredNav.map((group) => (
               <div key={group.title}>
                 <p className="text-muted-foreground/70 px-3 pb-1.5 text-[11px] font-semibold tracking-widest uppercase">
                   {group.title}

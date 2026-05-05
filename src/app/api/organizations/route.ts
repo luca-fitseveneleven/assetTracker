@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireSuperAdmin,
+} from "@/lib/api-auth";
 import { organizationSchema } from "@/lib/validation-organization";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { z } from "zod";
@@ -84,7 +88,7 @@ export async function POST(req: NextRequest) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
 
-    const authUser = await requirePermission("org:manage");
+    const authUser = await requireSuperAdmin();
 
     const body = await req.json();
     const validated = organizationSchema.parse(body);

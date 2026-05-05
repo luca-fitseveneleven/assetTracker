@@ -120,6 +120,16 @@ export default async function Page() {
     prisma.statusType.findMany({ orderBy: { statustypename: "asc" } }),
   ]);
 
+  // Determine if current admin is a platform super-admin
+  const superAdminEmails = process.env.SUPER_ADMIN_EMAILS;
+  const isSuperAdmin = !superAdminEmails
+    ? true // No list configured = single-tenant, all admins are super
+    : !!session.user.email &&
+      superAdminEmails
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .includes(session.user.email.toLowerCase());
+
   // Detect if email is configured via environment variables
   const envEmailConfig = process.env.EMAIL_PROVIDER
     ? {
@@ -152,6 +162,7 @@ export default async function Page() {
         depreciationSettings={depreciationSettings}
         envEmailConfig={envEmailConfig}
         statuses={statuses}
+        isSuperAdmin={isSuperAdmin}
       />
     </>
   );

@@ -9,6 +9,7 @@ import {
   userToScim,
   scimListResponse,
 } from "@/lib/scim";
+import { checkUserLimit } from "@/lib/tenant-limits";
 import { logger, logCatchError } from "@/lib/logger";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 
@@ -131,6 +132,18 @@ export async function POST(req: Request) {
         status: 409,
         headers: scimHeaders(),
       });
+    }
+
+    // Check user quota before provisioning
+    const limitCheck = await checkUserLimit();
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        scimError(
+          `User limit reached (${limitCheck.current}/${limitCheck.max}). Upgrade plan to provision more users.`,
+          403,
+        ),
+        { status: 403, headers: scimHeaders() },
+      );
     }
 
     // Create user with random password (SCIM users auth via IdP)

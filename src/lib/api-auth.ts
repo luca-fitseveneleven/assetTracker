@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 import { hasPermission, hasAnyPermission, type Permission } from "./rbac";
 import prisma from "./prisma";
 import { validateApiKey } from "./api-keys";
+import {
+  getOrgSuspensionStatus,
+  requireActiveOrg,
+  requireWriteAccess,
+} from "./org-suspension";
 
 /**
  * Block mutating operations in demo mode.
@@ -138,10 +143,32 @@ export async function getAuthUser(): Promise<AuthUser> {
 }
 
 /**
- * Require authentication for API routes
+ * Require authentication for API routes.
+ * Also blocks fully locked-out organizations (past grace period).
  */
 export async function requireApiAuth(): Promise<AuthUser> {
-  return await getAuthUser();
+  const user = await getAuthUser();
+
+  // Check org suspension (block locked-out orgs from all access)
+  const orgStatus = await getOrgSuspensionStatus(user.organizationId);
+  const blocked = requireActiveOrg(orgStatus);
+  if (blocked) {
+    throw new Error("Forbidden: Organization suspended");
+  }
+
+  return user;
+}
+
+/**
+ * Require that the user's org is fully active (not suspended or in grace period).
+ * Call this in write endpoints (POST/PUT/PATCH/DELETE) after requireApiAuth/requireApiAdmin.
+ */
+export async function requireWritableOrg(user: AuthUser): Promise<void> {
+  const orgStatus = await getOrgSuspensionStatus(user.organizationId);
+  const blocked = requireWriteAccess(orgStatus);
+  if (blocked) {
+    throw new Error("Forbidden: Organization is in read-only mode");
+  }
 }
 
 /**

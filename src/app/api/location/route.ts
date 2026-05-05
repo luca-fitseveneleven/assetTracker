@@ -20,6 +20,7 @@ import {
 } from "@/lib/pagination";
 import { logger } from "@/lib/logger";
 import { geocodeAddress } from "@/lib/geocode";
+import { getOrganizationContext } from "@/lib/organization-context";
 
 const LOCATION_SORT_FIELDS = ["locationname", "creation_date"];
 
@@ -28,6 +29,9 @@ export async function GET(req: NextRequest) {
   try {
     // Require authentication to view locations
     await requireApiAuth();
+
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const searchParams = req.nextUrl.searchParams;
 
@@ -39,6 +43,7 @@ export async function GET(req: NextRequest) {
     // If no `page` param, return all results for backward compatibility
     if (!searchParams.has("page")) {
       const items = await prisma.location.findMany({
+        where: { organizationId: orgId ?? null },
         orderBy: { locationname: "asc" },
         include: locationInclude,
       });
@@ -49,7 +54,7 @@ export async function GET(req: NextRequest) {
     const params = parsePaginationParams(searchParams);
     const prismaArgs = buildPrismaArgs(params, LOCATION_SORT_FIELDS);
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { organizationId: orgId ?? null };
 
     // Search filter
     if (params.search) {
@@ -109,6 +114,9 @@ export async function POST(req: NextRequest) {
     const { locationname, street, housenumber, city, country, parentId } =
       validationResult.data;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const created = await prisma.location.create({
       data: {
         locationname,
@@ -118,6 +126,7 @@ export async function POST(req: NextRequest) {
         country: country ?? null,
         parentId: parentId ?? null,
         creation_date: new Date(),
+        organizationId: orgId ?? null,
       } as Prisma.locationUncheckedCreateInput,
     });
 
@@ -208,6 +217,20 @@ export async function PUT(req: NextRequest) {
       parentId,
     } = body;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership before update
+    const existing = await prisma.location.findFirst({
+      where: { locationid, organizationId: orgId ?? null },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Location not found" },
+        { status: 404 },
+      );
+    }
+
     const updated = await prisma.location.update({
       where: { locationid },
       data: {
@@ -293,9 +316,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Get location details before deletion for audit log
-    const location = await prisma.location.findUnique({
-      where: { locationid },
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership before deletion
+    const location = await prisma.location.findFirst({
+      where: { locationid, organizationId: orgId ?? null },
       select: { locationname: true },
     });
 

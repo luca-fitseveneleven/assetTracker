@@ -12,6 +12,7 @@ import {
   uuidSchema,
 } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { getOrganizationContext } from "@/lib/organization-context";
 import {
   parsePaginationParams,
   buildPrismaArgs,
@@ -26,12 +27,15 @@ export async function GET(req: NextRequest) {
   try {
     // Require authentication to view accessory categories
     await requireApiAuth();
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const searchParams = req.nextUrl.searchParams;
 
     // If no `page` param, return all results for backward compatibility
     if (!searchParams.has("page")) {
       const items = await prisma.accessorieCategoryType.findMany({
+        where: { organizationId: orgId ?? null },
         orderBy: { accessoriecategorytypename: "asc" },
       });
       return NextResponse.json(items, { status: 200 });
@@ -41,7 +45,7 @@ export async function GET(req: NextRequest) {
     const params = parsePaginationParams(searchParams);
     const prismaArgs = buildPrismaArgs(params, ACCESSORY_CATEGORY_SORT_FIELDS);
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { organizationId: orgId ?? null };
 
     // Search filter
     if (params.search) {
@@ -101,9 +105,13 @@ export async function POST(req: NextRequest) {
 
     const { accessoriecategorytypename } = validationResult.data;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const created = await prisma.accessorieCategoryType.create({
       data: {
         accessoriecategorytypename,
+        organizationId: orgId ?? null,
       } as Prisma.accessorieCategoryTypeUncheckedCreateInput,
     });
 
@@ -166,6 +174,20 @@ export async function PUT(req: NextRequest) {
     }
 
     const { accessoriecategorytypeid, accessoriecategorytypename } = body;
+
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership
+    const existing = await prisma.accessorieCategoryType.findFirst({
+      where: { accessoriecategorytypeid, organizationId: orgId ?? null },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Accessory category not found" },
+        { status: 404 },
+      );
+    }
 
     const updated = await prisma.accessorieCategoryType.update({
       where: { accessoriecategorytypeid },

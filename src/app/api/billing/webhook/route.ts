@@ -62,6 +62,9 @@ export async function POST(req: Request) {
               plan: planKey,
               maxAssets: planCfg.maxAssets === -1 ? 999999 : planCfg.maxAssets,
               maxUsers: planCfg.maxUsers === -1 ? 999999 : planCfg.maxUsers,
+              // Clear any suspension on reactivation
+              isActive: true,
+              suspendedAt: null,
             },
           });
         }
@@ -77,6 +80,9 @@ export async function POST(req: Request) {
           stripeSubscriptionId: null,
           maxAssets: PLANS.starter.maxAssets,
           maxUsers: PLANS.starter.maxUsers,
+          // Start grace period suspension
+          isActive: false,
+          suspendedAt: new Date(),
         },
       });
       break;

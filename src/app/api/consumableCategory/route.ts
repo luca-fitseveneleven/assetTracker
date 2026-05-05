@@ -12,6 +12,7 @@ import {
   uuidSchema,
 } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { getOrganizationContext } from "@/lib/organization-context";
 import {
   parsePaginationParams,
   buildPrismaArgs,
@@ -26,12 +27,15 @@ export async function GET(req: NextRequest) {
   try {
     // Require authentication to view consumable categories
     await requireApiAuth();
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const searchParams = req.nextUrl.searchParams;
 
     // If no `page` param, return all results for backward compatibility
     if (!searchParams.has("page")) {
       const items = await prisma.consumableCategoryType.findMany({
+        where: { organizationId: orgId ?? null },
         orderBy: { consumablecategorytypename: "asc" },
       });
       return NextResponse.json(items, { status: 200 });
@@ -41,7 +45,7 @@ export async function GET(req: NextRequest) {
     const params = parsePaginationParams(searchParams);
     const prismaArgs = buildPrismaArgs(params, CONSUMABLE_CATEGORY_SORT_FIELDS);
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { organizationId: orgId ?? null };
 
     // Search filter
     if (params.search) {
@@ -101,9 +105,13 @@ export async function POST(req: NextRequest) {
 
     const { consumablecategorytypename } = validationResult.data;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const created = await prisma.consumableCategoryType.create({
       data: {
         consumablecategorytypename,
+        organizationId: orgId ?? null,
       } as Prisma.consumableCategoryTypeUncheckedCreateInput,
     });
 
@@ -166,6 +174,20 @@ export async function PUT(req: NextRequest) {
     }
 
     const { consumablecategorytypeid, consumablecategorytypename } = body;
+
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership
+    const existing = await prisma.consumableCategoryType.findFirst({
+      where: { consumablecategorytypeid, organizationId: orgId ?? null },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Consumable category not found" },
+        { status: 404 },
+      );
+    }
 
     const updated = await prisma.consumableCategoryType.update({
       where: { consumablecategorytypeid },

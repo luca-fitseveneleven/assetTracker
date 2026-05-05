@@ -11,6 +11,7 @@ import {
   uuidSchema,
 } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { getOrganizationContext } from "@/lib/organization-context";
 import { cached, invalidateCache } from "@/lib/cache";
 import {
   parsePaginationParams,
@@ -26,6 +27,8 @@ export async function GET(req: NextRequest) {
   try {
     // Require authentication to view status types
     await requireApiAuth();
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const searchParams = req.nextUrl.searchParams;
 
@@ -34,7 +37,10 @@ export async function GET(req: NextRequest) {
       const items = await cached(
         "status_types",
         () =>
-          prisma.statusType.findMany({ orderBy: { statustypename: "asc" } }),
+          prisma.statusType.findMany({
+            where: { organizationId: orgId ?? null },
+            orderBy: { statustypename: "asc" },
+          }),
         5 * 60 * 1000,
       );
       return NextResponse.json(items, { status: 200 });
@@ -44,7 +50,7 @@ export async function GET(req: NextRequest) {
     const params = parsePaginationParams(searchParams);
     const prismaArgs = buildPrismaArgs(params, STATUS_TYPE_SORT_FIELDS);
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { organizationId: orgId ?? null };
 
     // Search filter
     if (params.search) {
@@ -102,6 +108,9 @@ export async function POST(req: NextRequest) {
     const color = body.color || null;
     const isDefault = body.isDefault ?? false;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     // If setting as default, unset others
     if (isDefault) {
       await prisma.statusType.updateMany({
@@ -115,6 +124,7 @@ export async function POST(req: NextRequest) {
         statustypename,
         color,
         isDefault,
+        organizationId: orgId ?? null,
       },
     });
 
@@ -183,6 +193,20 @@ export async function PUT(req: NextRequest) {
     const { statustypeid, statustypename } = body;
     const color = body.color ?? undefined;
     const isDefault = body.isDefault ?? undefined;
+
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Verify ownership
+    const existing = await prisma.statusType.findFirst({
+      where: { statustypeid, organizationId: orgId ?? null },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Status type not found" },
+        { status: 404 },
+      );
+    }
 
     // If setting as default, unset others
     if (isDefault) {
@@ -258,9 +282,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     // Get status type details before deletion for audit log
-    const statusType = await prisma.statusType.findUnique({
-      where: { statustypeid },
+    const statusType = await prisma.statusType.findFirst({
+      where: { statustypeid, organizationId: orgId ?? null },
       select: { statustypename: true },
     });
 

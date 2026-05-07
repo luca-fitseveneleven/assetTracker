@@ -65,6 +65,13 @@ export const PERMISSIONS = {
   // Import
   "import:execute": "Execute bulk imports",
 
+  // Procurement
+  "procurement:view": "View purchase requests and orders",
+  "procurement:create": "Create purchase requests",
+  "procurement:approve": "Approve or reject purchase requests",
+  "procurement:manage_orders": "Manage purchase orders and generate POs",
+  "procurement:receive": "Record goods receipts",
+
   // Components
   "component:view": "View components",
   "component:create": "Create components",

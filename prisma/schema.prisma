@@ -57,6 +57,8 @@ model Organization {
   licenceCategories    licenceCategoryType[]
   componentCategories  ComponentCategory[]
   scimTokens           ScimToken[]
+  purchaseRequests     PurchaseRequest[]
+  purchaseOrders       PurchaseOrder[]
 
   @@map("organizations")
   @@schema("public")
@@ -76,7 +78,8 @@ model Department {
   updatedAt      DateTime     @updatedAt @db.Timestamp(6)
 
   // Relationships
-  users user[]
+  users            user[]
+  purchaseRequests PurchaseRequest[]
 
   @@index([organizationId])
   @@index([parentId])
@@ -890,23 +893,25 @@ model status_transitions {
 }
 
 model supplier {
-  supplierid     String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  suppliername   String        @db.VarChar
-  lastname       String?       @db.VarChar
-  firstname      String?       @db.VarChar
-  salutation     String?       @db.VarChar
-  email          String?       @db.VarChar
-  phonenumber    String?       @db.VarChar
-  website        String?       @db.VarChar(500)
-  creation_date  DateTime      @db.Timestamp(6)
-  change_date    DateTime?     @db.Timestamp(6)
-  organizationId String?       @db.Uuid
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  accessories    accessories[]
-  asset          asset[]
-  consumable     consumable[]
-  licence        licence[]
-  components     Component[]
+  supplierid           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  suppliername         String                @db.VarChar
+  lastname             String?               @db.VarChar
+  firstname            String?               @db.VarChar
+  salutation           String?               @db.VarChar
+  email                String?               @db.VarChar
+  phonenumber          String?               @db.VarChar
+  website              String?               @db.VarChar(500)
+  creation_date        DateTime              @db.Timestamp(6)
+  change_date          DateTime?             @db.Timestamp(6)
+  organizationId       String?               @db.Uuid
+  organization         Organization?         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  accessories          accessories[]
+  asset                asset[]
+  consumable           consumable[]
+  licence              licence[]
+  components           Component[]
+  purchaseRequestItems PurchaseRequestItem[]
+  purchaseOrders       PurchaseOrder[]
 
   @@index([organizationId])
   @@schema("public")
@@ -1034,6 +1039,9 @@ model user {
   itemRequestsCreated              ItemRequest[]             @relation("item_request_user")
   itemRequestsApproved             ItemRequest[]             @relation("item_request_approver")
   reportSchedules                  ReportSchedule[]
+  purchaseRequestsCreated          PurchaseRequest[]         @relation("pr_requester")
+  purchaseRequestsApproved         PurchaseRequest[]         @relation("pr_approver")
+  goodsReceiptsRecorded            GoodsReceipt[]            @relation("gr_receiver")
 
   @@index([firstname, lastname])
   @@index([organizationId])
@@ -1545,5 +1553,98 @@ model ItemRequest {
   @@index([status])
   @@index([entityType, entityId])
   @@map("item_requests")
+  @@schema("public")
+}
+
+// ---------------------------------------------------------------------------
+// Procurement Workflow
+// ---------------------------------------------------------------------------
+
+model PurchaseRequest {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title          String       @db.VarChar(255)
+  description    String?
+  requesterId    String       @db.Uuid
+  requester      user         @relation("pr_requester", fields: [requesterId], references: [userid], onDelete: Cascade)
+  departmentId   String?      @db.Uuid
+  department     Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         String       @default("draft") @db.VarChar(30)
+  priority       String       @default("medium") @db.VarChar(20)
+  estimatedTotal Decimal?     @db.Decimal(12, 2)
+  approvedBy     String?      @db.Uuid
+  approver       user?        @relation("pr_approver", fields: [approvedBy], references: [userid], onDelete: SetNull)
+  approvedAt     DateTime?    @db.Timestamp(6)
+  notes          String?
+  createdAt      DateTime     @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamp(6)
+
+  items          PurchaseRequestItem[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([requesterId])
+  @@map("purchase_requests")
+  @@schema("public")
+}
+
+model PurchaseRequestItem {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchaseRequestId String          @db.Uuid
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  entityType        String          @default("other") @db.VarChar(30)
+  description       String          @db.VarChar(500)
+  quantity          Int             @default(1)
+  estimatedUnitCost Decimal?        @db.Decimal(10, 2)
+  supplierId        String?         @db.Uuid
+  supplier          supplier?       @relation(fields: [supplierId], references: [supplierid], onDelete: SetNull)
+  receivedQuantity  Int             @default(0)
+  notes             String?
+
+  @@index([purchaseRequestId])
+  @@map("purchase_request_items")
+  @@schema("public")
+}
+
+model PurchaseOrder {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchaseRequestId    String?          @db.Uuid
+  purchaseRequest      PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id], onDelete: SetNull)
+  poNumber             String           @unique @db.VarChar(50)
+  supplierId           String?          @db.Uuid
+  supplier             supplier?        @relation(fields: [supplierId], references: [supplierid], onDelete: SetNull)
+  organizationId       String           @db.Uuid
+  organization         Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status               String           @default("draft") @db.VarChar(30)
+  totalAmount          Decimal?         @db.Decimal(12, 2)
+  sentAt               DateTime?        @db.Timestamp(6)
+  expectedDeliveryDate DateTime?        @db.Date
+  notes                String?
+  createdAt            DateTime         @default(now()) @db.Timestamp(6)
+  updatedAt            DateTime         @updatedAt @db.Timestamp(6)
+
+  goodsReceipts GoodsReceipt[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([purchaseRequestId])
+  @@map("purchase_orders")
+  @@schema("public")
+}
+
+model GoodsReceipt {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchaseOrderId String        @db.Uuid
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  receivedBy      String        @db.Uuid
+  receiver        user          @relation("gr_receiver", fields: [receivedBy], references: [userid], onDelete: Cascade)
+  receivedAt      DateTime      @default(now()) @db.Timestamp(6)
+  notes           String?
+  items           Json          @default("[]")
+
+  @@index([purchaseOrderId])
+  @@map("goods_receipts")
   @@schema("public")
 }

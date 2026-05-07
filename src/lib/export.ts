@@ -37,6 +37,21 @@ function buildRows(
 // CSV generation
 // ---------------------------------------------------------------------------
 
+const FORMULA_PREFIXES = ["=", "+", "-", "@"];
+
+/**
+ * Sanitize a string value for CSV output to prevent formula injection.
+ * Prepends a single quote to values starting with formula characters
+ * so Excel/Sheets treat them as text, not executable formulas.
+ */
+function sanitizeCsvCell(value: string): string {
+  const sanitized = value.replace(/\t/g, " ").replace(/\r/g, "");
+  if (FORMULA_PREFIXES.some((p) => sanitized.startsWith(p))) {
+    return "'" + sanitized;
+  }
+  return sanitized;
+}
+
 export function generateCSV(
   data: Record<string, unknown>[],
   columns: ExportColumn[],
@@ -47,7 +62,10 @@ export function generateCSV(
   return [headers, ...rows]
     .map((row) =>
       row
-        .map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`)
+        .map((cell) => {
+          const str = sanitizeCsvCell(String(cell ?? ""));
+          return `"${str.replace(/"/g, '""')}"`;
+        })
         .join(","),
     )
     .join("\n");

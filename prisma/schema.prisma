@@ -56,6 +56,7 @@ model Organization {
   consumableCategories consumableCategoryType[]
   licenceCategories    licenceCategoryType[]
   componentCategories  ComponentCategory[]
+  scimTokens           ScimToken[]
 
   @@map("organizations")
   @@schema("public")
@@ -158,6 +159,21 @@ model WebhookDelivery {
   @@index([webhookId])
   @@index([deliveredAt])
   @@map("webhook_deliveries")
+  @@schema("public")
+}
+
+// SCIM Token (per-org bearer tokens for SCIM provisioning)
+model ScimToken {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token          String       @db.VarChar(255)
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  description    String?      @db.VarChar(255)
+  createdAt      DateTime     @default(now()) @db.Timestamp(6)
+  createdBy      String?      @db.Uuid
+
+  @@index([organizationId])
+  @@map("scim_tokens")
   @@schema("public")
 }
 

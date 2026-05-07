@@ -8,6 +8,7 @@ import {
   scimError,
   userToScim,
   scimListResponse,
+  type ScimAuthResult,
 } from "@/lib/scim";
 import { checkUserLimit } from "@/lib/tenant-limits";
 import { logger, logCatchError } from "@/lib/logger";
@@ -31,8 +32,9 @@ const USER_SELECT = {
  * Supports: filter, startIndex, count
  */
 export async function GET(req: Request) {
-  const authErr = await authenticateScim(req);
-  if (authErr) return authErr;
+  const authResult = await authenticateScim(req);
+  if (authResult instanceof NextResponse) return authResult;
+  const { organizationId } = authResult;
 
   try {
     const url = new URL(req.url);
@@ -47,8 +49,8 @@ export async function GET(req: Request) {
     const filter = url.searchParams.get("filter");
     const baseUrl = `${url.protocol}//${url.host}`;
 
-    // Basic SCIM filter support: userName eq "value"
-    let where: any = {};
+    // Scope to the SCIM token's organization
+    const where: Record<string, unknown> = { organizationId };
     if (filter) {
       const match = filter.match(/userName\s+eq\s+"([^"]+)"/i);
       if (match) {
@@ -94,8 +96,9 @@ export async function GET(req: Request) {
  * Create user (SCIM 2.0 RFC 7644 Section 3.3)
  */
 export async function POST(req: Request) {
-  const authErr = await authenticateScim(req);
-  if (authErr) return authErr;
+  const authResult = await authenticateScim(req);
+  if (authResult instanceof NextResponse) return authResult;
+  const { organizationId } = authResult;
 
   try {
     const body = await req.json();
@@ -167,6 +170,7 @@ export async function POST(req: Request) {
         scimProviderId: externalId,
         scimLastSync: new Date(),
         creation_date: new Date(),
+        organizationId,
       },
       select: USER_SELECT,
     });

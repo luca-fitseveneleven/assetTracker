@@ -1,17 +1,31 @@
 import type { ExportColumn } from "./export";
 
+const FORMULA_PREFIXES = ["=", "+", "-", "@"];
+
+/**
+ * Sanitize a string for CSV to prevent formula injection in Excel/Sheets.
+ */
+function sanitizeCsvCell(value: string): string {
+  const sanitized = value.replace(/\t/g, " ").replace(/\r/g, "");
+  if (FORMULA_PREFIXES.some((p) => sanitized.startsWith(p))) {
+    return "'" + sanitized;
+  }
+  return sanitized;
+}
+
 /**
  * Escape a value for CSV output.
  * Wraps in double quotes, escaping internal quotes by doubling them.
+ * Sanitizes formula characters to prevent injection.
  */
 function escapeCsvValue(value: unknown): string {
   if (value === null || value === undefined) return '""';
   if (value instanceof Date) return `"${value.toISOString().split("T")[0]}"`;
   if (typeof value === "object") {
-    const json = JSON.stringify(value).replace(/"/g, '""');
+    const json = sanitizeCsvCell(JSON.stringify(value)).replace(/"/g, '""');
     return `"${json}"`;
   }
-  const str = String(value).replace(/"/g, '""');
+  const str = sanitizeCsvCell(String(value)).replace(/"/g, '""');
   return `"${str}"`;
 }
 

@@ -29,7 +29,15 @@ export async function GET() {
     } else {
       const state = crypto.randomBytes(16).toString("hex");
       const url = await getOidcAuthorizationUrl(state);
-      return NextResponse.redirect(url);
+      const response = NextResponse.redirect(url);
+      response.cookies.set("oidc_state", state, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 300,
+        path: "/",
+      });
+      return response;
     }
   } catch (error: any) {
     logger.error("SSO init error", { error: error.message });

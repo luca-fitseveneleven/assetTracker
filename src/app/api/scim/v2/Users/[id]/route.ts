@@ -5,6 +5,7 @@ import {
   scimHeaders,
   scimError,
   userToScim,
+  type ScimAuthResult,
 } from "@/lib/scim";
 import { logger } from "@/lib/logger";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
@@ -30,16 +31,17 @@ const USER_SELECT = {
  * Get single user (SCIM 2.0 RFC 7644 Section 3.4.1)
  */
 export async function GET(req: Request, { params }: RouteParams) {
-  const authErr = await authenticateScim(req);
-  if (authErr) return authErr;
+  const authResult = await authenticateScim(req);
+  if (authResult instanceof NextResponse) return authResult;
+  const { organizationId } = authResult;
 
   try {
     const { id } = await params;
     const url = new URL(req.url);
     const baseUrl = `${url.protocol}//${url.host}`;
 
-    const user = await prisma.user.findUnique({
-      where: { userid: id },
+    const user = await prisma.user.findFirst({
+      where: { userid: id, organizationId },
       select: USER_SELECT,
     });
 
@@ -67,8 +69,9 @@ export async function GET(req: Request, { params }: RouteParams) {
  * Replace user (SCIM 2.0 RFC 7644 Section 3.5.1)
  */
 export async function PUT(req: Request, { params }: RouteParams) {
-  const authErr = await authenticateScim(req);
-  if (authErr) return authErr;
+  const authResult = await authenticateScim(req);
+  if (authResult instanceof NextResponse) return authResult;
+  const { organizationId } = authResult;
 
   try {
     const { id } = await params;
@@ -76,8 +79,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
     const url = new URL(req.url);
     const baseUrl = `${url.protocol}//${url.host}`;
 
-    const existing = await prisma.user.findUnique({
-      where: { userid: id },
+    const existing = await prisma.user.findFirst({
+      where: { userid: id, organizationId },
       select: { userid: true },
     });
 
@@ -129,8 +132,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
  * Supports "Operations" array with op: replace/add
  */
 export async function PATCH(req: Request, { params }: RouteParams) {
-  const authErr = await authenticateScim(req);
-  if (authErr) return authErr;
+  const authResult = await authenticateScim(req);
+  if (authResult instanceof NextResponse) return authResult;
+  const { organizationId } = authResult;
 
   try {
     const { id } = await params;
@@ -138,8 +142,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     const url = new URL(req.url);
     const baseUrl = `${url.protocol}//${url.host}`;
 
-    const existing = await prisma.user.findUnique({
-      where: { userid: id },
+    const existing = await prisma.user.findFirst({
+      where: { userid: id, organizationId },
       select: { userid: true },
     });
 
@@ -247,14 +251,15 @@ export async function PATCH(req: Request, { params }: RouteParams) {
  * Sets isActive=false rather than hard-deleting.
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
-  const authErr = await authenticateScim(req);
-  if (authErr) return authErr;
+  const authResult = await authenticateScim(req);
+  if (authResult instanceof NextResponse) return authResult;
+  const { organizationId } = authResult;
 
   try {
     const { id } = await params;
 
-    const existing = await prisma.user.findUnique({
-      where: { userid: id },
+    const existing = await prisma.user.findFirst({
+      where: { userid: id, organizationId },
       select: { userid: true },
     });
 

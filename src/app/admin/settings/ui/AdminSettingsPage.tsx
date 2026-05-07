@@ -58,6 +58,8 @@ import ApiKeysTab from "./ApiKeysTab";
 import EulaTab from "./EulaTab";
 import AssetTemplatesTab from "./AssetTemplatesTab";
 import { PlanGate } from "@/components/PlanGate";
+import BillingTab from "./BillingTab";
+import { CreditCard } from "lucide-react";
 
 interface NavItem {
   value: string;
@@ -76,6 +78,7 @@ const settingsNav: NavGroup[] = [
     items: [
       { value: "general", label: "General", icon: Settings },
       { value: "users", label: "Users", icon: Users },
+      { value: "billing", label: "Billing", icon: CreditCard },
     ],
   },
   {
@@ -123,6 +126,9 @@ const settingsNav: NavGroup[] = [
     ],
   },
 ];
+
+const SUPER_ADMIN_ONLY_TABS = new Set(["organizations"]);
+const SELF_HOSTED_HIDDEN_TABS = new Set(["billing"]);
 
 interface AdminSettingsPageProps {
   settings: Record<
@@ -213,20 +219,21 @@ export default function AdminSettingsPage({
 }: AdminSettingsPageProps) {
   const [activeTab, setActiveTab] = useState("general");
 
-  // Super-admin-only tabs — hidden for tenant admins
-  const superAdminOnlyTabs = new Set(["organizations"]);
-
   const filteredNav = useMemo(
     () =>
       settingsNav
         .map((group) => ({
           ...group,
-          items: group.items.filter(
-            (item) => isSuperAdmin || !superAdminOnlyTabs.has(item.value),
-          ),
+          items: group.items.filter((item) => {
+            if (SUPER_ADMIN_ONLY_TABS.has(item.value) && !isSuperAdmin)
+              return false;
+            if (SELF_HOSTED_HIDDEN_TABS.has(item.value) && isSelfHostedMode)
+              return false;
+            return true;
+          }),
         }))
         .filter((group) => group.items.length > 0),
-    [isSuperAdmin],
+    [isSuperAdmin, isSelfHostedMode],
   );
 
   return (
@@ -301,6 +308,7 @@ export default function AdminSettingsPage({
           {activeTab === "general" && (
             <GeneralSettingsTab settings={settings.general || []} />
           )}
+          {activeTab === "billing" && <BillingTab />}
           {activeTab === "email" && (
             <EmailSettingsTab
               settings={settings.email || []}

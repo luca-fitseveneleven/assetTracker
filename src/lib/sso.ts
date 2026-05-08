@@ -210,11 +210,13 @@ export async function exchangeOidcCode(code: string): Promise<OidcUserProfile> {
 
   let tokenEndpoint = settings.tokenUrl;
   let userinfoEndpoint: string | undefined;
+  let expectedIssuer: string | undefined;
 
   if (settings.discoveryUrl) {
     const disco = await fetchOidcDiscovery(settings.discoveryUrl);
     tokenEndpoint = tokenEndpoint || disco.token_endpoint;
     userinfoEndpoint = disco.userinfo_endpoint;
+    expectedIssuer = disco.issuer;
   }
 
   if (!tokenEndpoint) {
@@ -243,12 +245,38 @@ export async function exchangeOidcCode(code: string): Promise<OidcUserProfile> {
 
   const tokens = await tokenRes.json();
 
-  // Decode ID token (basic JWT decode — signature validated by OIDC provider)
-  let claims: any = {};
+  // Decode and validate ID token claims
+  let claims: Record<string, unknown> = {};
   if (tokens.id_token) {
     const parts = tokens.id_token.split(".");
     if (parts.length === 3) {
       claims = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+    }
+
+    // Validate issuer — must match discovery document issuer
+    if (claims.iss && expectedIssuer && claims.iss !== expectedIssuer) {
+      throw new Error(
+        `ID token issuer mismatch: expected ${expectedIssuer}, got ${claims.iss}`,
+      );
+    }
+
+    // Validate audience — must match our client ID
+    const aud = claims.aud;
+    const audMatch = Array.isArray(aud)
+      ? aud.includes(settings.clientId)
+      : aud === settings.clientId;
+    if (aud && !audMatch) {
+      throw new Error(
+        `ID token audience mismatch: expected ${settings.clientId}, got ${aud}`,
+      );
+    }
+
+    // Validate expiration
+    if (
+      typeof claims.exp === "number" &&
+      claims.exp < Math.floor(Date.now() / 1000)
+    ) {
+      throw new Error("ID token has expired");
     }
   }
 
@@ -267,16 +295,22 @@ export async function exchangeOidcCode(code: string): Promise<OidcUserProfile> {
     }
   }
 
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+
   return {
-    sub: claims.sub || claims.oid || "",
-    email: claims[settings.attrEmail] || claims.email,
-    firstName: claims[settings.attrFirstName] || claims.given_name || "",
-    lastName: claims[settings.attrLastName] || claims.family_name || "",
+    sub: str(claims.sub) || str(claims.oid) || "",
+    email: str(claims[settings.attrEmail]) || str(claims.email),
+    firstName:
+      str(claims[settings.attrFirstName]) || str(claims.given_name) || "",
+    lastName:
+      str(claims[settings.attrLastName]) || str(claims.family_name) || "",
     username:
-      claims[settings.attrUsername] ||
-      claims.preferred_username ||
-      claims.email,
-    groups: settings.attrGroups ? claims[settings.attrGroups] : undefined,
+      str(claims[settings.attrUsername]) ||
+      str(claims.preferred_username) ||
+      str(claims.email),
+    groups: settings.attrGroups
+      ? (claims[settings.attrGroups] as string[] | undefined)
+      : undefined,
   };
 }
 
@@ -285,6 +319,7 @@ export async function exchangeOidcCode(code: string): Promise<OidcUserProfile> {
 // ---------------------------------------------------------------------------
 
 interface OidcDiscovery {
+  issuer?: string;
   authorization_endpoint: string;
   token_endpoint: string;
   userinfo_endpoint?: string;

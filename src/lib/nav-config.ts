@@ -172,6 +172,12 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Reports", href: "/reports", icon: BarChart3, adminOnly: true },
       {
+        label: "TCO Analysis",
+        href: "/tco",
+        icon: BarChart3,
+        adminOnly: true,
+      },
+      {
         label: "Workflows",
         href: "/admin/workflows",
         icon: Zap,

@@ -17,6 +17,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
     const error = url.searchParams.get("error");
+    const state = url.searchParams.get("state");
 
     if (error) {
       return NextResponse.redirect(new URL(`/login?error=${error}`, req.url));
@@ -25,6 +26,24 @@ export async function GET(req: Request) {
     if (!code) {
       return NextResponse.redirect(
         new URL("/login?error=missing_code", req.url),
+      );
+    }
+
+    // Verify OIDC state parameter to prevent CSRF
+    const cookieHeader = req.headers.get("cookie") ?? "";
+    const cookieState = cookieHeader
+      .split(";")
+      .map((c) => c.trim())
+      .find((c) => c.startsWith("oidc_state="))
+      ?.slice("oidc_state=".length);
+
+    if (!state || !cookieState || state !== cookieState) {
+      logger.warn("OIDC state mismatch", {
+        hasState: !!state,
+        hasCookie: !!cookieState,
+      });
+      return NextResponse.redirect(
+        new URL("/login?error=invalid_state", req.url),
       );
     }
 
@@ -115,9 +134,12 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.redirect(
+    const redirectResponse = NextResponse.redirect(
       new URL(`/api/auth/sso-login?token=${ssoToken}`, getBaseUrl()),
     );
+    // Clear the state cookie after successful verification
+    redirectResponse.cookies.delete("oidc_state");
+    return redirectResponse;
   } catch (error: any) {
     logger.error("OIDC callback error", { error: error.message });
     return NextResponse.redirect(new URL("/login?error=oidc_failed", req.url));

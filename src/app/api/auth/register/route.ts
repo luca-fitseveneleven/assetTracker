@@ -88,11 +88,22 @@ export async function POST(req: Request) {
     const hashedPassword = await hashPassword(password);
 
     // Create the organization
+    // SaaS mode: start with 14-day Professional trial
+    // Self-hosted: unlimited, no trial
+    const trialData = isSelfHosted()
+      ? { maxAssets: -1, maxUsers: -1 }
+      : {
+          plan: "professional",
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          maxAssets: 5000,
+          maxUsers: 25,
+        };
+
     const org = await prisma.organization.create({
       data: {
         name: organization,
         slug: generateSlug(organization),
-        ...(isSelfHosted() && { maxAssets: -1, maxUsers: -1 }),
+        ...trialData,
       },
     });
 

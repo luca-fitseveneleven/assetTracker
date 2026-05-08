@@ -57,6 +57,9 @@ import StatusWorkflowTab from "./StatusWorkflowTab";
 import ApiKeysTab from "./ApiKeysTab";
 import EulaTab from "./EulaTab";
 import AssetTemplatesTab from "./AssetTemplatesTab";
+import { PlanGate } from "@/components/PlanGate";
+import BillingTab from "./BillingTab";
+import { CreditCard } from "lucide-react";
 
 interface NavItem {
   value: string;
@@ -75,6 +78,7 @@ const settingsNav: NavGroup[] = [
     items: [
       { value: "general", label: "General", icon: Settings },
       { value: "users", label: "Users", icon: Users },
+      { value: "billing", label: "Billing", icon: CreditCard },
     ],
   },
   {
@@ -122,6 +126,9 @@ const settingsNav: NavGroup[] = [
     ],
   },
 ];
+
+const SUPER_ADMIN_ONLY_TABS = new Set(["organizations"]);
+const SELF_HOSTED_HIDDEN_TABS = new Set(["billing"]);
 
 interface AdminSettingsPageProps {
   settings: Record<
@@ -193,6 +200,8 @@ interface AdminSettingsPageProps {
     statustypename: string;
   }>;
   isSuperAdmin?: boolean;
+  orgPlan?: "starter" | "professional" | "enterprise";
+  isSelfHostedMode?: boolean;
 }
 
 export default function AdminSettingsPage({
@@ -205,29 +214,32 @@ export default function AdminSettingsPage({
   envEmailConfig,
   statuses = [],
   isSuperAdmin = false,
+  orgPlan = "starter",
+  isSelfHostedMode = false,
 }: AdminSettingsPageProps) {
   const [activeTab, setActiveTab] = useState("general");
-
-  // Super-admin-only tabs — hidden for tenant admins
-  const superAdminOnlyTabs = new Set(["organizations"]);
 
   const filteredNav = useMemo(
     () =>
       settingsNav
         .map((group) => ({
           ...group,
-          items: group.items.filter(
-            (item) => isSuperAdmin || !superAdminOnlyTabs.has(item.value),
-          ),
+          items: group.items.filter((item) => {
+            if (SUPER_ADMIN_ONLY_TABS.has(item.value) && !isSuperAdmin)
+              return false;
+            if (SELF_HOSTED_HIDDEN_TABS.has(item.value) && isSelfHostedMode)
+              return false;
+            return true;
+          }),
         }))
         .filter((group) => group.items.length > 0),
-    [isSuperAdmin],
+    [isSuperAdmin, isSelfHostedMode],
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div>
+    <div className="flex h-[calc(100vh-6rem)] flex-col">
+      {/* Header — fixed, never scrolls */}
+      <div className="shrink-0 pb-4">
         <h1 className="text-2xl font-semibold">Admin Settings</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Configure system settings, manage users, and customize the application
@@ -252,13 +264,13 @@ export default function AdminSettingsPage({
         </div>
       </div>
 
-      <div className="flex gap-8">
-        {/* Sidebar navigation — sticky within the main scroll container */}
+      <div className="flex min-h-0 flex-1 gap-8">
+        {/* Sidebar navigation — independently scrollable */}
         <nav
           className="hidden w-56 shrink-0 md:block"
           aria-label="Settings navigation"
         >
-          <div className="sticky top-0 max-h-[calc(100vh-8rem)] space-y-6 overflow-y-auto">
+          <div className="h-full space-y-6 overflow-y-auto">
             {filteredNav.map((group) => (
               <div key={group.title}>
                 <p className="text-muted-foreground/70 px-3 pb-1.5 text-[11px] font-semibold tracking-widest uppercase">
@@ -291,11 +303,12 @@ export default function AdminSettingsPage({
           </div>
         </nav>
 
-        {/* Content area */}
-        <div className="min-w-0 flex-1">
+        {/* Content area — independently scrollable */}
+        <div className="min-w-0 flex-1 overflow-y-auto">
           {activeTab === "general" && (
             <GeneralSettingsTab settings={settings.general || []} />
           )}
+          {activeTab === "billing" && <BillingTab />}
           {activeTab === "email" && (
             <EmailSettingsTab
               settings={settings.email || []}
@@ -320,8 +333,24 @@ export default function AdminSettingsPage({
           {activeTab === "departments" && <DepartmentsTab />}
           {activeTab === "roles" && <RolesTab />}
           {activeTab === "webhooks" && <WebhooksTab />}
-          {activeTab === "sso" && <SSOSettingsTab />}
-          {activeTab === "ldap" && <LDAPSettingsTab />}
+          {activeTab === "sso" && (
+            <PlanGate
+              feature="sso"
+              plan={orgPlan}
+              isSelfHosted={isSelfHostedMode}
+            >
+              <SSOSettingsTab />
+            </PlanGate>
+          )}
+          {activeTab === "ldap" && (
+            <PlanGate
+              feature="ldap"
+              plan={orgPlan}
+              isSelfHosted={isSelfHostedMode}
+            >
+              <LDAPSettingsTab />
+            </PlanGate>
+          )}
           {activeTab === "intune" && <IntuneSettingsTab />}
           {activeTab === "integrations" && <IntegrationsTab />}
           {activeTab === "locationTracking" && <LocationTrackingTab />}
@@ -329,7 +358,15 @@ export default function AdminSettingsPage({
           {activeTab === "status-workflow" && (
             <StatusWorkflowTab statuses={statuses} />
           )}
-          {activeTab === "api-keys" && <ApiKeysTab />}
+          {activeTab === "api-keys" && (
+            <PlanGate
+              feature="api_keys"
+              plan={orgPlan}
+              isSelfHosted={isSelfHostedMode}
+            >
+              <ApiKeysTab />
+            </PlanGate>
+          )}
           {activeTab === "eula" && <EulaTab />}
           {activeTab === "asset-templates" && <AssetTemplatesTab />}
         </div>

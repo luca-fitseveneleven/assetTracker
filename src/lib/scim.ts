@@ -15,13 +15,18 @@ import crypto from "crypto";
 // SCIM Bearer Token Auth
 // ---------------------------------------------------------------------------
 
+export interface ScimAuthResult {
+  organizationId: string;
+}
+
 /**
  * Validate SCIM bearer token from Authorization header.
- * The token is stored encrypted in system_settings as "scim.bearerToken".
+ * Tokens are stored per-org in the scim_tokens table.
+ * Returns the matched organization ID on success, or a NextResponse error.
  */
 export async function authenticateScim(
   req: Request,
-): Promise<NextResponse | null> {
+): Promise<NextResponse | ScimAuthResult> {
   const authHeader = req.headers.get("authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -33,34 +38,70 @@ export async function authenticateScim(
 
   const token = authHeader.slice(7);
 
-  const tokenRow = await prisma.system_settings.findUnique({
-    where: { settingKey: "scim.bearerToken" },
+  // Look up all SCIM tokens and compare with timing-safe equality
+  const scimTokens = await prisma.scimToken.findMany({
+    select: { token: true, organizationId: true },
   });
 
-  if (!tokenRow || !tokenRow.settingValue) {
-    return NextResponse.json(scimError("SCIM is not configured", 403), {
-      status: 403,
-      headers: scimHeaders(),
+  if (scimTokens.length === 0) {
+    // Fall back to legacy global token in system_settings
+    const legacyRow = await prisma.system_settings.findUnique({
+      where: { settingKey: "scim.bearerToken" },
     });
+
+    if (!legacyRow?.settingValue) {
+      return NextResponse.json(scimError("SCIM is not configured", 403), {
+        status: 403,
+        headers: scimHeaders(),
+      });
+    }
+
+    const storedToken = legacyRow.isEncrypted
+      ? decrypt(legacyRow.settingValue)
+      : legacyRow.settingValue;
+
+    const tokenBuf = Buffer.from(token);
+    const storedBuf = Buffer.from(storedToken);
+    if (
+      tokenBuf.length !== storedBuf.length ||
+      !crypto.timingSafeEqual(tokenBuf, storedBuf)
+    ) {
+      return NextResponse.json(scimError("Invalid bearer token", 401), {
+        status: 401,
+        headers: scimHeaders(),
+      });
+    }
+
+    // Legacy token — find the first org as fallback
+    const firstOrg = await prisma.organization.findFirst({
+      select: { id: true },
+    });
+    if (!firstOrg) {
+      return NextResponse.json(scimError("No organization found", 500), {
+        status: 500,
+        headers: scimHeaders(),
+      });
+    }
+    return { organizationId: firstOrg.id };
   }
 
-  const storedToken = tokenRow.isEncrypted
-    ? decrypt(tokenRow.settingValue)
-    : tokenRow.settingValue;
-
+  // Check token against per-org SCIM tokens
   const tokenBuf = Buffer.from(token);
-  const storedBuf = Buffer.from(storedToken);
-  if (
-    tokenBuf.length !== storedBuf.length ||
-    !crypto.timingSafeEqual(tokenBuf, storedBuf)
-  ) {
-    return NextResponse.json(scimError("Invalid bearer token", 401), {
-      status: 401,
-      headers: scimHeaders(),
-    });
+  for (const record of scimTokens) {
+    const storedToken = record.token;
+    const storedBuf = Buffer.from(storedToken);
+    if (
+      tokenBuf.length === storedBuf.length &&
+      crypto.timingSafeEqual(tokenBuf, storedBuf)
+    ) {
+      return { organizationId: record.organizationId };
+    }
   }
 
-  return null; // Auth passed
+  return NextResponse.json(scimError("Invalid bearer token", 401), {
+    status: 401,
+    headers: scimHeaders(),
+  });
 }
 
 // ---------------------------------------------------------------------------

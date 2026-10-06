@@ -13,7 +13,6 @@ import {
 
 const APPROVAL_SORT_FIELDS = ["status", "createdAt"];
 
-// GET /api/approvals - List approval requests
 export async function GET(req: NextRequest) {
   try {
     const user = await requirePermission("reservation:view");
@@ -22,7 +21,10 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status");
     const requesterId = searchParams.get("requesterId");
 
-    const where: Record<string, unknown> = {};
+    // Tenant isolation: only approvals raised by users in the caller's org.
+    const where: Record<string, unknown> = {
+      requester: { organizationId: user.organizationId ?? null },
+    };
 
     if (status) where.status = status;
     if (requesterId) where.requesterId = requesterId;

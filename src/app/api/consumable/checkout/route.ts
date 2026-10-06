@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, consumableCheckoutSchema } from "@/lib/validation";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import {
@@ -114,7 +115,6 @@ export async function POST(req: Request) {
         },
       });
 
-      // Create the checkout record
       const created = await tx.consumable_checkouts.create({
         data: {
           consumableId,
@@ -136,7 +136,6 @@ export async function POST(req: Request) {
       return { error: null, consumable, checkout: created };
     });
 
-    // Handle transaction results
     if (result.error === "not_found") {
       return NextResponse.json(
         { error: "Consumable not found" },
@@ -200,6 +199,9 @@ export async function POST(req: Request) {
         minQuantity: minQty,
       }).catch(logCatchError("Integration notification failed"));
     }
+
+    // Stock changed — bust the cached consumable list so quantities are current.
+    await invalidateCacheByPrefix("consumables_all").catch(() => {});
 
     return NextResponse.json(checkout, { status: 201 });
   } catch (e: any) {

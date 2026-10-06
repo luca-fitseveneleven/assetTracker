@@ -3,7 +3,7 @@ import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
-import { invalidateCache } from "@/lib/cache";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import { createAccessorySchema } from "@/lib/validation";
 import {
   getOrganizationContext,
@@ -18,6 +18,7 @@ import { logger, logCatchError } from "@/lib/logger";
 import {
   createAuditLog,
   createAuditLogWithDiff,
+  toRecord,
   AUDIT_ACTIONS,
   AUDIT_ENTITIES,
 } from "@/lib/audit-log";
@@ -51,7 +52,6 @@ const normalizeNumberInput = (value: unknown) => {
   return Number.isNaN(num) ? value : num;
 };
 
-// GET /api/accessories
 // Pagination: ?page=1&pageSize=25&sortBy=accessoriename&sortOrder=asc&search=keyword
 export async function GET(req: NextRequest) {
   try {
@@ -196,8 +196,8 @@ export async function POST(req: NextRequest) {
       } as Prisma.accessoriesUncheckedCreateInput,
     });
 
-    invalidateCache("accessories_all").catch(() => {});
-    invalidateCache("accessory_count").catch(() => {});
+    invalidateCacheByPrefix("accessories_all").catch(() => {});
+    invalidateCacheByPrefix("accessory_count").catch(() => {});
     createAuditLog({
       userId: orgCtx?.userId ?? null,
       action: AUDIT_ACTIONS.CREATE,
@@ -289,14 +289,14 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    invalidateCache("accessories_all").catch(() => {});
+    invalidateCacheByPrefix("accessories_all").catch(() => {});
     createAuditLogWithDiff({
       userId: orgCtx?.userId ?? null,
       action: AUDIT_ACTIONS.UPDATE,
       entity: AUDIT_ENTITIES.ACCESSORY,
       entityId: existing.accessorieid,
-      before: existing as unknown as Record<string, unknown>,
-      after: updated as unknown as Record<string, unknown>,
+      before: toRecord(existing),
+      after: toRecord(updated),
     }).catch(logCatchError("Audit log failed"));
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {

@@ -1,13 +1,13 @@
 import type { NextRequest } from "next/server";
 import prisma from "../../../../lib/prisma";
 import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import {
   getOrganizationContext,
   scopeToOrganization,
 } from "@/lib/organization-context";
 import { logger } from "@/lib/logger";
 
-// DELETE /api/licence/unassign
 // Body: { licenceId }
 export async function DELETE(req: NextRequest) {
   try {
@@ -38,6 +38,9 @@ export async function DELETE(req: NextRequest) {
       where: { licenceid: licenceId },
       data: { licenceduserid: null, change_date: new Date() },
     });
+
+    await invalidateCacheByPrefix("licences_all").catch(() => {});
+
     return new Response(JSON.stringify(updated), { status: 200 });
   } catch (e) {
     logger.error("DELETE /api/licence/unassign error", { error: e });

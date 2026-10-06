@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isValidCronAuth } from "@/lib/cron-auth";
 import prisma from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
@@ -8,7 +9,7 @@ export async function GET(req: NextRequest) {
   // Verify cron secret
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!isValidCronAuth(authHeader, cronSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -148,7 +149,9 @@ async function isItemStillAssigned(
         return !!l;
       }
     }
-  } catch {}
+  } catch {
+    /* DB lookup failure treated as not assigned */
+  }
   return false;
 }
 
@@ -180,6 +183,8 @@ async function getEntityName(
         return l?.licencekey || "Unknown";
       }
     }
-  } catch {}
+  } catch {
+    /* DB lookup failure falls back to "Unknown" */
+  }
   return "Unknown";
 }

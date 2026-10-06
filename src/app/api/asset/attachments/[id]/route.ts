@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
-import {
-  getOrganizationContext,
-  scopeToOrganization,
-} from "@/lib/organization-context";
-import { getStorage } from "@/lib/storage";
+import { getOrganizationContext } from "@/lib/organization-context";
+import { getStorage, getOrgStorage } from "@/lib/storage";
 import { deleteThumbnails } from "@/lib/storage/thumbnails";
 
 export async function DELETE(
@@ -35,7 +32,7 @@ export async function DELETE(
       );
     }
 
-    const storage = await getStorage();
+    const storage = orgId ? await getOrgStorage(orgId) : await getStorage();
     try {
       await storage.delete(attachment.filename);
       if (attachment.thumbnailPath) {

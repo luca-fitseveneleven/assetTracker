@@ -32,12 +32,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Find or create user
+    // Find or create user. The SAML assertion is signature-validated by
+    // validateSamlResponse(), so email is trustworthy here — but username
+    // is attacker-influenceable via IdP attribute mapping, so it is not
+    // used to match an existing local account.
     let user = await prisma.user.findFirst({
       where: {
         OR: [
           ...(profile.email ? [{ email: profile.email }] : []),
-          ...(profile.username ? [{ username: profile.username }] : []),
           { externalId: profile.nameID },
         ],
       },
@@ -66,7 +68,6 @@ export async function POST(req: Request) {
         },
       });
     } else {
-      // Update existing user with SSO info
       await prisma.user.update({
         where: { userid: user.userid },
         data: {

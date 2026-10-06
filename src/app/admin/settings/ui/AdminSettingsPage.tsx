@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Settings,
@@ -25,8 +25,10 @@ import {
   ScrollText,
   LayoutTemplate,
   Monitor,
+  CreditCard,
+  HardDrive,
+  type LucideIcon,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,7 +62,7 @@ import EulaTab from "./EulaTab";
 import AssetTemplatesTab from "./AssetTemplatesTab";
 import { PlanGate } from "@/components/PlanGate";
 import BillingTab from "./BillingTab";
-import { CreditCard } from "lucide-react";
+import StorageSettingsTab from "./StorageSettingsTab";
 
 interface NavItem {
   value: string;
@@ -119,6 +121,7 @@ const settingsNav: NavGroup[] = [
   {
     title: "Integrations",
     items: [
+      { value: "storage", label: "Storage", icon: HardDrive },
       { value: "freshdesk", label: "Freshdesk", icon: Ticket },
       { value: "webhooks", label: "Webhooks", icon: Webhook },
       { value: "integrations", label: "Integrations", icon: MessageSquare },
@@ -208,9 +211,9 @@ interface AdminSettingsPageProps {
 export default function AdminSettingsPage({
   settings,
   users,
-  emailTemplates,
+  emailTemplates: _emailTemplates,
   labelTemplates,
-  customFields,
+  customFields: _customFields,
   depreciationSettings,
   envEmailConfig,
   statuses = [],
@@ -373,6 +376,7 @@ export default function AdminSettingsPage({
           )}
           {activeTab === "eula" && <EulaTab />}
           {activeTab === "asset-templates" && <AssetTemplatesTab />}
+          {activeTab === "storage" && <StorageSettingsTab />}
         </div>
       </div>
     </div>

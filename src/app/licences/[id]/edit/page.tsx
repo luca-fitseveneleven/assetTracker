@@ -1,4 +1,4 @@
-import React from "react";
+import { notFound } from "next/navigation";
 import LicenceCreateForm from "../../create/ui/LicenceCreateForm";
 import {
   getLicenceById,
@@ -20,14 +20,19 @@ export default async function Page({
 }) {
   const { id } = await params;
 
-  const [licenceRaw, categories, manufacturers, suppliers, users] =
-    await Promise.all([
-      getLicenceById(id),
-      getLicenceCategories(),
-      getManufacturers(),
-      getSuppliers(),
-      getUsers(),
-    ]);
+  let licenceRaw, categories, manufacturers, suppliers, users;
+  try {
+    [licenceRaw, categories, manufacturers, suppliers, users] =
+      await Promise.all([
+        getLicenceById(id),
+        getLicenceCategories(),
+        getManufacturers(),
+        getSuppliers(),
+        getUsers(),
+      ]);
+  } catch {
+    notFound();
+  }
 
   const licence = {
     ...licenceRaw,

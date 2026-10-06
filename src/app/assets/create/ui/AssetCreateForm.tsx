@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -219,9 +219,8 @@ export default function AssetCreateForm({
         throw new Error(err?.error || "Failed to create asset");
       }
       const created = await res.json();
-      // Save custom field values
       if (Object.keys(customFieldValues).length > 0) {
-        await fetch("/api/custom-fields/values", {
+        const cfRes = await fetch("/api/custom-fields/values", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -230,6 +229,11 @@ export default function AssetCreateForm({
             values: customFieldValues,
           }),
         });
+        if (!cfRes.ok) {
+          toast.warning("Saved, but custom fields could not be saved", {
+            description: "Open the item to re-enter them.",
+          });
+        }
       }
       toast.success("Asset created", { description: created.assettag });
       if (assignAfter) {
@@ -589,7 +593,9 @@ export default function AssetCreateForm({
                         );
                         const data = await res.json();
                         setAssettagTaken(Boolean(data?.assettag?.exists));
-                      } catch {}
+                      } catch {
+                        /* validation fetch failure is non-blocking */
+                      }
                     }}
                     className={assettagTaken ? "border-red-500" : ""}
                     required
@@ -622,6 +628,7 @@ export default function AssetCreateForm({
                         setForm((f) => ({ ...f, assettag: data.tag }));
                         setAssettagTaken(false);
                       } catch (err) {
+                        console.error("Failed to generate tag", err);
                         toast.error("Failed to generate tag");
                       } finally {
                         setGeneratingTag(false);
@@ -650,14 +657,15 @@ export default function AssetCreateForm({
                   }}
                   onBlur={async () => {
                     if (!form.serialnumber) return;
-                    // Validate uniqueness
                     try {
                       const res = await fetch(
                         `/api/asset/validate?serialnumber=${encodeURIComponent(form.serialnumber)}`,
                       );
                       const data = await res.json();
                       setSerialTaken(Boolean(data?.serialnumber?.exists));
-                    } catch {}
+                    } catch {
+                      /* validation fetch failure is non-blocking */
+                    }
                     // Lookup manufacturer from serial pattern
                     setSerialLookupLoading(true);
                     setSerialLookupResult(null);

@@ -1,11 +1,5 @@
 "use client";
-import React, {
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useUrlState } from "@/hooks/useUrlState";
 import { usePersistentState } from "@/hooks/usePersistentState";
@@ -60,8 +54,7 @@ import {
   CalendarPlusIcon,
 } from "../Icons";
 import { capitalize } from "../../utils/utils";
-import QRCode from "react-qr-code";
-import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 import { toast } from "sonner";
 import SavedFilters from "@/components/SavedFilters";
 import PrintLabelDialog from "@/components/PrintLabelDialog";
@@ -361,6 +354,10 @@ export default function App({
         }
       } catch (error) {
         console.error("Error:", error);
+        toast.error("Failed to assign asset", {
+          description:
+            error instanceof Error ? error.message : "Please try again.",
+        });
       }
     },
     [setAssetsData, setUserAssetsData, status],
@@ -382,8 +379,6 @@ export default function App({
           throw new Error(errorData.error || "Error unassigning asset");
         }
 
-        const result = await response.json();
-        // Remove mapping locally
         setUserAssetsData((prev) =>
           prev.filter((ua) => ua.assetid !== assetId),
         );
@@ -402,6 +397,10 @@ export default function App({
         }
       } catch (error) {
         console.error("Error:", error);
+        toast.error("Failed to unassign asset", {
+          description:
+            error instanceof Error ? error.message : "Please try again.",
+        });
       }
     },
     [setAssetsData, setUserAssetsData, status],
@@ -412,23 +411,36 @@ export default function App({
     setBulkUpdating(true);
     try {
       const ids = Array.from(selectedKeys);
-      await Promise.all(
-        ids.map((assetId) =>
-          fetch("/api/asset/updateStatus", {
+      const results = await Promise.all(
+        ids.map(async (assetId) => {
+          const res = await fetch("/api/asset/updateStatus", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ assetId, statusTypeId: bulkStatusId }),
-          }),
-        ),
+          });
+          return { assetId, ok: res.ok };
+        }),
       );
+      const succeededIds = new Set(
+        results.filter((r) => r.ok).map((r) => r.assetId),
+      );
+      const failedCount = results.length - succeededIds.size;
+
+      // Only reflect the assets that actually changed on the server.
       setAssetsData((prev) =>
         prev.map((a) =>
-          selectedKeys.has(a.assetid)
+          succeededIds.has(a.assetid)
             ? { ...a, statustypeid: bulkStatusId }
             : a,
         ),
       );
-      toast.success(`Status updated for ${ids.length} asset(s)`);
+      if (failedCount === 0) {
+        toast.success(`Status updated for ${succeededIds.size} asset(s)`);
+      } else {
+        toast.warning(
+          `Updated ${succeededIds.size} of ${results.length} asset(s); ${failedCount} failed`,
+        );
+      }
       setIsBulkStatusModalOpen(false);
       setBulkStatusId("");
       setSelectedKeys(new Set([]));
@@ -444,26 +456,38 @@ export default function App({
     setBulkUpdating(true);
     try {
       const ids = Array.from(selectedKeys);
-      await Promise.all(
-        ids.map((assetId) =>
-          fetch("/api/asset", {
+      const results = await Promise.all(
+        ids.map(async (assetId) => {
+          const res = await fetch("/api/asset", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               assetid: assetId,
               locationid: bulkLocationId,
             }),
-          }),
-        ),
+          });
+          return { assetId, ok: res.ok };
+        }),
       );
+      const succeededIds = new Set(
+        results.filter((r) => r.ok).map((r) => r.assetId),
+      );
+      const failedCount = results.length - succeededIds.size;
+
       setAssetsData((prev) =>
         prev.map((a) =>
-          selectedKeys.has(a.assetid)
+          succeededIds.has(a.assetid)
             ? { ...a, locationid: bulkLocationId }
             : a,
         ),
       );
-      toast.success(`Location updated for ${ids.length} asset(s)`);
+      if (failedCount === 0) {
+        toast.success(`Location updated for ${succeededIds.size} asset(s)`);
+      } else {
+        toast.warning(
+          `Updated ${succeededIds.size} of ${results.length} asset(s); ${failedCount} failed`,
+        );
+      }
       setIsBulkLocationModalOpen(false);
       setBulkLocationId("");
       setSelectedKeys(new Set([]));
@@ -480,7 +504,10 @@ export default function App({
       setSelectedUser(null);
     } else if (value instanceof Set) {
       // If it's a Set, get the first value
-      setSelectedUser(value.values().next().value || (value as any).anchorKey);
+      setSelectedUser(
+        value.values().next().value ||
+          (value as Set<string> & { anchorKey?: string }).anchorKey,
+      );
     } else {
       // Otherwise use the value directly (string from Select)
       setSelectedUser(value);
@@ -553,11 +580,12 @@ export default function App({
     let filteredAssets = [...assetsData];
 
     if (hasSearchFilter) {
+      const needle = filterValue.toLowerCase();
       filteredAssets = filteredAssets.filter(
         (data) =>
-          data.assetname.toLowerCase().includes(filterValue.toLowerCase()) ||
-          data.assettag.toLowerCase().includes(filterValue.toLowerCase()) ||
-          data.serialnumber.toLowerCase().includes(filterValue.toLowerCase()),
+          data.assetname?.toLowerCase().includes(needle) ||
+          data.assettag?.toLowerCase().includes(needle) ||
+          data.serialnumber?.toLowerCase().includes(needle),
       );
     }
     if (statusFilter.size !== statusOptions.length) {
@@ -980,23 +1008,12 @@ export default function App({
     ],
   );
 
-  const onRowsPerPageChange = useCallback(
-    (e) => {
-      setRowsPerPage(e.target.value);
-    },
-    [setRowsPerPage],
-  );
-
   const onSearchChange = useCallback(
     (value) => {
       setFilterValue(value);
     },
     [setFilterValue],
   );
-
-  const onClear = useCallback(() => {
-    setFilterValue("");
-  }, [setFilterValue]);
 
   const refreshData = useCallback(
     async (auto = false) => {
@@ -1057,19 +1074,18 @@ export default function App({
 
   // Auto refresh when returning to tab or when page becomes visible
   useEffect(() => {
-    const onFocus = () => refreshData(true);
     const onVisibility = () => {
       if (document.visibilityState === "visible") refreshData(true);
     };
-    window.addEventListener("focus", onFocus);
+    const handleFocus = refreshData.bind(null, true);
+    window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [refreshData]);
 
-  // Initialize lastUpdated and mount flag on client
   useEffect(() => {
     setLastUpdated(new Date());
     setMounted(true);
@@ -1296,7 +1312,8 @@ export default function App({
                         a.click();
                         URL.revokeObjectURL(url);
                         toast.success("QR sheet downloaded");
-                      } catch {
+                      } catch (err) {
+                        console.error("Failed to download QR sheet", err);
                         toast.error("Failed to download QR sheet");
                       }
                     }}
@@ -1390,6 +1407,8 @@ export default function App({
     setVisibleColumns,
     showAll,
     isAdmin,
+    sortDescriptor,
+    setSortDescriptor,
   ]);
 
   const bottomContent = useMemo(() => {
@@ -1674,8 +1693,7 @@ export default function App({
                         const all =
                           sortedItems.length > 0 &&
                           sortedItems.every((i) => selectedKeys.has(i.assetid));
-                        (el as unknown as HTMLInputElement).indeterminate =
-                          some && !all;
+                        Object.assign(el, { indeterminate: some && !all });
                       }
                     }}
                     onCheckedChange={(checked) => {
@@ -1712,8 +1730,9 @@ export default function App({
               ) : (
                 <>
                   {virtualizer.getVirtualItems().length > 0 && (
-                    <tr>
+                    <tr aria-hidden="true">
                       <td
+                        aria-hidden="true"
                         colSpan={headerColumns.length + 1}
                         style={{
                           height: virtualizer.getVirtualItems()[0].start,
@@ -1753,8 +1772,9 @@ export default function App({
                     );
                   })}
                   {virtualizer.getVirtualItems().length > 0 && (
-                    <tr>
+                    <tr aria-hidden="true">
                       <td
+                        aria-hidden="true"
                         colSpan={headerColumns.length + 1}
                         style={{
                           height:
@@ -1791,8 +1811,7 @@ export default function App({
                         const all =
                           sortedItems.length > 0 &&
                           sortedItems.every((i) => selectedKeys.has(i.assetid));
-                        (el as unknown as HTMLInputElement).indeterminate =
-                          some && !all;
+                        Object.assign(el, { indeterminate: some && !all });
                       }
                     }}
                     onCheckedChange={(checked) => {
@@ -1872,7 +1891,7 @@ export default function App({
                       ? `Update User for ${selectedAsset?.assetname} from ${
                           user.find(
                             (user) => user.userid === assignedUser.userid,
-                          ).firstname
+                          )?.firstname ?? "Unknown"
                         }`
                       : `Assign User to ${selectedAsset?.assetname}`}
                   </DialogTitle>
@@ -2001,8 +2020,12 @@ export default function App({
                         {assignedCount} selected item(s) are currently assigned
                         to users.
                       </p>
-                      <label className="flex items-center gap-2 text-sm">
+                      <label
+                        htmlFor="confirm-assigned-delete"
+                        className="flex items-center gap-2 text-sm"
+                      >
                         <Checkbox
+                          id="confirm-assigned-delete"
                           checked={confirmAssigned}
                           onCheckedChange={(checked) =>
                             setConfirmAssigned(checked === true)
@@ -2096,7 +2119,6 @@ export default function App({
               (ua) => ua.assetid === selectedAsset?.assetid,
             );
 
-            // Build the list of statuses allowed for this transition
             const currentStatusId = selectedAsset?.statustypeid;
             let allowedStatuses = status;
 

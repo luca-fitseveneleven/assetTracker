@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -152,7 +152,14 @@ export default function SuppliersTable({ items }) {
   const renderCell = (item, columnKey) => {
     switch (columnKey) {
       case "suppliername":
-        return item.suppliername;
+        return (
+          <Link
+            href={`/suppliers/${item.supplierid}/edit`}
+            className="text-primary font-medium hover:underline"
+          >
+            {item.suppliername}
+          </Link>
+        );
       case "contact":
         const fullName =
           `${item.firstname ?? ""} ${item.lastname ?? ""}`.trim();
@@ -184,6 +191,7 @@ export default function SuppliersTable({ items }) {
               size="icon"
               variant="ghost"
               asChild
+              aria-label="Edit supplier"
             >
               <Link href={`/suppliers/${item.supplierid}/edit`}>
                 <EditIcon />
@@ -195,6 +203,7 @@ export default function SuppliersTable({ items }) {
                   className="text-muted-foreground h-6 w-6 cursor-pointer text-lg hover:opacity-80"
                   size="icon"
                   variant="ghost"
+                  aria-label="More actions"
                 >
                   <MoreVertical />
                 </Button>

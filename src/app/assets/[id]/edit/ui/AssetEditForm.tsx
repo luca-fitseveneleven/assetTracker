@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -188,7 +188,7 @@ export default function AssetEditForm({
       }
       const updated = await res.json();
       if (Object.keys(customFieldValues).length > 0) {
-        await fetch("/api/custom-fields/values", {
+        const cfRes = await fetch("/api/custom-fields/values", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -197,6 +197,11 @@ export default function AssetEditForm({
             values: customFieldValues,
           }),
         });
+        if (!cfRes.ok) {
+          toast.warning("Saved, but custom fields could not be saved", {
+            description: "Open the item to re-enter them.",
+          });
+        }
       }
       toast.success("Asset updated", { description: updated.assettag });
       router.push(`/assets/${updated.assetid}`);
@@ -489,7 +494,9 @@ export default function AssetEditForm({
                       );
                       const data = await res.json();
                       setAssettagTaken(Boolean(data?.assettag?.exists));
-                    } catch {}
+                    } catch {
+                      /* validation fetch failure is non-blocking */
+                    }
                   }}
                   className={assettagTaken ? "border-red-500" : ""}
                   required
@@ -519,7 +526,9 @@ export default function AssetEditForm({
                       );
                       const data = await res.json();
                       setSerialTaken(Boolean(data?.serialnumber?.exists));
-                    } catch {}
+                    } catch {
+                      /* validation fetch failure is non-blocking */
+                    }
                   }}
                   className={serialTaken ? "border-red-500" : ""}
                   required

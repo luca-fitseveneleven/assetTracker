@@ -1,4 +1,3 @@
-import React from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -33,7 +32,8 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         firstname: true,
         lastname: true,
         email: true,
-        mfaEnabled: true,
+        twoFactorEnabled: true,
+        authProvider: true,
       },
     }),
     prisma.user_preferences.findUnique({
@@ -94,7 +94,10 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         </div>
       )}
       <div className="mt-6 max-w-2xl">
-        <MfaSettings userId={user.userid} mfaEnabled={user.mfaEnabled} />
+        <MfaSettings
+          enabled={user.twoFactorEnabled ?? false}
+          requiresPassword={user.authProvider === "local"}
+        />
       </div>
       <div className="mt-6 max-w-2xl">
         <SessionManagement />

@@ -1,4 +1,4 @@
-import React from "react";
+import { notFound } from "next/navigation";
 import {
   getAssetById,
   getCategories,
@@ -17,7 +17,12 @@ export const metadata = {
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const initialRaw = await getAssetById(params.id);
+  let initialRaw;
+  try {
+    initialRaw = await getAssetById(params.id);
+  } catch {
+    notFound();
+  }
   const initial = {
     ...initialRaw,
     purchaseprice:

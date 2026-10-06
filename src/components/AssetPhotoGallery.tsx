@@ -2,9 +2,15 @@
 
 import React, { useState, useCallback } from "react";
 import Image from "next/image";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Star, X } from "lucide-react";
+import { LazyImage } from "@/components/LazyImage";
 
 interface GalleryImage {
   id: string;
@@ -71,14 +77,10 @@ export default function AssetPhotoGallery({
             className="border-default-200 hover:border-primary group bg-muted relative aspect-square h-auto cursor-pointer overflow-hidden rounded-lg border p-0 transition-colors"
             onClick={() => openLightbox(index)}
           >
-            <Image
+            <LazyImage
               src={`${img.path}?thumb=gallery`}
               alt={img.originalName}
-              width={200}
-              height={200}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              unoptimized
+              sizes="(min-width: 1024px) 200px, 50vw"
             />
             {img.isPrimary && (
               <div className="absolute top-1 left-1 rounded-full bg-yellow-500 p-0.5 text-white">
@@ -110,6 +112,11 @@ export default function AssetPhotoGallery({
           className="max-h-[90vh] max-w-[90vw] overflow-hidden border-0 bg-black/95 p-0"
           onKeyDown={handleKeyDown}
         >
+          <DialogHeader className="sr-only">
+            <DialogTitle>
+              {currentImage ? currentImage.originalName : "Photo preview"}
+            </DialogTitle>
+          </DialogHeader>
           <div className="relative flex h-[85vh] w-full items-center justify-center">
             {/* Close button */}
             <Button
@@ -117,6 +124,7 @@ export default function AssetPhotoGallery({
               variant="ghost"
               className="absolute top-2 right-2 z-10 text-white hover:bg-white/20"
               onClick={closeLightbox}
+              aria-label="Close"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -129,6 +137,7 @@ export default function AssetPhotoGallery({
                   variant="ghost"
                   className="absolute left-2 z-10 h-10 w-10 text-white hover:bg-white/20"
                   onClick={goPrev}
+                  aria-label="Previous image"
                 >
                   <ChevronLeft className="h-6 w-6" />
                 </Button>
@@ -137,6 +146,7 @@ export default function AssetPhotoGallery({
                   variant="ghost"
                   className="absolute right-2 z-10 h-10 w-10 text-white hover:bg-white/20"
                   onClick={goNext}
+                  aria-label="Next image"
                 >
                   <ChevronRight className="h-6 w-6" />
                 </Button>

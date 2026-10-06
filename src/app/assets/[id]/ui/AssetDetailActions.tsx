@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -89,11 +89,7 @@ export default function AssetDetailActions({
 
   return (
     <div className="flex gap-2">
-      <Button
-        variant="outline"
-        onClick={() => setAssignOpen(true)}
-        disabled={!asset.requestable}
-      >
+      <Button variant="outline" onClick={() => setAssignOpen(true)}>
         Assign User
       </Button>
       <Button variant="outline" onClick={() => setQrOpen(true)}>

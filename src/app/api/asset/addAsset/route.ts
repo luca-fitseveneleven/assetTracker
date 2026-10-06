@@ -7,6 +7,7 @@ import { getOrganizationContext } from "@/lib/organization-context";
 import { createAssetSchema } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import { checkAssetLimit } from "@/lib/tenant-limits";
 import { logger, logCatchError } from "@/lib/logger";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
@@ -35,7 +36,6 @@ const normalizeNumberInput = (value: unknown) => {
   return Number.isNaN(num) ? value : num;
 };
 
-// Create asset via POST /api/asset/addAsset
 export async function POST(req: NextRequest) {
   try {
     const demoBlock = requireNotDemoMode();
@@ -74,7 +74,6 @@ export async function POST(req: NextRequest) {
     const { assetname, assettag, serialnumber, ...rest } =
       validationResult.data;
 
-    // Get organization context for the creating admin
     const orgContext = await getOrganizationContext();
 
     const created = await prisma.asset.create({
@@ -120,6 +119,10 @@ export async function POST(req: NextRequest) {
       assetName: created.assetname,
       assetTag: created.assettag,
     }).catch(logCatchError("Integration notification failed"));
+
+    await invalidateCacheByPrefix("assets_all").catch(() => {});
+    await invalidateCacheByPrefix("asset_count").catch(() => {});
+    await invalidateCacheByPrefix("asset_status_distribution").catch(() => {});
 
     return new Response(JSON.stringify(created), { status: 201 });
   } catch (error) {

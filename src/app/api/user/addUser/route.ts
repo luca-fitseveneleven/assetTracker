@@ -9,6 +9,7 @@ import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { checkUserLimit } from "@/lib/tenant-limits";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import { sendSetPasswordLink } from "@/lib/magic-link";
 import crypto from "crypto";
 import { logger, logCatchError } from "@/lib/logger";
@@ -35,7 +36,6 @@ export async function POST(request) {
 
     const body = await request.json();
 
-    // Validate input using Zod schema
     const validationResult = createUserSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
@@ -85,44 +85,69 @@ export async function POST(request) {
       ? await hashPassword(finalPassword)
       : null;
 
-    // Get organization context for the creating admin
     const orgContext = await getOrganizationContext();
 
-    // Create user
-    const created = await prisma.user.create({
-      data: {
-        username: username ?? null,
-        isadmin: Boolean(isadmin),
-        canrequest: Boolean(canrequest),
-        lastname,
-        firstname,
-        email: email ?? null,
-        lan: lan ?? null,
-        password: hashedPassword,
-        creation_date: new Date(),
-        organizationId: orgContext?.organization?.id || null,
-        accessExpiresAt: accessExpiresAt ? new Date(accessExpiresAt) : null,
-      } as Prisma.userUncheckedCreateInput,
-    });
+    // Create the user, its credential account, and (for invites) the team
+    // invitation atomically. Otherwise a failure after user.create leaves a
+    // user with no way to authenticate.
+    const inviteToken =
+      passwordMode === "invite" && email && orgContext?.organization?.id
+        ? crypto.randomUUID()
+        : null;
 
-    // Create credential account if password was set
-    if (hashedPassword) {
-      await prisma.accounts.upsert({
-        where: {
-          providerId_accountId: {
-            providerId: "credential",
-            accountId: created.userid,
-          },
-        },
-        update: { password: hashedPassword },
-        create: {
-          userId: created.userid,
-          providerId: "credential",
-          accountId: created.userid,
+    const created = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          username: username ?? null,
+          isadmin: Boolean(isadmin),
+          canrequest: Boolean(canrequest),
+          lastname,
+          firstname,
+          email: email ?? null,
+          lan: lan ?? null,
           password: hashedPassword,
-        },
+          creation_date: new Date(),
+          organizationId: orgContext?.organization?.id || null,
+          accessExpiresAt: accessExpiresAt ? new Date(accessExpiresAt) : null,
+        } as Prisma.userUncheckedCreateInput,
       });
-    }
+
+      if (hashedPassword) {
+        await tx.accounts.upsert({
+          where: {
+            providerId_accountId: {
+              providerId: "credential",
+              accountId: user.userid,
+            },
+          },
+          update: { password: hashedPassword },
+          create: {
+            userId: user.userid,
+            providerId: "credential",
+            accountId: user.userid,
+            password: hashedPassword,
+          },
+        });
+      }
+
+      if (inviteToken && orgContext?.organization?.id && email) {
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7);
+
+        await tx.teamInvitation.create({
+          data: {
+            email: email.toLowerCase(),
+            organizationId: orgContext.organization.id,
+            invitedBy: admin.id!,
+            token: inviteToken,
+            status: "pending",
+            expiresAt,
+          },
+        });
+      }
+
+      return user;
+    });
 
     // Send magic link for generate/manual modes (if email exists)
     let magicLinkSent = false;
@@ -135,37 +160,30 @@ export async function POST(request) {
       });
     }
 
-    // For invite mode, create a team invitation
-    if (passwordMode === "invite" && email && orgContext?.organization?.id) {
-      const inviteToken = crypto.randomUUID();
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      await prisma.teamInvitation.create({
-        data: {
-          email: email.toLowerCase(),
-          organizationId: orgContext.organization.id,
-          invitedBy: admin.id!,
-          token: inviteToken,
-          status: "pending",
-          expiresAt,
-        },
-      });
-
+    // For invite mode, send the invitation email (the row was created above).
+    if (
+      inviteToken &&
+      passwordMode === "invite" &&
+      email &&
+      orgContext?.organization
+    ) {
       // Send invitation email
       try {
-        const { renderTemplate, emailTemplates } =
+        const { renderTemplate, renderTextTemplate, emailTemplates } =
           await import("@/lib/email/templates");
         const { sendEmail } = await import("@/lib/email/service");
         const baseUrl = getBaseUrl();
         const inviteUrl = `${baseUrl}/invite/${inviteToken}`;
 
-        const subject = renderTemplate(emailTemplates.teamInvitation.subject, {
-          organizationName: orgContext.organization.name,
-        });
+        const subject = renderTextTemplate(
+          emailTemplates.teamInvitation.subject,
+          {
+            organizationName: orgContext.organization.name,
+          },
+        );
         const html = renderTemplate(emailTemplates.teamInvitation.html, {
           inviterName:
-            `${(admin as any).firstname || ""} ${(admin as any).lastname || ""}`.trim() ||
+            `${admin.firstname || ""} ${admin.lastname || ""}`.trim() ||
             "Admin",
           organizationName: orgContext.organization.name,
           inviteUrl,
@@ -179,7 +197,6 @@ export async function POST(request) {
       }
     }
 
-    // Create audit log
     await createAuditLog({
       userId: admin.id,
       action: AUDIT_ACTIONS.CREATE,
@@ -202,7 +219,9 @@ export async function POST(request) {
       email: created.email,
     }).catch(logCatchError("Integration notification failed"));
 
-    // Remove password from response
+    await invalidateCacheByPrefix("users").catch(() => {});
+    await invalidateCacheByPrefix("user_count").catch(() => {});
+
     const { password: _, ...userWithoutPassword } = created;
 
     return NextResponse.json(
@@ -216,7 +235,6 @@ export async function POST(request) {
   } catch (error) {
     logger.error("POST /api/user/addUser error", { error });
 
-    // Handle specific error types
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -224,7 +242,6 @@ export async function POST(request) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
 
-    // Handle unique constraint violations
     if (error instanceof Object && "code" in error && error.code === "P2002") {
       return NextResponse.json(
         {

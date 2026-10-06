@@ -6,15 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 interface ComplianceData {
   accessControl: {
     totalUsers: number;
     adminUsers: number;
     regularUsers: number;
+    mfaEnabledUsers: number;
   };
   auditCoverage: {
     totalEntities: number;
@@ -39,10 +36,7 @@ interface ComplianceData {
 }
 
 type ComplianceStatus =
-  | "Compliant"
-  | "Needs Review"
-  | "Not Configured"
-  | "Not Yet Available";
+  "Compliant" | "Needs Review" | "Not Configured" | "Not Yet Available";
 
 interface ComplianceCheckItem {
   id: string;
@@ -51,10 +45,6 @@ interface ComplianceCheckItem {
   framework: string;
   getStatus: (data: ComplianceData) => ComplianceStatus;
 }
-
-// ---------------------------------------------------------------------------
-// Compliance checklist definitions
-// ---------------------------------------------------------------------------
 
 const complianceChecklist: ComplianceCheckItem[] = [
   {
@@ -109,11 +99,12 @@ const complianceChecklist: ComplianceCheckItem[] = [
   {
     id: "user-authentication",
     label: "User Authentication Controls",
-    description:
-      "Multi-factor authentication is not yet implemented. Coming in a future update.",
+    description: "Users protect their accounts with two-factor authentication.",
     framework: "HIPAA",
-    getStatus: () => {
-      return "Not Yet Available";
+    getStatus: (data) => {
+      const { totalUsers, mfaEnabledUsers } = data.accessControl;
+      if (totalUsers === 0 || mfaEnabledUsers === 0) return "Not Configured";
+      return mfaEnabledUsers === totalUsers ? "Compliant" : "Needs Review";
     },
   },
   {
@@ -149,10 +140,6 @@ const complianceChecklist: ComplianceCheckItem[] = [
   },
 ];
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function statusBadgeVariant(
   status: ComplianceStatus,
 ): "default" | "secondary" | "destructive" | "outline" {
@@ -181,10 +168,6 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export default function ComplianceDashboard() {
   const [data, setData] = useState<ComplianceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -197,7 +180,8 @@ export default function ComplianceDashboard() {
         if (!res.ok) throw new Error("Failed to fetch compliance data");
         const json = await res.json();
         setData(json);
-      } catch {
+      } catch (err) {
+        console.error("Failed to load compliance data", err);
         toast.error("Failed to load compliance data");
       } finally {
         setLoading(false);

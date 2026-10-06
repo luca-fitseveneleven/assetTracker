@@ -1,18 +1,11 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -21,8 +14,6 @@ import SelectWithQuickCreate, {
 } from "@/components/SelectWithQuickCreate";
 import CustomFieldsSection from "@/components/CustomFieldsSection";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
-
-const statusSort = (a, b) => a.statustypename.localeCompare(b.statustypename);
 
 export default function AccessoryCreateForm({
   categories: initialCategories,
@@ -172,9 +163,8 @@ export default function AccessoryCreateForm({
       }
 
       const created = await res.json();
-      // Save custom field values
       if (mode === "create" && Object.keys(customFieldValues).length > 0) {
-        await fetch("/api/custom-fields/values", {
+        const cfRes = await fetch("/api/custom-fields/values", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -183,6 +173,11 @@ export default function AccessoryCreateForm({
             values: customFieldValues,
           }),
         });
+        if (!cfRes.ok) {
+          toast.warning("Saved, but custom fields could not be saved", {
+            description: "Open the item to re-enter them.",
+          });
+        }
       }
       toast.success(
         mode === "edit" ? "Accessory updated" : "Accessory created",

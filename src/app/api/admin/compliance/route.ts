@@ -10,16 +10,23 @@ import { logger } from "@/lib/logger";
  */
 export async function GET() {
   try {
-    await requireApiAdmin();
+    const admin = await requireApiAdmin();
+    const organizationId = admin.organizationId;
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: "Organization context required" },
+        { status: 403 },
+      );
+    }
 
-    // --- Access Control ---
-    const [totalUsers, adminUsers] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { isadmin: true } }),
+    const [totalUsers, adminUsers, mfaEnabledUsers] = await Promise.all([
+      prisma.user.count({ where: { organizationId } }),
+      prisma.user.count({ where: { organizationId, isadmin: true } }),
+      prisma.user.count({
+        where: { organizationId, twoFactorEnabled: true },
+      }),
     ]);
 
-    // --- Audit Coverage ---
-    // Count distinct entities that have at least one audit log entry in the last 90 days
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
@@ -32,20 +39,22 @@ export async function GET() {
       totalAuditLogs,
       lastAuditLogEntry,
     ] = await Promise.all([
-      prisma.asset.count(),
-      prisma.accessories.count(),
-      prisma.licence.count(),
-      prisma.consumable.count(),
+      prisma.asset.count({ where: { organizationId } }),
+      prisma.accessories.count({ where: { organizationId } }),
+      prisma.licence.count({ where: { organizationId } }),
+      prisma.consumable.count({ where: { organizationId } }),
       prisma.audit_logs.findMany({
         where: {
+          user: { organizationId },
           createdAt: { gte: ninetyDaysAgo },
           entityId: { not: null },
         },
         select: { entityId: true },
         distinct: ["entityId"],
       }),
-      prisma.audit_logs.count(),
+      prisma.audit_logs.count({ where: { user: { organizationId } } }),
       prisma.audit_logs.findFirst({
+        where: { user: { organizationId } },
         orderBy: { createdAt: "desc" },
         select: { createdAt: true },
       }),
@@ -55,14 +64,12 @@ export async function GET() {
       totalAssets + totalAccessories + totalLicences + totalConsumables;
     const auditedEntityCount = auditedEntitiesRaw.length;
 
-    // --- Data Retention / GDPR ---
     const gdprSettings = getGDPRSettings();
     const gdprConfigured = gdprSettings.updatedAt !== null;
 
-    // --- Asset Inventory Breakdown ---
-    // Count assets grouped by status type
     const statusCounts = await prisma.asset.groupBy({
       by: ["statustypeid"],
+      where: { organizationId },
       _count: { assetid: true },
     });
 
@@ -106,6 +113,7 @@ export async function GET() {
         totalUsers,
         adminUsers,
         regularUsers: totalUsers - adminUsers,
+        mfaEnabledUsers,
       },
       auditCoverage: {
         totalEntities,

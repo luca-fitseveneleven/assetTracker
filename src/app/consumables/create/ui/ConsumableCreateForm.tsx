@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,9 +130,8 @@ export default function ConsumableCreateForm({
       }
 
       const created = await res.json();
-      // Save custom field values
       if (mode === "create" && Object.keys(customFieldValues).length > 0) {
-        await fetch("/api/custom-fields/values", {
+        const cfRes = await fetch("/api/custom-fields/values", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -141,6 +140,11 @@ export default function ConsumableCreateForm({
             values: customFieldValues,
           }),
         });
+        if (!cfRes.ok) {
+          toast.warning("Saved, but custom fields could not be saved", {
+            description: "Open the item to re-enter them.",
+          });
+        }
       }
       toast.success(
         mode === "edit" ? "Consumable updated" : "Consumable created",

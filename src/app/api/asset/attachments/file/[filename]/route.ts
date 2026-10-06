@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
-import {
-  getOrganizationContext,
-  scopeToOrganization,
-} from "@/lib/organization-context";
-import { getStorage } from "@/lib/storage";
+import { getOrganizationContext } from "@/lib/organization-context";
+import { getOrgStorage } from "@/lib/storage";
 import { thumbKey, type ThumbVariant } from "@/lib/storage/thumbnails";
 
 export async function GET(
@@ -17,13 +14,18 @@ export async function GET(
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
+    // Fail closed: a concrete org is required before any tenant-scoped query.
+    if (!orgId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { filename } = await params;
 
     // Find attachment and verify org access
     const attachment = await prisma.asset_attachments.findFirst({
       where: {
         filename,
-        ...(orgId ? { asset: { organizationId: orgId } } : {}),
+        asset: { organizationId: orgId },
       },
     });
 
@@ -31,18 +33,17 @@ export async function GET(
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    const storage = await getStorage();
+    const storage = await getOrgStorage(orgId);
 
-    // Check for thumbnail variant
     const { searchParams } = new URL(req.url);
     const thumb = searchParams.get("thumb") as ThumbVariant | null;
 
     let key = attachment.filename;
-    if (
+    const isThumb =
       thumb &&
       (thumb === "gallery" || thumb === "list") &&
-      attachment.thumbnailPath
-    ) {
+      attachment.thumbnailPath;
+    if (isThumb) {
       const uuid = attachment.filename.replace(/\.[^.]+$/, "");
       key = thumbKey(uuid, thumb);
     }
@@ -54,17 +55,28 @@ export async function GET(
     }
 
     // Local storage: stream the file
-    const { buffer, contentType } = await storage.download(key);
+    const { buffer } = await storage.download(key);
 
-    // Force download for non-image types (defense-in-depth against XSS)
-    const isImage = /^image\/(png|jpe?g|gif|webp)$/.test(contentType);
-    const disposition = isImage ? "inline" : "attachment";
+    // Derive the served Content-Type from trusted DB metadata, never the bytes
+    // or headers the uploader controlled. Thumbnails are always WebP. Only a
+    // strict image allowlist is served inline; everything else downloads.
+    const safeImages = new Set([
+      "image/png",
+      "image/jpeg",
+      "image/gif",
+      "image/webp",
+    ]);
+    const storedMime = isThumb ? "image/webp" : attachment.mimeType;
+    const isSafeImage = safeImages.has(storedMime);
+    const contentType = isSafeImage ? storedMime : "application/octet-stream";
+    const disposition = isSafeImage ? "inline" : "attachment";
 
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": `${disposition}; filename="${encodeURIComponent(attachment.originalName || key)}"`,
         "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
         "Cache-Control": "private, max-age=86400",
         "Content-Length": buffer.length.toString(),
       },

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -227,6 +227,7 @@ export default function DepartmentsTab() {
                       variant="ghost"
                       className="h-7 w-7"
                       onClick={() => openEdit(dept)}
+                      aria-label="Edit department"
                     >
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
@@ -235,6 +236,7 @@ export default function DepartmentsTab() {
                       variant="ghost"
                       className="text-destructive h-7 w-7"
                       onClick={() => handleDelete(dept)}
+                      aria-label="Delete department"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

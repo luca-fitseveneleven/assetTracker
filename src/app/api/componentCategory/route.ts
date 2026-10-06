@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import prisma from "@/lib/prisma";
 import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
@@ -7,9 +8,9 @@ import {
   createComponentCategorySchema,
   updateComponentCategorySchema,
 } from "@/lib/validation";
+import { getOrganizationContext } from "@/lib/organization-context";
 import { logger } from "@/lib/logger";
 
-// GET /api/componentCategory
 export async function GET() {
   try {
     await requirePermission("component:view");
@@ -53,7 +54,6 @@ export async function POST(req: Request) {
       data: { name },
     });
 
-    // Audit log
     await createAuditLog({
       userId: authUser.id,
       action: AUDIT_ACTIONS.CREATE,
@@ -61,6 +61,8 @@ export async function POST(req: Request) {
       entityId: created.id,
       details: { name },
     });
+
+    await invalidateCacheByPrefix("component_categories").catch(() => {});
 
     return NextResponse.json(created, { status: 201 });
   } catch (e: any) {
@@ -109,7 +111,6 @@ export async function PUT(req: Request) {
       },
     });
 
-    // Audit log
     await createAuditLog({
       userId: authUser.id,
       action: AUDIT_ACTIONS.UPDATE,
@@ -117,6 +118,8 @@ export async function PUT(req: Request) {
       entityId: updated.id,
       details: { name: updated.name },
     });
+
+    await invalidateCacheByPrefix("component_categories").catch(() => {});
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e: any) {
@@ -142,12 +145,13 @@ export async function PUT(req: Request) {
   }
 }
 
-// DELETE /api/componentCategory
 export async function DELETE(req: Request) {
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("component:delete");
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const body = await req.json();
     const { id } = body;
@@ -159,8 +163,9 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const category = await prisma.componentCategory.findUnique({
-      where: { id },
+    // Scope the lookup so foreign-org categories read as "not found".
+    const category = await prisma.componentCategory.findFirst({
+      where: { id, organizationId: orgId ?? null },
       select: { name: true },
     });
 
@@ -175,7 +180,6 @@ export async function DELETE(req: Request) {
       where: { id },
     });
 
-    // Audit log
     await createAuditLog({
       userId: authUser.id,
       action: AUDIT_ACTIONS.DELETE,
@@ -183,6 +187,8 @@ export async function DELETE(req: Request) {
       entityId: id,
       details: { name: category.name },
     });
+
+    await invalidateCacheByPrefix("component_categories").catch(() => {});
 
     return NextResponse.json(
       { message: "Component category deleted successfully" },

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isValidCronAuth } from "@/lib/cron-auth";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { faker } from "@faker-js/faker";
@@ -10,7 +11,6 @@ const DEMO_USER_USERNAME = "demo_user";
 const DEMO_USER_PASSWORD = "demo123";
 
 async function clearDatabase() {
-  // Delete in order respecting foreign key constraints
   // Junction / leaf tables first, then entities, then reference data
   await prisma.webhookDelivery.deleteMany({});
   await prisma.webhook.deleteMany({});
@@ -466,7 +466,7 @@ export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!isValidCronAuth(authHeader, cronSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

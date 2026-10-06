@@ -5,13 +5,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import SelectWithQuickCreate, {
+  type QuickCreateOption,
+} from "@/components/SelectWithQuickCreate";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -35,6 +31,27 @@ export default function ComponentCreateForm({
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [categoryOptions, setCategoryOptions] = useState<QuickCreateOption[]>(
+    () => categories.map((c) => ({ id: c.id, label: c.name })),
+  );
+  const [manufacturerOptions, setManufacturerOptions] = useState<
+    QuickCreateOption[]
+  >(() =>
+    manufacturers.map((m) => ({
+      id: m.manufacturerid,
+      label: m.manufacturername,
+    })),
+  );
+  const [supplierOptions, setSupplierOptions] = useState<QuickCreateOption[]>(
+    () => suppliers.map((s) => ({ id: s.supplierid, label: s.suppliername })),
+  );
+  const [locationOptions, setLocationOptions] = useState<QuickCreateOption[]>(
+    () =>
+      locations.map((l) => ({
+        id: l.locationid,
+        label: l.locationname || "Unnamed",
+      })),
+  );
   const [customFieldValues, setCustomFieldValues] = useState<
     Record<string, string | null>
   >({});
@@ -129,9 +146,8 @@ export default function ComponentCreateForm({
       }
 
       const created = await res.json();
-      // Save custom field values
       if (mode === "create" && Object.keys(customFieldValues).length > 0) {
-        await fetch("/api/custom-fields/values", {
+        const cfRes = await fetch("/api/custom-fields/values", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -140,6 +156,11 @@ export default function ComponentCreateForm({
             values: customFieldValues,
           }),
         });
+        if (!cfRes.ok) {
+          toast.warning("Saved, but custom fields could not be saved", {
+            description: "Open the item to re-enter them.",
+          });
+        }
       }
       toast.success(
         mode === "edit" ? "Component updated" : "Component created",
@@ -211,84 +232,79 @@ export default function ComponentCreateForm({
               <Label htmlFor="categoryId">
                 Category <span className="text-destructive">*</span>
               </Label>
-              <Select
+              <SelectWithQuickCreate
+                id="categoryId"
                 value={form.categoryId}
                 onValueChange={(value) =>
                   setForm((prev) => ({ ...prev, categoryId: value }))
                 }
-                required
-              >
-                <SelectTrigger id="categoryId">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={categoryOptions}
+                onItemCreated={(item) =>
+                  setCategoryOptions((prev) => [...prev, item])
+                }
+                placeholder="Select a category"
+                apiEndpoint="/api/componentCategory"
+                nameField="name"
+                idField="id"
+                entityLabel="Category"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="locationId">Location</Label>
-              <Select
+              <SelectWithQuickCreate
+                id="locationId"
                 value={form.locationId}
                 onValueChange={(value) =>
                   setForm((prev) => ({ ...prev, locationId: value }))
                 }
-              >
-                <SelectTrigger id="locationId">
-                  <SelectValue placeholder="Select a location" />
-                </SelectTrigger>
-                <SelectContent>
-                  {locations.map((loc) => (
-                    <SelectItem key={loc.locationid} value={loc.locationid}>
-                      {loc.locationname || "Unnamed"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={locationOptions}
+                onItemCreated={(item) =>
+                  setLocationOptions((prev) => [...prev, item])
+                }
+                placeholder="Select a location"
+                apiEndpoint="/api/location"
+                nameField="locationname"
+                idField="locationid"
+                entityLabel="Location"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="manufacturerId">Manufacturer</Label>
-              <Select
+              <SelectWithQuickCreate
+                id="manufacturerId"
                 value={form.manufacturerId}
                 onValueChange={(value) =>
                   setForm((prev) => ({ ...prev, manufacturerId: value }))
                 }
-              >
-                <SelectTrigger id="manufacturerId">
-                  <SelectValue placeholder="Select a manufacturer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {manufacturers.map((m) => (
-                    <SelectItem key={m.manufacturerid} value={m.manufacturerid}>
-                      {m.manufacturername}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={manufacturerOptions}
+                onItemCreated={(item) =>
+                  setManufacturerOptions((prev) => [...prev, item])
+                }
+                placeholder="Select a manufacturer"
+                apiEndpoint="/api/manufacturer"
+                nameField="manufacturername"
+                idField="manufacturerid"
+                entityLabel="Manufacturer"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="supplierId">Supplier</Label>
-              <Select
+              <SelectWithQuickCreate
+                id="supplierId"
                 value={form.supplierId}
                 onValueChange={(value) =>
                   setForm((prev) => ({ ...prev, supplierId: value }))
                 }
-              >
-                <SelectTrigger id="supplierId">
-                  <SelectValue placeholder="Select a supplier" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((s) => (
-                    <SelectItem key={s.supplierid} value={s.supplierid}>
-                      {s.suppliername}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={supplierOptions}
+                onItemCreated={(item) =>
+                  setSupplierOptions((prev) => [...prev, item])
+                }
+                placeholder="Select a supplier"
+                apiEndpoint="/api/supplier"
+                nameField="suppliername"
+                idField="supplierid"
+                entityLabel="Supplier"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="totalQuantity">Total Quantity</Label>

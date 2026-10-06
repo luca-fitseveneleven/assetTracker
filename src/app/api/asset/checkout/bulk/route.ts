@@ -35,12 +35,11 @@ export async function POST(req: Request) {
       notes,
     } = data;
 
-    // Validate the target exists based on checkedOutToType
     let targetLabel = "";
 
     if (checkedOutToType === "user") {
-      const targetUser = await prisma.user.findUnique({
-        where: { userid: checkedOutTo! },
+      const targetUser = await prisma.user.findFirst({
+        where: { userid: checkedOutTo!, organizationId: orgId ?? null },
       });
       if (!targetUser) {
         return NextResponse.json(
@@ -50,8 +49,11 @@ export async function POST(req: Request) {
       }
       targetLabel = `${targetUser.firstname} ${targetUser.lastname}`;
     } else if (checkedOutToType === "location") {
-      const targetLocation = await prisma.location.findUnique({
-        where: { locationid: checkedOutToLocationId! },
+      const targetLocation = await prisma.location.findFirst({
+        where: {
+          locationid: checkedOutToLocationId!,
+          organizationId: orgId ?? null,
+        },
       });
       if (!targetLocation) {
         return NextResponse.json(
@@ -61,8 +63,8 @@ export async function POST(req: Request) {
       }
       targetLabel = targetLocation.locationname || "Unknown location";
     } else if (checkedOutToType === "asset") {
-      const targetAsset = await prisma.asset.findUnique({
-        where: { assetid: checkedOutToAssetId! },
+      const targetAsset = await prisma.asset.findFirst({
+        where: { assetid: checkedOutToAssetId!, organizationId: orgId ?? null },
       });
       if (!targetAsset) {
         return NextResponse.json(
@@ -73,7 +75,6 @@ export async function POST(req: Request) {
       targetLabel = targetAsset.assetname || targetAsset.assettag;
     }
 
-    // Fetch all requested assets scoped to organization
     const foundAssets = await prisma.asset.findMany({
       where: scopeToOrganization({ assetid: { in: assetIds } }, orgId),
     });
@@ -96,7 +97,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Create all checkouts atomically
     const checkouts = await prisma.$transaction(
       foundAssets.map((asset) =>
         prisma.assetCheckout.create({
@@ -117,7 +117,6 @@ export async function POST(req: Request) {
       ),
     );
 
-    // Audit log
     createAuditLog({
       userId: user.id as string,
       action: AUDIT_ACTIONS.CREATE,
@@ -132,7 +131,6 @@ export async function POST(req: Request) {
       },
     }).catch(logCatchError("Audit log failed"));
 
-    // Webhook
     triggerWebhook("asset.bulk_checked_out", {
       count: checkouts.length,
       checkedOutToType,

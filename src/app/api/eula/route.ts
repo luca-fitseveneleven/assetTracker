@@ -9,12 +9,18 @@ import {
 } from "@/lib/validation";
 import { logger } from "@/lib/logger";
 
-// GET /api/eula
 export async function GET() {
   try {
-    await requirePermission("eula:view");
+    const authUser = await requirePermission("eula:view");
+    if (!authUser.organizationId) {
+      return NextResponse.json(
+        { error: "Forbidden: Organization context required" },
+        { status: 403 },
+      );
+    }
 
     const templates = await prisma.eulaTemplate.findMany({
+      where: { organizationId: authUser.organizationId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -40,6 +46,12 @@ export async function POST(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("eula:manage");
+    if (!authUser.organizationId) {
+      return NextResponse.json(
+        { error: "Forbidden: Organization context required" },
+        { status: 403 },
+      );
+    }
 
     const body = await req.json();
     const validated = validateBody(createEulaTemplateSchema, body);
@@ -53,6 +65,7 @@ export async function POST(req: Request) {
         content,
         version: version ?? 1,
         isActive: isActive ?? true,
+        organizationId: authUser.organizationId,
       },
     });
 
@@ -86,6 +99,12 @@ export async function PUT(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("eula:manage");
+    if (!authUser.organizationId) {
+      return NextResponse.json(
+        { error: "Forbidden: Organization context required" },
+        { status: 403 },
+      );
+    }
 
     const body = await req.json();
     const { id, ...rest } = body;
@@ -94,6 +113,17 @@ export async function PUT(req: Request) {
       return NextResponse.json(
         { error: "Template ID is required" },
         { status: 400 },
+      );
+    }
+
+    const existing = await prisma.eulaTemplate.findFirst({
+      where: { id, organizationId: authUser.organizationId },
+      select: { id: true },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: "EULA template not found" },
+        { status: 404 },
       );
     }
 
@@ -142,12 +172,17 @@ export async function PUT(req: Request) {
   }
 }
 
-// DELETE /api/eula
 export async function DELETE(req: Request) {
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("eula:manage");
+    if (!authUser.organizationId) {
+      return NextResponse.json(
+        { error: "Forbidden: Organization context required" },
+        { status: 403 },
+      );
+    }
 
     const body = await req.json();
     const { id } = body;
@@ -159,8 +194,8 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const template = await prisma.eulaTemplate.findUnique({
-      where: { id },
+    const template = await prisma.eulaTemplate.findFirst({
+      where: { id, organizationId: authUser.organizationId },
       select: { name: true },
     });
 

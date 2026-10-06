@@ -1,8 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Trash2, Star, Image as ImageIcon } from "lucide-react";
+import {
+  Paperclip,
+  Trash2,
+  Star,
+  Image as ImageIcon,
+  Plus,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { FileDropZone } from "@/components/FileDropZone";
 import AssetPhotoGallery from "@/components/AssetPhotoGallery";
@@ -38,6 +45,7 @@ export default function AssetAttachments({
 }: AssetAttachmentsProps) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
 
   const fetchAttachments = useCallback(async () => {
     try {
@@ -47,7 +55,7 @@ export default function AssetAttachments({
         setAttachments(data);
       }
     } catch {
-      // Attachments are optional
+      /* attachment fetch failure is non-critical */
     }
   }, [assetId]);
 
@@ -85,6 +93,7 @@ export default function AssetAttachments({
           toast.success("File uploaded", { description: file.name });
         }
         fetchAttachments();
+        setShowUpload(false);
       } catch (err) {
         toast.error("Upload failed", { description: (err as Error).message });
       } finally {
@@ -103,7 +112,8 @@ export default function AssetAttachments({
       if (!res.ok) throw new Error("Delete failed");
       toast.success("Attachment deleted");
       setAttachments((prev) => prev.filter((a) => a.id !== id));
-    } catch {
+    } catch (err) {
+      console.error("Failed to delete attachment", err);
       toast.error("Failed to delete attachment");
     }
   };
@@ -117,7 +127,8 @@ export default function AssetAttachments({
       });
       if (!res.ok) throw new Error("Failed to set primary");
       fetchAttachments();
-    } catch {
+    } catch (err) {
+      console.error("Failed to set as primary", err);
       toast.error("Failed to set as primary");
     }
   };
@@ -140,19 +151,42 @@ export default function AssetAttachments({
         <h2 className="text-foreground-600 text-sm font-semibold">
           Attachments {attachments.length > 0 && `(${attachments.length})`}
         </h2>
-        {uploading && (
-          <span className="text-muted-foreground text-xs">Uploading...</span>
-        )}
+        <div className="flex items-center gap-2">
+          {uploading && (
+            <span className="text-muted-foreground text-xs">Uploading...</span>
+          )}
+          {!readOnly && (
+            <Button
+              size="sm"
+              variant={showUpload ? "ghost" : "outline"}
+              onClick={() => setShowUpload((v) => !v)}
+            >
+              {showUpload ? (
+                <>
+                  <X className="mr-1.5 h-3.5 w-3.5" />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Add files
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
-      {!readOnly && (
-        <FileDropZone
-          onFilesSelected={handleFilesSelected}
-          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
-          multiple
-          uploading={uploading}
-          label="Drag & drop files here, or click to browse"
-        />
+      {!readOnly && showUpload && (
+        <div className="mb-3">
+          <FileDropZone
+            onFilesSelected={handleFilesSelected}
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+            multiple
+            uploading={uploading}
+            label="Drag & drop files here, or click to browse"
+          />
+        </div>
       )}
 
       {attachments.length === 0 ? (
@@ -201,6 +235,7 @@ export default function AssetAttachments({
                         variant="ghost"
                         className="text-destructive h-7 w-7"
                         onClick={() => handleDelete(att.id, att.originalName)}
+                        aria-label="Delete attachment"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -233,6 +268,7 @@ export default function AssetAttachments({
                     variant="ghost"
                     className="text-destructive h-6 w-6"
                     onClick={() => handleDelete(att.id, att.originalName)}
+                    aria-label="Delete image"
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>

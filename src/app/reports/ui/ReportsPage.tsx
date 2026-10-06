@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,7 +41,6 @@ import WarrantyReport from "./WarrantyReport";
 import DepreciationReport from "./DepreciationReport";
 import type { DepreciationMethod } from "@/lib/depreciation";
 import { toast } from "sonner";
-import HelpTooltip from "@/components/HelpTooltip";
 import AssetLifecycleChart from "@/components/charts/AssetLifecycleChart";
 import CostBreakdownChart from "@/components/charts/CostBreakdownChart";
 import LocationDistributionChart from "@/components/charts/LocationDistributionChart";
@@ -240,11 +239,23 @@ function TCOReport() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/dashboard/tco")
-      .then((r) => r.json())
-      .then((d) => setData(d))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+    async function fetchData() {
+      try {
+        const res = await fetch("/api/dashboard/tco");
+        if (!res.ok) {
+          throw new Error(`Failed to fetch TCO data (${res.status})`);
+        }
+        const json: TCOData = await res.json();
+        setData(json);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Failed to load TCO data";
+        toast.error(message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
   }, []);
 
   if (loading) {
@@ -502,7 +513,8 @@ export default function ReportsPage({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       toast.success("Report exported to Excel");
-    } catch {
+    } catch (err) {
+      console.error("Failed to export Excel report", err);
       toast.error("Failed to export Excel report");
     }
   };

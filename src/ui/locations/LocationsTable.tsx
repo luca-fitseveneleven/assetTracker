@@ -81,7 +81,6 @@ export default function LocationsTable({ items }) {
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
   }, [locationsData]);
 
-  // Build parent → children map
   const childrenMap = useMemo(() => {
     const map = new Map<string, typeof locationsData>();
     for (const loc of locationsData) {
@@ -163,6 +162,7 @@ export default function LocationsTable({ items }) {
         size="icon"
         variant="ghost"
         asChild
+        aria-label="Edit location"
       >
         <Link href={`/locations/${item.locationid}/edit`}>
           <EditIcon className="h-4 w-4" />
@@ -174,6 +174,7 @@ export default function LocationsTable({ items }) {
             className="text-muted-foreground h-7 w-7 cursor-pointer hover:opacity-80"
             size="icon"
             variant="ghost"
+            aria-label="More actions"
           >
             <MoreVertical className="h-4 w-4" />
           </Button>
@@ -221,9 +222,12 @@ export default function LocationsTable({ items }) {
                   <MapPin className="text-muted-foreground/50 h-3.5 w-3.5" />
                 </span>
               )}
-              <span className={depth === 0 && hasChildren ? "font-medium" : ""}>
+              <Link
+                href={`/locations/${item.locationid}/edit`}
+                className={`hover:text-primary hover:underline ${depth === 0 && hasChildren ? "font-medium" : ""}`}
+              >
                 {item.locationname ?? "(unnamed)"}
-              </span>
+              </Link>
               {hasChildren && (
                 <span className="text-muted-foreground text-xs">
                   ({children.length})

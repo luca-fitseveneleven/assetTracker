@@ -3,7 +3,11 @@ import prisma from "@/lib/prisma";
 import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 import { queueEmail } from "@/lib/email/service";
-import { emailTemplates, renderTemplate } from "@/lib/email/templates";
+import {
+  emailTemplates,
+  renderTemplate,
+  renderTextTemplate,
+} from "@/lib/email/templates";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -70,7 +74,6 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       schedule.frequency,
     );
 
-    // Create maintenance log and update schedule in a transaction
     const [log, updatedSchedule] = await prisma.$transaction([
       prisma.maintenance_logs.create({
         data: {
@@ -124,7 +127,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         updatedSchedule.assignedTo,
         "maintenance_completed",
         updatedSchedule.user.email,
-        renderTemplate(template.subject, variables),
+        renderTextTemplate(template.subject, variables),
         renderTemplate(template.html, variables),
       ).catch((err) => {
         logger.error("Failed to queue maintenance completion email", {

@@ -7,8 +7,9 @@ import {
 } from "@/lib/organization-context";
 import { basename, extname } from "path";
 import crypto from "crypto";
-import { getStorage } from "@/lib/storage";
+import { getStorage, getOrgStorage } from "@/lib/storage";
 import { isImageMimeType, generateThumbnails } from "@/lib/storage/thumbnails";
+import { logger } from "@/lib/logger";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -36,23 +37,29 @@ function validateMagicBytes(buffer: Buffer, ext: string): boolean {
   return signatures.some((sig) => sig.every((byte, i) => buffer[i] === byte));
 }
 
-const ALLOWED_EXTENSIONS = new Set([
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".gif",
-  ".webp",
-  ".pdf",
-  ".doc",
-  ".docx",
-  ".xls",
-  ".xlsx",
-  ".csv",
-  ".txt",
-  ".rtf",
-  ".zip",
-  ".gz",
-]);
+// Trusted MIME per allowed extension. The browser-supplied file.type is never
+// persisted or served — a real file can be uploaded with a spoofed type to
+// attempt content-type-confusion XSS. The served type is always derived here.
+const EXT_TO_MIME: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx":
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".csv": "text/csv",
+  ".txt": "text/plain",
+  ".rtf": "application/rtf",
+  ".zip": "application/zip",
+  ".gz": "application/gzip",
+};
+
+const ALLOWED_EXTENSIONS = new Set(Object.keys(EXT_TO_MIME));
 
 function sanitizeFilename(name: string): string {
   const base = basename(name);
@@ -144,7 +151,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Asset not found" }, { status: 404 });
     }
 
-    // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: "File size exceeds 10 MB limit" },
@@ -152,7 +158,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file extension
     const ext = extname(file.name).toLowerCase();
     if (!ALLOWED_EXTENSIONS.has(ext)) {
       return NextResponse.json(
@@ -176,12 +181,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const storage = await getStorage();
-    await storage.upload(uniqueFilename, buffer, file.type);
+    // Trusted MIME derived from the validated extension — never file.type.
+    const trustedMime = EXT_TO_MIME[ext];
+
+    const storage = orgId ? await getOrgStorage(orgId) : await getStorage();
+    await storage.upload(uniqueFilename, buffer, trustedMime);
 
     // Generate thumbnails for images
     let thumbnailPath: string | null = null;
-    if (isImageMimeType(file.type)) {
+    if (isImageMimeType(trustedMime)) {
       try {
         const uuid = uniqueFilename.replace(/\.[^.]+$/, "");
         thumbnailPath = await generateThumbnails(storage, uuid, buffer);
@@ -195,7 +203,7 @@ export async function POST(req: NextRequest) {
         assetId,
         filename: uniqueFilename,
         originalName: safeName,
-        mimeType: file.type,
+        mimeType: trustedMime,
         size: file.size,
         path: `/api/asset/attachments/file/${uniqueFilename}`,
         thumbnailPath,
@@ -209,6 +217,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    logger.error("Asset attachment upload failed", { error });
     return NextResponse.json(
       { error: "Failed to upload attachment" },
       { status: 500 },

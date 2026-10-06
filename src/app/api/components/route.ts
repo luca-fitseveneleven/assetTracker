@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import {
   validateBody,
   createComponentSchema,
@@ -23,7 +24,6 @@ import {
 
 const COMPONENT_SORT_FIELDS = ["name", "remainingQuantity", "createdAt"];
 
-// GET /api/components
 // Pagination: ?page=1&pageSize=25&sortBy=name&sortOrder=asc&search=keyword
 export async function GET(req: Request) {
   try {
@@ -156,7 +156,6 @@ export async function POST(req: Request) {
       } as Prisma.ComponentUncheckedCreateInput,
     });
 
-    // Audit log
     await createAuditLog({
       userId: authUser.id,
       action: AUDIT_ACTIONS.CREATE,
@@ -173,6 +172,10 @@ export async function POST(req: Request) {
     notifyIntegrations("component.created", {
       componentName: created.name,
     }).catch(logCatchError("Integration notification failed"));
+
+    // Bust the cached component list (per-org suffixed keys) so the new
+    // component appears immediately instead of after the TTL.
+    await invalidateCacheByPrefix("components_all");
 
     return NextResponse.json(created, { status: 201 });
   } catch (e: any) {
@@ -236,8 +239,20 @@ export async function PUT(req: Request) {
     if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
     if (data.totalQuantity !== undefined)
       updateData.totalQuantity = data.totalQuantity;
-    if ((body as any).remainingQuantity !== undefined)
-      updateData.remainingQuantity = (body as any).remainingQuantity;
+    // Keep the invariant remainingQuantity <= totalQuantity. If the caller sends
+    // an explicit remainingQuantity, use it; otherwise when totalQuantity changes
+    // reconcile remaining so the currently-checked-out amount is preserved.
+    const explicitRemaining = (body as Record<string, unknown>)
+      .remainingQuantity;
+    if (explicitRemaining !== undefined) {
+      updateData.remainingQuantity = explicitRemaining;
+    } else if (data.totalQuantity !== undefined) {
+      const checkedOut = existing.totalQuantity - existing.remainingQuantity;
+      updateData.remainingQuantity = Math.max(
+        0,
+        data.totalQuantity - checkedOut,
+      );
+    }
     if (data.purchasePrice !== undefined)
       updateData.purchasePrice = data.purchasePrice ?? null;
     if (data.purchaseDate !== undefined)
@@ -256,7 +271,6 @@ export async function PUT(req: Request) {
       data: updateData,
     });
 
-    // Audit log
     await createAuditLog({
       userId: authUser.id,
       action: AUDIT_ACTIONS.UPDATE,
@@ -274,6 +288,8 @@ export async function PUT(req: Request) {
     notifyIntegrations("component.updated", {
       componentName: updated.name,
     }).catch(logCatchError("Integration notification failed"));
+
+    await invalidateCacheByPrefix("components_all");
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e: any) {
@@ -299,7 +315,6 @@ export async function PUT(req: Request) {
   }
 }
 
-// DELETE /api/components
 export async function DELETE(req: Request) {
   try {
     const demoBlock = requireNotDemoMode();
@@ -336,7 +351,6 @@ export async function DELETE(req: Request) {
       where: { id },
     });
 
-    // Audit log
     await createAuditLog({
       userId: authUser.id,
       action: AUDIT_ACTIONS.DELETE,
@@ -353,6 +367,8 @@ export async function DELETE(req: Request) {
     notifyIntegrations("component.deleted", {
       componentName: component.name,
     }).catch(logCatchError("Integration notification failed"));
+
+    await invalidateCacheByPrefix("components_all");
 
     return NextResponse.json(
       { message: "Component deleted successfully" },

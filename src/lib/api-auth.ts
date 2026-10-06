@@ -112,7 +112,6 @@ export async function getAuthUser(): Promise<AuthUser> {
     throw new Error("Unauthorized");
   }
 
-  // Fetch custom user fields from DB
   const dbUser = await prisma.user.findUnique({
     where: { userid: session.user.id },
     select: {
@@ -194,10 +193,12 @@ export async function requirePlanFeature(
 }
 
 /**
- * Require admin role for API routes
+ * Require admin role for API routes.
+ * Also blocks fully locked-out organizations (past grace period) by delegating
+ * the suspension check to requireApiAuth.
  */
 export async function requireApiAdmin(): Promise<AuthUser> {
-  const user = await getAuthUser();
+  const user = await requireApiAuth();
 
   if (!user.isAdmin) {
     throw new Error("Forbidden: Admin access required");
@@ -258,9 +259,12 @@ export async function requirePermission(
     throw new Error("Unauthorized");
   }
 
-  // API key scope enforcement — applies to ALL users, including admins.
-  // apiKeyScopes is defined (even if empty) when authenticated via API key,
-  // and undefined when authenticated via session cookie.
+  // Block locked-out organizations (past the grace period) from all access.
+  const orgStatus = await getOrgSuspensionStatus(user.organizationId);
+  if (requireActiveOrg(orgStatus)) {
+    throw new Error("Forbidden: Organization suspended");
+  }
+
   if (user.apiKeyScopes !== undefined) {
     const hasScope = permissions.some((p) => user.apiKeyScopes!.includes(p));
     if (!hasScope) {

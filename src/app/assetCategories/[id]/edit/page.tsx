@@ -1,4 +1,4 @@
-import React from "react";
+import { notFound } from "next/navigation";
 import AssetCategoryCreateForm from "../../create/ui/AssetCategoryCreateForm";
 import { getAssetCategoryById } from "@/lib/data";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -13,7 +13,12 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const category = await getAssetCategoryById(id);
+  let category;
+  try {
+    category = await getAssetCategoryById(id);
+  } catch {
+    notFound();
+  }
 
   return (
     <>

@@ -3,7 +3,11 @@ import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import { sendEmail } from "@/lib/email/service";
-import { emailTemplates, renderTemplate } from "@/lib/email/templates";
+import {
+  emailTemplates,
+  renderTemplate,
+  renderTextTemplate,
+} from "@/lib/email/templates";
 import { checkUserLimit } from "@/lib/tenant-limits";
 import { logger } from "@/lib/logger";
 import { getBaseUrl } from "@/lib/url";
@@ -31,7 +35,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    // Check for existing pending invitation for same email + org
     const existingInvitation = await prisma.teamInvitation.findFirst({
       where: {
         email: email.toLowerCase(),
@@ -47,7 +50,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check user limit before sending invitation
     const limitCheck = await checkUserLimit();
     if (!limitCheck.allowed) {
       return NextResponse.json(
@@ -63,7 +65,6 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
-    // Create TeamInvitation record
     const invitation = await prisma.teamInvitation.create({
       data: {
         email: email.toLowerCase(),
@@ -88,9 +89,12 @@ export async function POST(request: NextRequest) {
       const inviterName =
         `${invitation.inviter.firstname} ${invitation.inviter.lastname}`.trim();
 
-      const subject = renderTemplate(emailTemplates.teamInvitation.subject, {
-        organizationName: invitation.organization.name,
-      });
+      const subject = renderTextTemplate(
+        emailTemplates.teamInvitation.subject,
+        {
+          organizationName: invitation.organization.name,
+        },
+      );
       const html = renderTemplate(emailTemplates.teamInvitation.html, {
         inviterName,
         organizationName: invitation.organization.name,

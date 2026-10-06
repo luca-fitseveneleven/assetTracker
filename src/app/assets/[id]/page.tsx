@@ -1,6 +1,13 @@
-import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Wrench, ImageOff } from "lucide-react";
+import { LazyImage } from "@/components/LazyImage";
+import {
+  StatTile,
+  DetailCard,
+  KV,
+  EmptyRow,
+} from "@/components/DetailPrimitives";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import HistoryTimeline from "@/components/HistoryTimeline";
@@ -53,16 +60,6 @@ function asCurrency(value) {
   }).format(n);
 }
 
-function booleanPill(val) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${val ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}
-    >
-      {val ? "Yes" : "No"}
-    </span>
-  );
-}
-
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   let isAdmin = true;
@@ -70,7 +67,9 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   try {
     ctx = await getOrganizationContext();
     isAdmin = ctx?.isAdmin ?? true;
-  } catch {}
+  } catch {
+    /* non-admin context resolution is optional */
+  }
   // First: fetch the asset (needed by subsequent queries)
   let assetRaw;
   try {
@@ -102,6 +101,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     customFieldDefs,
     customFieldValues,
     activeItemRequest,
+    primaryPhoto,
   ] = await Promise.all([
     asset?.locationid ? getLocationById(asset.locationid) : null,
     getUsers(),
@@ -148,6 +148,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
           },
         })
       : null,
+    // Primary image for the hero (primary flag first, else most recent image)
+    prisma.asset_attachments.findFirst({
+      where: { assetId: params.id, mimeType: { startsWith: "image/" } },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
+      select: { filename: true, originalName: true },
+    }),
   ]);
 
   // Compute depreciation if we have settings and a purchase price
@@ -279,179 +285,156 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         />
         <Separator className="my-4" />
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <section className="border-default-200 col-span-1 rounded-lg border p-4">
-            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
-              Summary
-            </h2>
-            <dl className="grid grid-cols-1 gap-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Asset ID</dt>
-                <dd className="text-foreground font-medium">{asset.assetid}</dd>
+        {/* Hero: photo + meta + key metrics */}
+        <div className="border-default-200 flex flex-col gap-5 rounded-xl border p-5 lg:flex-row">
+          <div className="bg-default-100 relative h-44 w-full shrink-0 overflow-hidden rounded-lg lg:w-60">
+            {primaryPhoto ? (
+              <LazyImage
+                src={`/api/asset/attachments/file/${primaryPhoto.filename}?thumb=gallery`}
+                alt={primaryPhoto.originalName || asset.assetname}
+                sizes="(min-width: 1024px) 240px, 100vw"
+              />
+            ) : (
+              <div className="text-foreground-300 flex h-full w-full items-center justify-center">
+                <ImageOff className="h-8 w-8" />
               </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Category</dt>
-                <dd className="text-foreground font-medium">
-                  {categoryName || "-"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Status</dt>
-                <dd className="text-foreground font-medium">
-                  {statusName || "-"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Requestable</dt>
-                <dd className="font-medium">
-                  {booleanPill(Boolean(asset.requestable))}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Mobile</dt>
-                <dd className="font-medium">
-                  {booleanPill(Boolean(asset.mobile))}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Location</dt>
-                <dd className="font-medium">
-                  {location ? location.locationname : "-"}
-                </dd>
-              </div>
-            </dl>
-          </section>
+            )}
+          </div>
 
-          <section className="border-default-200 col-span-1 rounded-lg border p-4">
-            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
-              Specifications
-            </h2>
-            <dl className="grid grid-cols-1 gap-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Manufacturer</dt>
-                <dd className="font-medium">{manufacturerName || "-"}</dd>
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-4">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <span className="text-foreground font-medium">
+                  {categoryName || "Uncategorized"}
+                </span>
+                <span className="text-foreground-300">·</span>
+                <span className="text-foreground-500">
+                  {location ? location.locationname : "No location"}
+                </span>
+                <span className="text-foreground-300">·</span>
+                {assignedUser ? (
+                  <span className="text-foreground-500">
+                    Assigned to{" "}
+                    <Link
+                      href={`/user/${assignedUser.userid}`}
+                      className="text-primary font-medium hover:underline"
+                    >
+                      {assignedUser.firstname} {assignedUser.lastname}
+                    </Link>
+                  </span>
+                ) : (
+                  <span className="text-foreground-400">Unassigned</span>
+                )}
+                {asset.requestable ? (
+                  <>
+                    <span className="text-foreground-300">·</span>
+                    <span className="text-foreground-500">Requestable</span>
+                  </>
+                ) : null}
+                {asset.mobile ? (
+                  <>
+                    <span className="text-foreground-300">·</span>
+                    <span className="text-foreground-500">Mobile</span>
+                  </>
+                ) : null}
               </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Model</dt>
-                <dd className="font-medium">{modelName || "-"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Specs</dt>
-                <dd
-                  className="max-w-[60%] truncate text-right font-medium"
-                  title={asset.specs || undefined}
-                >
-                  {asset.specs || "-"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Notes</dt>
-                <dd
-                  className="max-w-[60%] truncate text-right font-medium"
-                  title={asset.notes || undefined}
-                >
-                  {asset.notes || "-"}
-                </dd>
-              </div>
-            </dl>
-          </section>
 
-          <section className="border-default-200 col-span-1 rounded-lg border p-4">
-            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
-              Procurement
-            </h2>
-            <dl className="grid grid-cols-1 gap-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Supplier</dt>
-                <dd className="font-medium">{supplierName || "-"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Purchase Price</dt>
-                <dd className="font-medium">
-                  {asCurrency(asset.purchaseprice)}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Created</dt>
-                <dd className="font-medium">
-                  {asset.creation_date
-                    ? new Date(asset.creation_date).toLocaleString()
-                    : "-"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Updated</dt>
-                <dd className="font-medium">
-                  {asset.change_date
-                    ? new Date(asset.change_date).toLocaleString()
-                    : "-"}
-                </dd>
-              </div>
-            </dl>
-          </section>
+              {!isAdmin && userByAsset?.userid === ctx?.userId && (
+                <ReturnItemButton
+                  requestId={activeItemRequest?.id}
+                  entityId={asset.assetid}
+                  entityName={asset.assetname}
+                  entityType="asset"
+                />
+              )}
+            </div>
+
+            {/* Key metrics strip */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatTile label="Health">
+                <span className="flex items-center gap-2">
+                  {healthScore.overall}
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${labelBgColor(healthScore.label)}`}
+                  >
+                    {healthScore.label}
+                  </span>
+                </span>
+              </StatTile>
+              <StatTile label="Warranty">
+                {warrantyStatus ? (
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${warrantyStatus.color}`}
+                  >
+                    {warrantyStatus.label}
+                  </span>
+                ) : (
+                  <span className="text-foreground-400">None</span>
+                )}
+              </StatTile>
+              <StatTile label="Value">
+                {depreciationData
+                  ? formatCurrency(depreciationData.currentValue)
+                  : asCurrency(asset.purchaseprice)}
+              </StatTile>
+              <StatTile label="Status">{statusName || "—"}</StatTile>
+            </div>
+          </div>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-          <section className="border-default-200 col-span-1 rounded-lg border p-4">
-            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
-              Assigned User
-            </h2>
-            {assignedUser ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {assignedUser.firstname} {assignedUser.lastname}
-                    </span>
-                    <span className="text-foreground-500 text-sm">
-                      {assignedUser.email || "No email"}
-                    </span>
-                  </div>
-                  <Link
-                    href={`/user/${assignedUser.userid}`}
-                    className="text-primary text-sm font-medium hover:underline"
-                  >
-                    View
-                  </Link>
-                </div>
-                {!isAdmin && userByAsset?.userid === ctx?.userId && (
-                  <ReturnItemButton
-                    requestId={activeItemRequest?.id}
-                    entityId={asset.assetid}
-                    entityName={asset.assetname}
-                    entityType="asset"
-                  />
-                )}
-              </div>
-            ) : (
-              <p className="text-foreground-500 text-sm">No user assigned.</p>
-            )}
-          </section>
+        {/* Primary details */}
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <DetailCard title="Specifications">
+            <dl className="grid grid-cols-1 gap-2 text-sm">
+              <KV label="Manufacturer">{manufacturerName || "-"}</KV>
+              <KV label="Model">{modelName || "-"}</KV>
+              <KV label="Specs">
+                <span title={asset.specs || undefined}>
+                  {asset.specs || "-"}
+                </span>
+              </KV>
+              <KV label="Notes">
+                <span title={asset.notes || undefined}>
+                  {asset.notes || "-"}
+                </span>
+              </KV>
+            </dl>
+          </DetailCard>
 
-          <section className="border-default-200 col-span-2 rounded-lg border border-dashed p-4">
-            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
-              Identifiers
-            </h2>
-            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-              <div className="flex justify-between">
-                <span className="text-foreground-500">Asset Tag</span>
-                <span className="font-medium">{asset.assettag}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-foreground-500">Serial Number</span>
-                <span className="font-medium">{asset.serialnumber}</span>
-              </div>
-            </div>
-          </section>
+          <DetailCard title="Procurement">
+            <dl className="grid grid-cols-1 gap-2 text-sm">
+              <KV label="Supplier">{supplierName || "-"}</KV>
+              <KV label="Purchase Price">{asCurrency(asset.purchaseprice)}</KV>
+              <KV label="Created">
+                {asset.creation_date
+                  ? new Date(asset.creation_date).toLocaleDateString()
+                  : "-"}
+              </KV>
+              <KV label="Updated">
+                {asset.change_date
+                  ? new Date(asset.change_date).toLocaleDateString()
+                  : "-"}
+              </KV>
+            </dl>
+          </DetailCard>
+
+          <DetailCard title="Identifiers">
+            <dl className="grid grid-cols-1 gap-2 text-sm">
+              <KV label="Asset Tag">{asset.assettag || "-"}</KV>
+              <KV label="Serial Number">{asset.serialnumber || "-"}</KV>
+              <KV label="Asset ID">
+                <span className="font-mono text-xs">
+                  {asset.assetid.slice(0, 8)}…
+                </span>
+              </KV>
+            </dl>
+          </DetailCard>
         </div>
 
         {customFields.length > 0 && (
-          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-            <section className="border-default-200 col-span-1 rounded-lg border p-4">
-              <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
-                Custom Fields
-              </h2>
-              <dl className="grid grid-cols-1 gap-2 text-sm">
+          <div className="mt-4">
+            <DetailCard title="Custom Fields">
+              <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 {customFields.map((cf) => (
                   <CustomFieldValue
                     key={cf.name}
@@ -461,124 +444,66 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
                   />
                 ))}
               </dl>
-            </section>
+            </DetailCard>
           </div>
         )}
 
-        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
-          <section className="border-default-200 col-span-1 rounded-lg border p-4">
-            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
-              Health Score
-            </h2>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-sm font-semibold capitalize ${labelBgColor(healthScore.label)}`}
-                >
-                  {healthScore.label}
-                </span>
-                <span className="text-2xl font-bold">
-                  {healthScore.overall}
-                </span>
-              </div>
-              <dl className="grid grid-cols-1 gap-1.5 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-foreground-500">Age</dt>
-                  <dd className="font-medium">{healthScore.ageFactor}/25</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-foreground-500">Warranty</dt>
-                  <dd className="font-medium">
-                    {healthScore.warrantyFactor}/25
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-foreground-500">Maintenance</dt>
-                  <dd className="font-medium">
-                    {healthScore.maintenanceFactor}/25
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-foreground-500">Depreciation</dt>
-                  <dd className="font-medium">
-                    {healthScore.depreciationFactor}/25
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          </section>
-
-          <section className="border-default-200 col-span-1 rounded-lg border p-4">
-            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
-              Warranty
-            </h2>
-            <dl className="grid grid-cols-1 gap-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Status</dt>
-                <dd className="font-medium">
-                  {warrantyStatus ? (
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${warrantyStatus.color}`}
-                    >
-                      {warrantyStatus.label}
-                    </span>
-                  ) : (
-                    <span className="text-foreground-400">No warranty</span>
-                  )}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Duration</dt>
-                <dd className="font-medium">
-                  {asset.warrantyMonths
-                    ? `${asset.warrantyMonths} months`
-                    : "-"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-foreground-500">Expires</dt>
-                <dd className="font-medium">
-                  {asset.warrantyExpires
-                    ? new Date(asset.warrantyExpires).toLocaleDateString()
-                    : "-"}
-                </dd>
-              </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <DetailCard title="Health Breakdown">
+            <dl className="grid grid-cols-1 gap-1.5 text-sm">
+              <KV label="Age">{healthScore.ageFactor}/25</KV>
+              <KV label="Warranty">{healthScore.warrantyFactor}/25</KV>
+              <KV label="Maintenance">{healthScore.maintenanceFactor}/25</KV>
+              <KV label="Depreciation">{healthScore.depreciationFactor}/25</KV>
             </dl>
-          </section>
+          </DetailCard>
 
-          <section className="border-default-200 col-span-1 rounded-lg border p-4">
-            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
-              Depreciation
-            </h2>
+          <DetailCard title="Warranty">
+            <dl className="grid grid-cols-1 gap-2 text-sm">
+              <KV label="Status">
+                {warrantyStatus ? (
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${warrantyStatus.color}`}
+                  >
+                    {warrantyStatus.label}
+                  </span>
+                ) : (
+                  <span className="text-foreground-400">No warranty</span>
+                )}
+              </KV>
+              <KV label="Duration">
+                {asset.warrantyMonths ? `${asset.warrantyMonths} months` : "-"}
+              </KV>
+              <KV label="Expires">
+                {asset.warrantyExpires
+                  ? new Date(asset.warrantyExpires).toLocaleDateString()
+                  : "-"}
+              </KV>
+            </dl>
+          </DetailCard>
+
+          <DetailCard title="Depreciation">
             {depreciationData && depreciationSettings ? (
               <dl className="grid grid-cols-1 gap-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-foreground-500">Method</dt>
-                  <dd className="font-medium">
-                    {getMethodDisplayName(
-                      depreciationSettings.method as DepreciationMethod,
-                    )}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-foreground-500">Useful Life</dt>
-                  <dd className="font-medium">
-                    {depreciationSettings.usefulLifeYears} years
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-foreground-500">Current Value</dt>
-                  <dd className="font-medium text-green-700">
+                <KV label="Method">
+                  {getMethodDisplayName(
+                    depreciationSettings.method as DepreciationMethod,
+                  )}
+                </KV>
+                <KV label="Useful Life">
+                  {depreciationSettings.usefulLifeYears} years
+                </KV>
+                <KV label="Current Value">
+                  <span className="text-green-700">
                     {formatCurrency(depreciationData.currentValue)}
-                  </dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-foreground-500">Depreciated</dt>
-                  <dd className="font-medium text-red-600">
+                  </span>
+                </KV>
+                <KV label="Depreciated">
+                  <span className="text-red-600">
                     {formatCurrency(depreciationData.accumulatedDepreciation)} (
                     {depreciationData.percentDepreciated.toFixed(1)}%)
-                  </dd>
-                </div>
+                  </span>
+                </KV>
               </dl>
             ) : (
               <p className="text-foreground-500 text-sm">
@@ -587,13 +512,13 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
                   : "No depreciation settings for this category."}
               </p>
             )}
-          </section>
+          </DetailCard>
+        </div>
 
-          <section className="border-default-200 col-span-1 rounded-lg border p-4">
-            <h2 className="text-foreground-600 mb-3 text-sm font-semibold">
-              Maintenance
-            </h2>
-            {maintenanceSchedules.length > 0 ? (
+        {/* Maintenance */}
+        <div className="mt-4">
+          {maintenanceSchedules.length > 0 ? (
+            <DetailCard title="Maintenance">
               <div className="space-y-2">
                 {maintenanceSchedules.map((schedule) => {
                   const isDue = new Date(schedule.nextDueDate) <= new Date();
@@ -622,12 +547,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
                   );
                 })}
               </div>
-            ) : (
-              <p className="text-foreground-500 text-sm">
-                No maintenance schedules.
-              </p>
-            )}
-          </section>
+            </DetailCard>
+          ) : (
+            <EmptyRow icon={Wrench}>
+              No maintenance schedules for this asset.
+            </EmptyRow>
+          )}
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">

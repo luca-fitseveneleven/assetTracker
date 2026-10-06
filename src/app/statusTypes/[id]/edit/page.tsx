@@ -1,4 +1,4 @@
-import React from "react";
+import { notFound } from "next/navigation";
 import StatusTypeCreateForm from "../../create/ui/StatusTypeCreateForm";
 import { getStatusById } from "@/lib/data";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -13,7 +13,12 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const statusType = await getStatusById(id);
+  let statusType;
+  try {
+    statusType = await getStatusById(id);
+  } catch {
+    notFound();
+  }
 
   return (
     <>

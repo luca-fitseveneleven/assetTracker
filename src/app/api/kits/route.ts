@@ -8,6 +8,7 @@ import {
   updateKitSchema,
 } from "@/lib/validation";
 import { logger } from "@/lib/logger";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -20,7 +21,6 @@ import {
 
 const KIT_SORT_FIELDS = ["name", "createdAt"];
 
-// GET /api/kits
 // Pagination: ?page=1&pageSize=25&sortBy=name&sortOrder=asc&search=keyword
 export async function GET(req: Request) {
   try {
@@ -134,7 +134,6 @@ export async function POST(req: Request) {
       });
     });
 
-    // Audit log
     await createAuditLog({
       userId: authUser.id ?? null,
       action: AUDIT_ACTIONS.CREATE,
@@ -142,6 +141,8 @@ export async function POST(req: Request) {
       entityId: kit?.id ?? null,
       details: { name },
     });
+
+    await invalidateCacheByPrefix("kits_all").catch(() => {});
 
     return NextResponse.json(kit, { status: 201 });
   } catch (e: any) {
@@ -183,7 +184,19 @@ export async function PUT(req: Request) {
 
     const { name, description, isActive, items } = validated;
 
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
     const kit = await prisma.$transaction(async (tx) => {
+      // Verify the kit belongs to the caller's organization before mutating.
+      const existing = await tx.kit.findFirst({
+        where: scopeToOrganization({ id }, orgId),
+        select: { id: true },
+      });
+      if (!existing) {
+        throw new Error("KIT_NOT_FOUND");
+      }
+
       const updateData: Record<string, unknown> = {};
       if (name !== undefined) updateData.name = name;
       if (description !== undefined) updateData.description = description;
@@ -226,7 +239,6 @@ export async function PUT(req: Request) {
       });
     });
 
-    // Audit log
     await createAuditLog({
       userId: authUser.id ?? null,
       action: AUDIT_ACTIONS.UPDATE,
@@ -234,6 +246,8 @@ export async function PUT(req: Request) {
       entityId: kit?.id ?? null,
       details: { name: kit?.name, changes: Object.keys(validated) },
     });
+
+    await invalidateCacheByPrefix("kits_all").catch(() => {});
 
     return NextResponse.json(kit, { status: 200 });
   } catch (e: any) {
@@ -245,7 +259,7 @@ export async function PUT(req: Request) {
     if (e.message?.startsWith("Forbidden")) {
       return NextResponse.json({ error: e.message }, { status: 403 });
     }
-    if (e.code === "P2025") {
+    if (e.message === "KIT_NOT_FOUND" || e.code === "P2025") {
       return NextResponse.json({ error: "Kit not found" }, { status: 404 });
     }
 
@@ -256,12 +270,13 @@ export async function PUT(req: Request) {
   }
 }
 
-// DELETE /api/kits
 export async function DELETE(req: Request) {
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("kit:delete");
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const body = await req.json();
     const { id } = body;
@@ -273,9 +288,9 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // Get kit details before deletion for audit log
-    const kit = await prisma.kit.findUnique({
-      where: { id },
+    // Scope the lookup to the caller's org so foreign kits read as "not found".
+    const kit = await prisma.kit.findFirst({
+      where: scopeToOrganization({ id }, orgId),
       select: { name: true },
     });
 
@@ -287,7 +302,6 @@ export async function DELETE(req: Request) {
       where: { id },
     });
 
-    // Audit log
     await createAuditLog({
       userId: authUser.id ?? null,
       action: AUDIT_ACTIONS.DELETE,
@@ -295,6 +309,8 @@ export async function DELETE(req: Request) {
       entityId: id,
       details: { name: kit.name },
     });
+
+    await invalidateCacheByPrefix("kits_all").catch(() => {});
 
     return NextResponse.json(
       { message: "Kit deleted successfully" },

@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
-import { invalidateCache } from "@/lib/cache";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import {
   createConsumableSchema,
   updateConsumableSchema,
@@ -23,7 +23,6 @@ import { conflictResponse } from "@/lib/concurrency";
 
 const CONSUMABLE_SORT_FIELDS = ["consumablename", "quantity", "creation_date"];
 
-// GET /api/consumable
 // Pagination: ?page=1&pageSize=25&sortBy=consumablename&sortOrder=asc&search=keyword
 export async function GET(req: NextRequest) {
   try {
@@ -107,7 +106,6 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    // Validate input
     const validationResult = createConsumableSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
@@ -145,7 +143,6 @@ export async function POST(req: NextRequest) {
       } as Prisma.consumableUncheckedCreateInput,
     });
 
-    // Create audit log
     await createAuditLog({
       userId: admin.id,
       action: AUDIT_ACTIONS.CREATE,
@@ -154,7 +151,7 @@ export async function POST(req: NextRequest) {
       details: { consumablename },
     });
 
-    invalidateCache("consumables_all").catch(() => {});
+    invalidateCacheByPrefix("consumables_all").catch(() => {});
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
     logger.error("POST /api/consumable error", { error: e });
@@ -183,7 +180,6 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json();
 
-    // Validate consumable ID
     const idValidation = uuidSchema.safeParse(body.consumableid);
     if (!idValidation.success) {
       return NextResponse.json(
@@ -192,7 +188,6 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // Validate update data
     const dataValidation = updateConsumableSchema.safeParse(body);
     if (!dataValidation.success) {
       return NextResponse.json(
@@ -257,7 +252,6 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    // Create audit log
     await createAuditLog({
       userId: admin.id,
       action: AUDIT_ACTIONS.UPDATE,
@@ -266,7 +260,7 @@ export async function PUT(req: NextRequest) {
       details: { consumablename: updated.consumablename },
     });
 
-    invalidateCache("consumables_all").catch(() => {});
+    invalidateCacheByPrefix("consumables_all").catch(() => {});
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
     logger.error("PUT /api/consumable error", { error: e });
@@ -291,7 +285,6 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE /api/consumable
 export async function DELETE(req: NextRequest) {
   try {
     const demoBlock = requireNotDemoMode();
@@ -302,7 +295,6 @@ export async function DELETE(req: NextRequest) {
     const body = await req.json();
     const { consumableid } = body;
 
-    // Validate consumable ID
     const idValidation = uuidSchema.safeParse(consumableid);
     if (!idValidation.success) {
       return NextResponse.json(
@@ -327,12 +319,10 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Delete the consumable
     await prisma.consumable.delete({
       where: { consumableid },
     });
 
-    // Create audit log
     await createAuditLog({
       userId: admin.id,
       action: AUDIT_ACTIONS.DELETE,
@@ -340,6 +330,8 @@ export async function DELETE(req: NextRequest) {
       entityId: consumableid,
       details: { consumablename: consumable.consumablename },
     });
+
+    await invalidateCacheByPrefix("consumables_all").catch(() => {});
 
     return NextResponse.json(
       { message: "Consumable deleted successfully" },
@@ -411,6 +403,8 @@ export async function PATCH(req: NextRequest) {
         restockQuantity: addQuantity,
       },
     });
+
+    await invalidateCacheByPrefix("consumables_all").catch(() => {});
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {

@@ -43,10 +43,6 @@ import {
   X,
 } from "lucide-react";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 interface AuditLogUser {
   userid: string;
   firstname: string;
@@ -74,10 +70,6 @@ interface PaginatedResponse {
   totalPages: number;
 }
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 const ACTION_OPTIONS = [
   "CREATE",
   "UPDATE",
@@ -93,6 +85,8 @@ const ACTION_OPTIONS = [
   "REJECT",
 ] as const;
 
+// Keep in sync with AUDIT_ENTITIES in src/lib/audit-log.ts (this is a client
+// component, so we can't import the server-side lib directly).
 const ENTITY_OPTIONS = [
   "user",
   "asset",
@@ -102,12 +96,20 @@ const ENTITY_OPTIONS = [
   "supplier",
   "location",
   "consumable",
+  "component",
+  "component_category",
   "asset_category",
   "accessory_category",
   "consumable_category",
   "licence_category",
   "model",
   "status_type",
+  "licence_seat",
+  "eula_template",
+  "kit",
+  "audit_campaign",
+  "report_schedule",
+  "intune_sync",
 ] as const;
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -133,10 +135,6 @@ const ACTION_COLORS: Record<string, string> = {
   REVERT: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleString();
 }
@@ -156,10 +154,6 @@ function formatEntityLabel(entity: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
-
-// ---------------------------------------------------------------------------
-// Detail Row Component
-// ---------------------------------------------------------------------------
 
 function DetailPanel({
   log,
@@ -260,10 +254,6 @@ function DetailPanel({
   );
 }
 
-// ---------------------------------------------------------------------------
-// CSV Export
-// ---------------------------------------------------------------------------
-
 function buildAuditExportRows(logs: AuditLogEntry[]) {
   return {
     headers: [
@@ -334,10 +324,6 @@ async function exportToExcel(logs: AuditLogEntry[]) {
   link.click();
   URL.revokeObjectURL(url);
 }
-
-// ---------------------------------------------------------------------------
-// Main Component
-// ---------------------------------------------------------------------------
 
 export default function AuditLogViewer() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);

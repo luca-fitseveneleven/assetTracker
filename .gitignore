@@ -35,6 +35,8 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.bak*
+.env.backup*
 
 # vercel
 .vercel
@@ -63,3 +65,12 @@ mobile/*.p12
 mobile/*.key
 mobile/*.mobileprovision
 mobile/*.orig.*
+.playwright-mcp
+
+# tool output / scratch screenshots
+/graphify-out/
+/.understand-anything/
+/*.png
+
+# Superpowers brainstorm companion mockups
+/.superpowers/

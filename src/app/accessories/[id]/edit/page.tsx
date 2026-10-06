@@ -1,4 +1,4 @@
-import React from "react";
+import { notFound } from "next/navigation";
 import AccessoryCreateForm from "../../create/ui/AccessoryCreateForm";
 import {
   getAccessoryById,
@@ -22,23 +22,34 @@ export default async function Page({
 }) {
   const { id } = await params;
 
-  const [
-    accessoryRaw,
+  let accessoryRaw,
     categories,
     locations,
     manufacturers,
     models,
     statuses,
-    suppliers,
-  ] = await Promise.all([
-    getAccessoryById(id),
-    getAccessoryCategories(),
-    getLocation(),
-    getManufacturers(),
-    getModel(),
-    getStatus(),
-    getSuppliers(),
-  ]);
+    suppliers;
+  try {
+    [
+      accessoryRaw,
+      categories,
+      locations,
+      manufacturers,
+      models,
+      statuses,
+      suppliers,
+    ] = await Promise.all([
+      getAccessoryById(id),
+      getAccessoryCategories(),
+      getLocation(),
+      getManufacturers(),
+      getModel(),
+      getStatus(),
+      getSuppliers(),
+    ]);
+  } catch {
+    notFound();
+  }
 
   const accessory = {
     ...accessoryRaw,

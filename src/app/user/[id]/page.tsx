@@ -1,5 +1,5 @@
-import React from "react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import UserResources from "./ui/UserResources";
 import Breadcrumb from "@/components/Breadcrumb";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,12 @@ export const metadata = {
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const user = await getUserById(params.id);
+  let user;
+  try {
+    user = await getUserById(params.id);
+  } catch {
+    notFound();
+  }
   const [
     allAssets,
     links,
@@ -93,7 +98,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     (lic) => lic.licenceduserid === user.userid,
   );
 
-  // Fetch history for this user from audit_logs
   const historyEntries = await prisma.audit_logs.findMany({
     where: {
       OR: [{ entity: "user", entityId: params.id }, { userId: params.id }],

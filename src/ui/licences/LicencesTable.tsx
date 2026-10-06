@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useUrlState } from "@/hooks/useUrlState";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -275,7 +275,8 @@ export default function LicencesTable({
       toast.success(`Deleted ${ids.length} licence(s)`);
       setSelectedKeys(new Set());
       setShowBulkDelete(false);
-    } catch (error) {
+    } catch (err) {
+      console.error("Failed to delete some licences", err);
       toast.error("Failed to delete some licences");
     } finally {
       setBulkDeleting(false);
@@ -285,7 +286,14 @@ export default function LicencesTable({
   const renderCell = (item, columnKey) => {
     switch (columnKey) {
       case "licencekey":
-        return item.licencekey ?? "-";
+        return (
+          <Link
+            href={`/licences/${item.licenceid}`}
+            className="text-primary font-medium hover:underline"
+          >
+            {item.licencekey ?? "-"}
+          </Link>
+        );
       case "licensedtoemail":
         return item.licensedtoemail ?? "-";
       case "category":

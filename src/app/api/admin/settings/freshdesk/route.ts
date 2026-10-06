@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
-import { createFreshdeskClient } from "@/lib/freshdesk";
 import { encrypt } from "@/lib/encryption";
 import { requireNotDemoMode, requireSuperAdmin } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
@@ -61,6 +58,15 @@ export async function POST(req: Request) {
     if (!domain) {
       return NextResponse.json(
         { error: "Freshdesk domain is required" },
+        { status: 400 },
+      );
+    }
+
+    // The domain is interpolated directly into https://${domain}.freshdesk.com,
+    // so it must be restricted to a safe subdomain shape before it's stored.
+    if (!/^[a-z0-9-]{1,63}$/i.test(domain)) {
+      return NextResponse.json(
+        { error: "Invalid Freshdesk domain" },
         { status: 400 },
       );
     }

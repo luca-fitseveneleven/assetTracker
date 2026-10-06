@@ -59,8 +59,27 @@ model Organization {
   scimTokens           ScimToken[]
   purchaseRequests     PurchaseRequest[]
   purchaseOrders       PurchaseOrder[]
+  storageConfig        OrganizationStorageConfig?
 
   @@map("organizations")
+  @@schema("public")
+}
+
+model OrganizationStorageConfig {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @unique @db.Uuid
+  provider       String       @default("s3") @db.VarChar(20)
+  endpoint       String       @db.VarChar(500)
+  bucket         String       @db.VarChar(255)
+  region         String       @default("auto") @db.VarChar(50)
+  accessKey      String       @db.VarChar(500)
+  secretKey      String       @db.VarChar(500)
+  isEnabled      Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamp(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_storage_configs")
   @@schema("public")
 }
 
@@ -345,6 +364,7 @@ model accessories {
   statusType               statusType             @relation(fields: [statustypeid], references: [statustypeid], onDelete: NoAction, onUpdate: NoAction, map: "fk_accessories_statustype_c_statustypeid")
   supplier                 supplier               @relation(fields: [supplierid], references: [supplierid], onDelete: NoAction, onUpdate: NoAction, map: "fk_accessories_supplier_c_supplierid")
   userAccessoires          userAccessoires[]
+  attachments              accessory_attachments[]
 
   @@index([organizationId])
   @@index([manufacturerid])
@@ -508,6 +528,25 @@ model asset_attachments {
   @@schema("public")
 }
 
+model accessory_attachments {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accessoryId   String      @db.Uuid
+  filename      String      @db.VarChar(255)
+  originalName  String      @db.VarChar(255)
+  mimeType      String      @db.VarChar(100)
+  size          Int
+  path          String      @db.VarChar(500)
+  thumbnailPath String?     @db.VarChar(500)
+  isPrimary     Boolean     @default(false)
+  uploadedBy    String?     @db.Uuid
+  createdAt     DateTime    @default(now()) @db.Timestamp(6)
+  accessory     accessories @relation(fields: [accessoryId], references: [accessorieid], onDelete: Cascade)
+  user          user?       @relation(fields: [uploadedBy], references: [userid])
+
+  @@index([accessoryId])
+  @@schema("public")
+}
+
 model audit_logs {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String?  @db.Uuid
@@ -547,6 +586,7 @@ model consumable {
   supplier                 supplier               @relation(fields: [supplierid], references: [supplierid], onDelete: NoAction, onUpdate: NoAction, map: "fk_consumable_supplier_c_supplierid")
   stockAlert               StockAlert?
   consumable_checkouts     consumable_checkouts[]
+  attachments              consumable_attachments[]
 
   @@index([consumablename])
   @@index([organizationId])
@@ -554,6 +594,25 @@ model consumable {
   @@index([supplierid])
   @@index([consumablecategorytypeid])
   @@index([organizationId, consumablename])
+  @@schema("public")
+}
+
+model consumable_attachments {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  consumableId  String     @db.Uuid
+  filename      String     @db.VarChar(255)
+  originalName  String     @db.VarChar(255)
+  mimeType      String     @db.VarChar(100)
+  size          Int
+  path          String     @db.VarChar(500)
+  thumbnailPath String?    @db.VarChar(500)
+  isPrimary     Boolean    @default(false)
+  uploadedBy    String?    @db.Uuid
+  createdAt     DateTime   @default(now()) @db.Timestamp(6)
+  consumable    consumable @relation(fields: [consumableId], references: [consumableid], onDelete: Cascade)
+  user          user?      @relation(fields: [uploadedBy], references: [userid])
+
+  @@index([consumableId])
   @@schema("public")
 }
 
@@ -980,9 +1039,6 @@ model user {
   departmentId                     String?                   @db.Uuid
   creation_date                    DateTime                  @db.Timestamp(6)
   change_date                      DateTime?                 @db.Timestamp(6)
-  mfaEnabled                       Boolean                   @default(false)
-  mfaSecret                        String?                   @db.VarChar(255)
-  mfaBackupCodes                   String[]
   // Phase 4A: LDAP/SSO fields
   authProvider                     String                    @default("local") @db.VarChar(20)
   externalId                       String?                   @db.VarChar(255)
@@ -999,6 +1055,9 @@ model user {
   updatedAt                        DateTime                  @default(now())
   accounts                         accounts[]
   asset_attachments                asset_attachments[]
+  accessory_attachments            accessory_attachments[]
+  consumable_attachments           consumable_attachments[]
+  component_attachments            component_attachments[]
   assetReservations                AssetReservation[]
   audit_logs                       audit_logs[]
   department                       Department?               @relation(fields: [departmentId], references: [id], onDelete: SetNull)
@@ -1193,6 +1252,10 @@ model twoFactor {
   secret      String
   backupCodes String
   userId      String @db.Uuid
+  // Plugin-managed: enrolment confirmation and verification lockout
+  verified                Boolean   @default(true)
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime? @db.Timestamptz(6)
   user        user   @relation(fields: [userId], references: [userid], onDelete: Cascade)
 
   @@map("twoFactor")
@@ -1296,7 +1359,8 @@ model Component {
   createdAt         DateTime          @default(now()) @db.Timestamp(6)
   updatedAt         DateTime          @updatedAt @db.Timestamp(6)
 
-  checkouts ComponentCheckout[]
+  checkouts   ComponentCheckout[]
+  attachments component_attachments[]
 
   @@index([categoryId])
   @@index([organizationId])
@@ -1304,6 +1368,25 @@ model Component {
   @@index([supplierId])
   @@index([locationId])
   @@map("components")
+  @@schema("public")
+}
+
+model component_attachments {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  componentId   String    @db.Uuid
+  filename      String    @db.VarChar(255)
+  originalName  String    @db.VarChar(255)
+  mimeType      String    @db.VarChar(100)
+  size          Int
+  path          String    @db.VarChar(500)
+  thumbnailPath String?   @db.VarChar(500)
+  isPrimary     Boolean   @default(false)
+  uploadedBy    String?   @db.Uuid
+  createdAt     DateTime  @default(now()) @db.Timestamp(6)
+  component     Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  user          user?     @relation(fields: [uploadedBy], references: [userid])
+
+  @@index([componentId])
   @@schema("public")
 }
 
@@ -1551,6 +1634,10 @@ model ItemRequest {
 
   @@index([userId])
   @@index([status])
+  // NOTE: a partial unique index `item_requests_active_unique` ON (entityType, entityId)
+  // WHERE status NOT IN ('returned', 'rejected', 'cancelled') exists in SQL only
+  // (migration 20260415_request_concurrency). Prisma cannot express it; do not let a
+  // future `migrate dev` drop it.
   @@index([entityType, entityId])
   @@map("item_requests")
   @@schema("public")

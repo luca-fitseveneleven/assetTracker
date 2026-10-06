@@ -2,14 +2,11 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
-import {
-  validateBody,
-  createAuditCampaignSchema,
-  updateAuditCampaignSchema,
-} from "@/lib/validation";
+import { validateBody, createAuditCampaignSchema } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { logger, logCatchError } from "@/lib/logger";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -22,7 +19,6 @@ import {
 
 const AUDIT_SORT_FIELDS = ["name", "status", "createdAt"];
 
-// GET /api/audits
 export async function GET(req: Request) {
   try {
     await requirePermission("audit_campaign:view");
@@ -144,6 +140,8 @@ export async function POST(req: Request) {
       campaignName: campaign.name,
     }).catch(logCatchError("Integration notification failed"));
 
+    await invalidateCacheByPrefix("audit_campaigns_all").catch(() => {});
+
     return NextResponse.json(campaign, { status: 201 });
   } catch (e: any) {
     logger.error("POST /api/audits error", { error: e });
@@ -160,12 +158,13 @@ export async function POST(req: Request) {
   }
 }
 
-// DELETE /api/audits
 export async function DELETE(req: Request) {
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("audit_campaign:edit");
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
 
     const body = await req.json();
     const { id } = body;
@@ -177,8 +176,9 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const campaign = await prisma.auditCampaign.findUnique({
-      where: { id },
+    // Scope the lookup so foreign-org campaigns read as "not found".
+    const campaign = await prisma.auditCampaign.findFirst({
+      where: scopeToOrganization({ id }, orgId),
       select: { name: true },
     });
 
@@ -198,6 +198,8 @@ export async function DELETE(req: Request) {
       entityId: id,
       details: { name: campaign.name },
     });
+
+    await invalidateCacheByPrefix("audit_campaigns_all").catch(() => {});
 
     return NextResponse.json(
       { message: "Audit campaign deleted successfully" },

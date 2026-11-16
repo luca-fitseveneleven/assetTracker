@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
+import {
+  findForeignReference,
+  foreignReferenceError,
+} from "@/lib/org-references";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, consumableCheckoutSchema } from "@/lib/validation";
 import { invalidateCacheByPrefix } from "@/lib/cache";
@@ -50,14 +59,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json(checkouts, { status: 200 });
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("GET /api/consumable/checkout error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to fetch consumable checkouts" },
@@ -72,6 +76,7 @@ export async function POST(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("consumable:edit");
+    await requireWritableOrg(authUser);
 
     const body = await req.json();
     const validated = validateBody(consumableCheckoutSchema, body);
@@ -80,6 +85,13 @@ export async function POST(req: Request) {
     const { consumableId, userId, quantity, notes } = validated;
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
+
+    const foreign = await findForeignReference(orgId, { user: userId });
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
 
     // Entire checkout flow in a single transaction: verify, check stock, decrement, create record
     const result = await prisma.$transaction(async (tx) => {
@@ -105,15 +117,23 @@ export async function POST(req: Request) {
         };
       }
 
-      // Atomically decrement the consumable quantity
-      await tx.consumable.update({
-        where: { consumableid: consumableId },
+      // Atomically decrement the consumable quantity. The stock guard lives in
+      // the update itself: the read above can be stale under concurrency.
+      const reserved = await tx.consumable.updateMany({
+        where: { consumableid: consumableId, quantity: { gte: quantity } },
         data: {
           quantity: {
             decrement: quantity,
           },
         },
       });
+      if (reserved.count !== 1) {
+        return {
+          error: "stock_conflict" as const,
+          consumable,
+          checkout: null,
+        };
+      }
 
       const created = await tx.consumable_checkouts.create({
         data: {
@@ -140,6 +160,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Consumable not found" },
         { status: 404 },
+      );
+    }
+
+    if (result.error === "stock_conflict") {
+      return NextResponse.json(
+        { error: "Stock changed during checkout. Please retry." },
+        { status: 409 },
       );
     }
 
@@ -175,24 +202,32 @@ export async function POST(req: Request) {
     const remainingStock = consumable!.quantity - quantity;
     const minQty = consumable!.minQuantity ?? 0;
     if (minQty > 0 && remainingStock <= 0) {
-      triggerWebhook("consumable.critical_stock", {
-        consumableId,
-        consumableName: consumable!.consumablename,
-        remainingStock,
-        minQuantity: minQty,
-      }).catch(() => {});
+      triggerWebhook(
+        "consumable.critical_stock",
+        {
+          consumableId,
+          consumableName: consumable!.consumablename,
+          remainingStock,
+          minQuantity: minQty,
+        },
+        consumable!.organizationId,
+      ).catch(() => {});
       notifyIntegrations("consumable.critical_stock", {
         consumableName: consumable!.consumablename,
         quantity: remainingStock,
         minQuantity: minQty,
       }).catch(logCatchError("Integration notification failed"));
     } else if (minQty > 0 && remainingStock <= minQty) {
-      triggerWebhook("consumable.low_stock", {
-        consumableId,
-        consumableName: consumable!.consumablename,
-        remainingStock,
-        minQuantity: minQty,
-      }).catch(() => {});
+      triggerWebhook(
+        "consumable.low_stock",
+        {
+          consumableId,
+          consumableName: consumable!.consumablename,
+          remainingStock,
+          minQuantity: minQty,
+        },
+        consumable!.organizationId,
+      ).catch(() => {});
       notifyIntegrations("consumable.low_stock", {
         consumableName: consumable!.consumablename,
         quantity: remainingStock,
@@ -205,14 +240,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json(checkout, { status: 201 });
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("POST /api/consumable/checkout error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to create consumable checkout" },

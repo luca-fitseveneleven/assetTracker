@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { invalidateCacheByPrefix } from "@/lib/cache";
 import { validateBody, componentCheckoutSchema } from "@/lib/validation";
@@ -42,14 +47,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json(checkouts, { status: 200 });
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("GET /api/components/checkout error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to fetch component checkouts" },
@@ -64,6 +64,7 @@ export async function POST(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("component:edit");
+    await requireWritableOrg(authUser);
 
     const body = await req.json();
     const validated = validateBody(componentCheckoutSchema, body);
@@ -105,14 +106,19 @@ export async function POST(req: Request) {
         );
       }
 
-      await tx.component.update({
-        where: { id: componentId },
+      // The read above can be stale under concurrency, so the stock guard is
+      // repeated in the update itself: it only matches while enough is left.
+      const reserved = await tx.component.updateMany({
+        where: { id: componentId, remainingQuantity: { gte: quantity } },
         data: {
           remainingQuantity: {
             decrement: quantity,
           },
         },
       });
+      if (reserved.count !== 1) {
+        throw new Error("STOCK_CONFLICT");
+      }
 
       const created = await tx.componentCheckout.create({
         data: {
@@ -150,12 +156,16 @@ export async function POST(req: Request) {
     });
 
     // Webhook + integrations for checkout
-    triggerWebhook("component.checked_out", {
-      componentId,
-      componentName: component.name,
-      assetId,
-      quantity,
-    }).catch(() => {});
+    triggerWebhook(
+      "component.checked_out",
+      {
+        componentId,
+        componentName: component.name,
+        assetId,
+        quantity,
+      },
+      component.organizationId,
+    ).catch(() => {});
     notifyIntegrations("component.checked_out", {
       componentName: component.name,
       quantity,
@@ -165,12 +175,16 @@ export async function POST(req: Request) {
     const remainingStock = component.remainingQuantity - quantity;
     const minQty = component.minQuantity ?? 0;
     if (minQty > 0 && remainingStock <= minQty) {
-      triggerWebhook("component.low_stock", {
-        componentId,
-        componentName: component.name,
-        remainingStock,
-        minQuantity: minQty,
-      }).catch(() => {});
+      triggerWebhook(
+        "component.low_stock",
+        {
+          componentId,
+          componentName: component.name,
+          remainingStock,
+          minQuantity: minQty,
+        },
+        component.organizationId,
+      ).catch(() => {});
       notifyIntegrations("component.low_stock", {
         componentName: component.name,
         quantity: remainingStock,
@@ -183,15 +197,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json(checkout, { status: 201 });
   } catch (e: unknown) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     const message = e instanceof Error ? e.message : "";
     logger.error("POST /api/components/checkout error", { error: e });
 
-    if (message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: message }, { status: 403 });
-    }
     if (message === "COMPONENT_NOT_FOUND") {
       return NextResponse.json(
         { error: "Component not found" },
@@ -200,6 +210,12 @@ export async function POST(req: Request) {
     }
     if (message === "ASSET_NOT_FOUND") {
       return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+    }
+    if (message === "STOCK_CONFLICT") {
+      return NextResponse.json(
+        { error: "Stock changed during checkout. Please retry." },
+        { status: 409 },
+      );
     }
     if (message.startsWith("INSUFFICIENT_STOCK:")) {
       const [, available, requested] = message.split(":");

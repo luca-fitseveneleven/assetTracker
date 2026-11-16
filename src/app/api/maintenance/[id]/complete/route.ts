@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requireApiAuth,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { advanceDueDate } from "@/lib/maintenance-schedule";
 import { queueEmail } from "@/lib/email/service";
 import {
   emailTemplates,
@@ -13,37 +19,6 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-/**
- * Advance a date based on maintenance frequency.
- * daily -> +1 day, weekly -> +7 days, monthly -> +1 month,
- * quarterly -> +3 months, annually -> +1 year
- */
-function advanceDate(date: Date, frequency: string): Date {
-  const next = new Date(date);
-  switch (frequency) {
-    case "daily":
-      next.setDate(next.getDate() + 1);
-      break;
-    case "weekly":
-      next.setDate(next.getDate() + 7);
-      break;
-    case "monthly":
-      next.setMonth(next.getMonth() + 1);
-      break;
-    case "quarterly":
-      next.setMonth(next.getMonth() + 3);
-      break;
-    case "annually":
-      next.setFullYear(next.getFullYear() + 1);
-      break;
-    default:
-      // Fallback: advance by 30 days
-      next.setDate(next.getDate() + 30);
-      break;
-  }
-  return next;
-}
-
 // POST: Complete a maintenance schedule entry
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
@@ -51,11 +26,22 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     if (demoBlock) return demoBlock;
 
     const user = await requireApiAuth();
+    await requireWritableOrg(user);
 
     const { id } = await params;
 
-    const schedule = await prisma.maintenance_schedules.findUnique({
-      where: { id },
+    // A schedule belongs to the organization of its asset. A caller without an
+    // organization owns none; never widen the lookup to every organization.
+    const orgId = user.organizationId;
+    if (!orgId) {
+      return NextResponse.json(
+        { error: "Maintenance schedule not found" },
+        { status: 404 },
+      );
+    }
+
+    const schedule = await prisma.maintenance_schedules.findFirst({
+      where: { id, asset: { organizationId: orgId } },
     });
 
     if (!schedule) {
@@ -69,13 +55,27 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const { notes, actualCost } = body;
 
     const now = new Date();
-    const newNextDueDate = advanceDate(
+    const newNextDueDate = advanceDueDate(
       schedule.nextDueDate,
       schedule.frequency,
+      now,
     );
 
-    const [log, updatedSchedule] = await prisma.$transaction([
-      prisma.maintenance_logs.create({
+    // Claim the schedule by the due date we just read: a concurrent or repeated
+    // completion no longer matches it, so the due date advances only once and
+    // no duplicate log is written.
+    const completed = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.maintenance_schedules.updateMany({
+        where: { id, nextDueDate: schedule.nextDueDate },
+        data: {
+          lastCompletedAt: now,
+          nextDueDate: newNextDueDate,
+          updatedAt: now,
+        },
+      });
+      if (claimed.count !== 1) return null;
+
+      const createdLog = await tx.maintenance_logs.create({
         data: {
           scheduleId: id,
           completedBy: user.id || null,
@@ -88,14 +88,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             select: { userid: true, firstname: true, lastname: true },
           },
         },
-      }),
-      prisma.maintenance_schedules.update({
+      });
+      const updated = await tx.maintenance_schedules.findUniqueOrThrow({
         where: { id },
-        data: {
-          lastCompletedAt: now,
-          nextDueDate: newNextDueDate,
-          updatedAt: now,
-        },
         include: {
           asset: {
             select: { assetid: true, assetname: true },
@@ -106,14 +101,30 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
               firstname: true,
               lastname: true,
               email: true,
+              organizationId: true,
             },
           },
         },
-      }),
-    ]);
+      });
+      return { log: createdLog, updatedSchedule: updated };
+    });
 
-    // Send notification to assigned user about completion and next due date
-    if (updatedSchedule.assignedTo && updatedSchedule.user?.email) {
+    if (!completed) {
+      return NextResponse.json(
+        { error: "This schedule was already completed. Please refresh." },
+        { status: 409 },
+      );
+    }
+    const { log, updatedSchedule } = completed;
+
+    // Send notification to assigned user about completion and next due date.
+    // A legacy schedule may still name an assignee of another organization
+    // (assignees were not checked before): never email that user.
+    if (
+      updatedSchedule.assignedTo &&
+      updatedSchedule.user?.email &&
+      updatedSchedule.user.organizationId === orgId
+    ) {
       const template = emailTemplates.maintenanceCompleted;
       const variables = {
         userName: `${updatedSchedule.user.firstname} ${updatedSchedule.user.lastname}`,
@@ -144,9 +155,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       { status: 201 },
     );
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("Error completing maintenance", { error });
     return NextResponse.json(
       { error: "Failed to complete maintenance" },

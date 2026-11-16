@@ -1,7 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
+import { searchIdsByFullText } from "@/lib/fulltext-search";
 import { Prisma } from "@prisma/client";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
+import {
+  assetReferences,
+  findForeignReference,
+  foreignReferenceError,
+} from "@/lib/org-references";
 import { invalidateCacheByPrefix } from "@/lib/cache";
 import {
   getOrganizationContext,
@@ -40,6 +51,18 @@ const ASSET_SORT_FIELDS = [
   "purchaseprice",
 ];
 
+const DUPLICATE_ASSET_MESSAGE =
+  "An asset with this asset tag or serial number already exists";
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2002"
+  );
+}
+
 // Optional query: ?id=<assetid>
 // Pagination: ?page=1&pageSize=25&sortBy=assetname&sortOrder=asc&search=keyword&statusId=<id>
 export async function GET(req: NextRequest) {
@@ -72,19 +95,17 @@ export async function GET(req: NextRequest) {
       where.statustypeid = statusId;
     }
 
+    let searchTruncated = false;
     // Full-text search using tsvector GIN index (falls back to ILIKE if needed)
     const search = searchParams.get("search") ?? undefined;
     if (search) {
       // Use PostgreSQL full-text search via the generated search_vector column
-      const tsQuery = search.trim().split(/\s+/).join(" & ");
-      const matchingIds = await prisma
-        .$queryRawUnsafe<
-          Array<{ assetid: string }>
-        >(`SELECT "assetid" FROM "asset" WHERE "search_vector" @@ websearch_to_tsquery('english', $1)`, tsQuery)
-        .catch(() => null);
+      const fullText = await searchIdsByFullText("asset", orgId, search);
+      const matchingIds = fullText?.ids ?? null;
+      searchTruncated = fullText?.truncated ?? false;
 
       if (matchingIds && matchingIds.length > 0) {
-        where.assetid = { in: matchingIds.map((r) => r.assetid) };
+        where.assetid = { in: matchingIds };
       } else if (matchingIds) {
         // tsvector returned no results — empty set
         where.assetid = { in: [] };
@@ -135,17 +156,18 @@ export async function GET(req: NextRequest) {
       prisma.asset.count({ where }),
     ]);
 
-    return NextResponse.json(buildPaginatedResponse(assets, total, params), {
-      status: 200,
-    });
+    return NextResponse.json(
+      buildPaginatedResponse(assets, total, params, {
+        truncated: searchTruncated,
+      }),
+      {
+        status: 200,
+      },
+    );
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("GET /api/asset error", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to fetch assets" },
       { status: 500 },
@@ -158,7 +180,8 @@ export async function POST(req: NextRequest) {
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
-    await requirePermission("asset:create");
+    const user = await requirePermission("asset:create");
+    await requireWritableOrg(user);
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
@@ -175,6 +198,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const d = validateBody(createAssetSchema, body);
     if (d instanceof NextResponse) return d;
+
+    const foreign = await findForeignReference(orgId, assetReferences(d));
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
 
     const created = await prisma.asset.create({
       data: {
@@ -209,11 +239,15 @@ export async function POST(req: NextRequest) {
       entityId: created.assetid,
       details: { assetname: created.assetname, assettag: created.assettag },
     }).catch(logCatchError("Audit log failed"));
-    triggerWebhook("asset.created", {
-      assetId: created.assetid,
-      assetName: created.assetname,
-      assetTag: created.assettag,
-    }).catch(() => {});
+    triggerWebhook(
+      "asset.created",
+      {
+        assetId: created.assetid,
+        assetName: created.assetname,
+        assetTag: created.assettag,
+      },
+      created.organizationId,
+    ).catch(() => {});
     notifyIntegrations("asset.created", {
       assetName: created.assetname,
       assetTag: created.assettag,
@@ -221,13 +255,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
+    if (isUniqueViolation(error)) {
+      return NextResponse.json(
+        { error: DUPLICATE_ASSET_MESSAGE },
+        { status: 409 },
+      );
+    }
     logger.error("POST /api/asset error", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to create asset" },
       { status: 500 },
@@ -241,7 +277,8 @@ export async function PUT(req: NextRequest) {
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
-    await requirePermission("asset:edit");
+    const user = await requirePermission("asset:edit");
+    await requireWritableOrg(user);
     const body = await req.json();
     const { _expectedVersion, ...bodyWithoutVersion } = body;
     const validated = validateBody(updateAssetSchema, bodyWithoutVersion);
@@ -261,6 +298,13 @@ export async function PUT(req: NextRequest) {
     // Optimistic concurrency check
     const conflict = conflictResponse(_expectedVersion, existing.change_date);
     if (conflict) return conflict;
+
+    const foreign = await findForeignReference(orgId, assetReferences(data));
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
 
     // Normalize date types
     const updateData: Record<string, unknown> = { ...data };
@@ -290,11 +334,15 @@ export async function PUT(req: NextRequest) {
       before: toRecord(existing),
       after: toRecord(updated),
     }).catch(logCatchError("Audit log failed"));
-    triggerWebhook("asset.updated", {
-      assetId: updated.assetid,
-      assetName: updated.assetname,
-      changes: Object.keys(data),
-    }).catch(() => {});
+    triggerWebhook(
+      "asset.updated",
+      {
+        assetId: updated.assetid,
+        assetName: updated.assetname,
+        changes: Object.keys(data),
+      },
+      updated.organizationId,
+    ).catch(() => {});
     notifyIntegrations("asset.updated", {
       assetName: updated.assetname,
       assetTag: updated.assettag,
@@ -302,13 +350,15 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
+    if (isUniqueViolation(error)) {
+      return NextResponse.json(
+        { error: DUPLICATE_ASSET_MESSAGE },
+        { status: 409 },
+      );
+    }
     logger.error("PUT /api/asset error", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to update asset" },
       { status: 500 },

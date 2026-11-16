@@ -1,7 +1,13 @@
 import type { NextRequest } from "next/server";
 import prisma from "../../../../lib/prisma";
-import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requireApiAdmin,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 
 // Body: { userId, accessorieId }
 export async function DELETE(req: NextRequest) {
@@ -10,6 +16,7 @@ export async function DELETE(req: NextRequest) {
     if (demoBlock) return demoBlock;
 
     const admin = await requireApiAdmin();
+    await requireWritableOrg(admin);
     const { userId, accessorieId } = await req.json();
     if (!userId || !accessorieId) {
       return new Response(
@@ -33,22 +40,16 @@ export async function DELETE(req: NextRequest) {
     const result = await prisma.userAccessoires.deleteMany({
       where: { userid: userId, accessorieid: accessorieId },
     });
+    await invalidateCacheByPrefix("user_accessoires_all").catch(() => {});
+
     return new Response(
       JSON.stringify({ message: "Accessory unassigned", result }),
       { status: 200 },
     );
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("DELETE /api/userAccessoires/unassign error", { error: e });
-    if (e instanceof Error && e.message === "Unauthorized") {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-      });
-    }
-    if (e instanceof Error && e.message.startsWith("Forbidden")) {
-      return new Response(JSON.stringify({ error: e.message }), {
-        status: 403,
-      });
-    }
     return new Response(
       JSON.stringify({ error: "Failed to unassign accessory" }),
       { status: 500 },

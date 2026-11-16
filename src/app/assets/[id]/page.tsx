@@ -100,7 +100,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     maintenanceSchedules,
     customFieldDefs,
     customFieldValues,
-    activeItemRequest,
     primaryPhoto,
   ] = await Promise.all([
     asset?.locationid ? getLocationById(asset.locationid) : null,
@@ -130,24 +129,22 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       orderBy: { nextDueDate: "asc" },
       take: 5,
     }),
-    prisma.custom_field_definitions.findMany({
-      where: { entityType: "asset", isActive: true },
-      orderBy: { displayOrder: "asc" },
-    }),
+    // A viewer without an organization gets no definitions. Never pass an
+    // undefined organizationId to Prisma: it would drop the filter and return
+    // every organization's definitions.
+    ctx?.organization?.id
+      ? prisma.custom_field_definitions.findMany({
+          where: {
+            entityType: "asset",
+            isActive: true,
+            organizationId: ctx.organization.id,
+          },
+          orderBy: { displayOrder: "asc" },
+        })
+      : [],
     prisma.custom_field_values.findMany({
       where: { entityId: params.id },
     }),
-    // Find an active (approved) item request for this asset+user, for the Return button
-    ctx?.userId
-      ? prisma.itemRequest.findFirst({
-          where: {
-            entityType: "asset",
-            entityId: params.id,
-            userId: ctx.userId,
-            status: "approved",
-          },
-        })
-      : null,
     // Primary image for the hero (primary flag first, else most recent image)
     prisma.asset_attachments.findFirst({
       where: { assetId: params.id, mimeType: { startsWith: "image/" } },
@@ -341,7 +338,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
               {!isAdmin && userByAsset?.userid === ctx?.userId && (
                 <ReturnItemButton
-                  requestId={activeItemRequest?.id}
                   entityId={asset.assetid}
                   entityName={asset.assetname}
                   entityType="asset"
@@ -580,7 +576,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
                 assetId={asset.assetid}
                 currentUserId={userByAsset?.userid}
                 currentLocationId={asset.locationid ?? undefined}
-                currentOrgId={asset.organizationId ?? undefined}
               />
             </section>
           )}

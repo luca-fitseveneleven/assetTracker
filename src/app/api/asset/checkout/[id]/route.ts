@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { logger, logCatchError } from "@/lib/logger";
+import { ACTIVE_CHECKOUT_STATUSES } from "@/lib/asset-checkout";
 import { getOrganizationContext } from "@/lib/organization-context";
 
 // GET /api/asset/checkout/[id]
@@ -46,7 +52,7 @@ export async function GET(
     }
 
     // Verify the associated asset belongs to the user's organization
-    if (orgId && checkout.asset?.organizationId !== orgId) {
+    if ((checkout.asset?.organizationId ?? null) !== (orgId ?? null)) {
       return NextResponse.json(
         { error: "Checkout not found" },
         { status: 404 },
@@ -55,14 +61,10 @@ export async function GET(
 
     return NextResponse.json(checkout, { status: 200 });
   } catch (error: unknown) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.error("GET /api/asset/checkout/[id] error", { error: message });
-    if (message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (message.includes("Forbidden")) {
-      return NextResponse.json({ error: message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to fetch checkout" },
       { status: 500 },
@@ -79,6 +81,7 @@ export async function PUT(
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const user = await requirePermission("asset:assign");
+    await requireWritableOrg(user);
 
     const { id } = await params;
     const orgCtx = await getOrganizationContext();
@@ -106,15 +109,25 @@ export async function PUT(
     }
 
     // Verify the associated asset belongs to the user's organization
-    if (orgId && existing.asset?.organizationId !== orgId) {
+    if ((existing.asset?.organizationId ?? null) !== (orgId ?? null)) {
       return NextResponse.json(
         { error: "Checkout not found" },
         { status: 404 },
       );
     }
 
+    if (!ACTIVE_CHECKOUT_STATUSES.includes(existing.status)) {
+      return NextResponse.json(
+        { error: "Asset has already been checked in" },
+        { status: 409 },
+      );
+    }
+
+    // Compare-and-set: a concurrent check-in that already flipped the status
+    // matches no row (P2025), so returnDate is not overwritten and the
+    // check-in webhook does not fire a second time.
     const updated = await prisma.assetCheckout.update({
-      where: { id },
+      where: { id, status: { in: ACTIVE_CHECKOUT_STATUSES } },
       data: {
         returnDate: new Date(),
         status: "returned",
@@ -133,12 +146,16 @@ export async function PUT(
       },
     }).catch(logCatchError("Audit log failed"));
 
-    triggerWebhook("asset.checked_in", {
-      assetId: existing.assetId,
-      assetName: existing.asset?.assetname,
-      checkoutId: id,
-      checkedOutToType: existing.checkedOutToType,
-    }).catch(() => {});
+    triggerWebhook(
+      "asset.checked_in",
+      {
+        assetId: existing.assetId,
+        assetName: existing.asset?.assetname,
+        checkoutId: id,
+        checkedOutToType: existing.checkedOutToType,
+      },
+      existing.asset?.organizationId,
+    ).catch(() => {});
 
     // Slack/Teams notification
     notifyIntegrations("asset.checked_in", {
@@ -149,14 +166,21 @@ export async function PUT(
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error: unknown) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "P2025"
+    ) {
+      return NextResponse.json(
+        { error: "Asset has already been checked in" },
+        { status: 409 },
+      );
+    }
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.error("PUT /api/asset/checkout/[id] error", { error: message });
-    if (message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (message.includes("Forbidden")) {
-      return NextResponse.json({ error: message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to check in asset" },
       { status: 500 },

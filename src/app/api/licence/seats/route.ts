@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
+import {
+  findForeignReference,
+  foreignReferenceError,
+} from "@/lib/org-references";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, assignLicenceSeatSchema } from "@/lib/validation";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { logger, logCatchError } from "@/lib/logger";
+import { assignLicenceSeat } from "@/lib/licence-seats";
 
 // GET /api/licence/seats?licenceId=...
 export async function GET(req: Request) {
@@ -73,14 +83,9 @@ export async function GET(req: Request) {
       { status: 200 },
     );
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("GET /api/licence/seats error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to fetch seat assignments" },
@@ -95,6 +100,7 @@ export async function POST(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const admin = await requirePermission("license:assign");
+    await requireWritableOrg(admin);
 
     const body = await req.json();
 
@@ -102,6 +108,15 @@ export async function POST(req: Request) {
     if (data instanceof NextResponse) return data;
 
     const { licenceId, userId, notes } = data;
+
+    const foreign = await findForeignReference(admin.organizationId, {
+      user: userId,
+    });
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
 
     // Serializable isolation prevents two concurrent assignments from both
     // passing the seat-count check (over-assignment) or computing the same
@@ -132,34 +147,19 @@ export async function POST(req: Request) {
           throw new Error("No available seats for this licence");
         }
 
-        const existingAssignment = await tx.licenceSeatAssignment.findFirst({
-          where: {
-            licenceId,
-            userId,
-            unassignedAt: null,
-          },
+        const seat = await assignLicenceSeat(tx, {
+          licenceId,
+          userId,
+          assignedBy: admin.id ?? null,
+          notes,
         });
 
-        if (existingAssignment) {
+        if (seat.outcome === "already_assigned") {
           throw new Error("User is already assigned to this licence");
         }
 
-        // Auto-assign next seat number
-        const maxSeat = await tx.licenceSeatAssignment.aggregate({
-          where: { licenceId },
-          _max: { seatNumber: true },
-        });
-
-        const nextSeatNumber = (maxSeat._max.seatNumber ?? 0) + 1;
-
-        return tx.licenceSeatAssignment.create({
-          data: {
-            licenceId,
-            userId,
-            seatNumber: nextSeatNumber,
-            assignedBy: admin.id ?? null,
-            notes: notes ?? null,
-          },
+        return tx.licenceSeatAssignment.findUniqueOrThrow({
+          where: { id: seat.id },
           include: {
             user: {
               select: {
@@ -195,14 +195,18 @@ export async function POST(req: Request) {
       },
     });
 
-    triggerWebhook("license.seat_assigned", {
-      assignmentId: assignment.id,
-      licenceId,
-      userId,
-      seatNumber: assignment.seatNumber,
-      userName:
-        `${assignment.user.firstname ?? ""} ${assignment.user.lastname ?? ""}`.trim(),
-    }).catch(() => {});
+    triggerWebhook(
+      "license.seat_assigned",
+      {
+        assignmentId: assignment.id,
+        licenceId,
+        userId,
+        seatNumber: assignment.seatNumber,
+        userName:
+          `${assignment.user.firstname ?? ""} ${assignment.user.lastname ?? ""}`.trim(),
+      },
+      admin.organizationId,
+    ).catch(() => {});
 
     // Slack/Teams notifications
     notifyIntegrations("license.seat_assigned", {
@@ -216,14 +220,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json(assignment, { status: 201 });
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("POST /api/licence/seats error", { error: e });
 
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.message === "Licence not found") {
       return NextResponse.json({ error: e.message }, { status: 404 });
     }

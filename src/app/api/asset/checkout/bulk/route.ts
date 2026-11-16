@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { requireNotDemoMode, requirePermission } from "@/lib/api-auth";
+import {
+  requireNotDemoMode,
+  requirePermission,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { validateBody, bulkCheckoutSchema } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
@@ -10,6 +16,10 @@ import {
   scopeToOrganization,
 } from "@/lib/organization-context";
 import { logger, logCatchError } from "@/lib/logger";
+import {
+  ACTIVE_CHECKOUT_STATUSES,
+  isCheckoutConflict,
+} from "@/lib/asset-checkout";
 
 // POST /api/asset/checkout/bulk
 // Body: { assetIds, checkedOutToType, checkedOutTo?, checkedOutToLocationId?, checkedOutToAssetId?, expectedReturn?, notes? }
@@ -18,6 +28,7 @@ export async function POST(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const user = await requirePermission("asset:assign");
+    await requireWritableOrg(user);
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
@@ -97,25 +108,58 @@ export async function POST(req: Request) {
       }
     }
 
+    // Assets that are already out are reported as failed instead of being
+    // checked out a second time. The check and the inserts share one
+    // serializable transaction so concurrent requests cannot both win.
+    const alreadyOut = new Set<string>();
     const checkouts = await prisma.$transaction(
-      foundAssets.map((asset) =>
-        prisma.assetCheckout.create({
-          data: {
-            assetId: asset.assetid,
-            checkedOutToType,
-            checkedOutTo: checkedOutToType === "user" ? checkedOutTo : null,
-            checkedOutToLocationId:
-              checkedOutToType === "location" ? checkedOutToLocationId : null,
-            checkedOutToAssetId:
-              checkedOutToType === "asset" ? checkedOutToAssetId : null,
-            checkedOutBy: user.id as string,
-            expectedReturn: expectedReturn ? new Date(expectedReturn) : null,
-            notes: notes || null,
-            status: "checked_out",
+      async (tx) => {
+        alreadyOut.clear();
+        const active = await tx.assetCheckout.findMany({
+          where: {
+            assetId: { in: foundAssets.map((a) => a.assetid) },
+            status: { in: ACTIVE_CHECKOUT_STATUSES },
           },
-        }),
-      ),
+          select: { assetId: true },
+        });
+        for (const checkout of active) alreadyOut.add(checkout.assetId);
+
+        const created = [];
+        for (const asset of foundAssets) {
+          if (alreadyOut.has(asset.assetid)) continue;
+          created.push(
+            await tx.assetCheckout.create({
+              data: {
+                assetId: asset.assetid,
+                checkedOutToType,
+                checkedOutTo: checkedOutToType === "user" ? checkedOutTo : null,
+                checkedOutToLocationId:
+                  checkedOutToType === "location"
+                    ? checkedOutToLocationId
+                    : null,
+                checkedOutToAssetId:
+                  checkedOutToType === "asset" ? checkedOutToAssetId : null,
+                checkedOutBy: user.id as string,
+                expectedReturn: expectedReturn
+                  ? new Date(expectedReturn)
+                  : null,
+                notes: notes || null,
+                status: "checked_out",
+              },
+            }),
+          );
+        }
+        return created;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+
+    if (checkouts.length === 0 && alreadyOut.size > 0) {
+      return NextResponse.json(
+        { error: "All selected assets are already checked out" },
+        { status: 409 },
+      );
+    }
 
     createAuditLog({
       userId: user.id as string,
@@ -127,16 +171,20 @@ export async function POST(req: Request) {
         assetCount: checkouts.length,
         checkedOutToType,
         targetLabel,
-        assetIds: foundAssets.map((a) => a.assetid),
+        assetIds: checkouts.map((c) => c.assetId),
       },
     }).catch(logCatchError("Audit log failed"));
 
-    triggerWebhook("asset.bulk_checked_out", {
-      count: checkouts.length,
-      checkedOutToType,
-      targetLabel,
-      assetIds: foundAssets.map((a) => a.assetid),
-    }).catch(() => {});
+    triggerWebhook(
+      "asset.bulk_checked_out",
+      {
+        count: checkouts.length,
+        checkedOutToType,
+        targetLabel,
+        assetIds: checkouts.map((c) => c.assetId),
+      },
+      orgId,
+    ).catch(() => {});
 
     // Slack/Teams notification
     notifyIntegrations("asset.bulk_checked_out", {
@@ -145,21 +193,29 @@ export async function POST(req: Request) {
       checkedOutToType,
     }).catch(logCatchError("Integration notification failed"));
 
-    const failed = missingAssetIds.map((id: string) => ({
-      assetId: id,
-      reason: "Asset not found",
-    }));
+    const failed = [
+      ...missingAssetIds.map((id: string) => ({
+        assetId: id,
+        reason: "Asset not found",
+      })),
+      ...[...alreadyOut].map((id) => ({
+        assetId: id,
+        reason: "Asset is already checked out",
+      })),
+    ];
 
     return NextResponse.json({ success: checkouts, failed }, { status: 201 });
   } catch (error: unknown) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
+    if (isCheckoutConflict(error)) {
+      return NextResponse.json(
+        { error: "Assets were checked out concurrently, please retry" },
+        { status: 409 },
+      );
+    }
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.error("POST /api/asset/checkout/bulk error", { error: message });
-    if (message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (message.includes("Forbidden")) {
-      return NextResponse.json({ error: message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to create bulk checkout" },
       { status: 500 },

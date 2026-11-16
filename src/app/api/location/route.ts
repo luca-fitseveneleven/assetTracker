@@ -5,7 +5,13 @@ import {
   requireApiAuth,
   requireApiAdmin,
   requireNotDemoMode,
+  requireWritableOrg,
 } from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
+import {
+  findForeignReference,
+  foreignReferenceError,
+} from "@/lib/org-references";
 import {
   createLocationSchema,
   updateLocationSchema,
@@ -75,11 +81,9 @@ export async function GET(req: NextRequest) {
       status: 200,
     });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("GET /api/location error", { error: e });
-
-    if (e instanceof Error && e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     return NextResponse.json(
       { error: "Failed to fetch locations" },
@@ -95,6 +99,7 @@ export async function POST(req: NextRequest) {
     if (demoBlock) return demoBlock;
     // Only admins can create locations
     const admin = await requireApiAdmin();
+    await requireWritableOrg(admin);
 
     const body = await req.json();
 
@@ -114,6 +119,13 @@ export async function POST(req: NextRequest) {
 
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
+
+    const foreign = await findForeignReference(orgId, { location: parentId });
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
 
     const created = await prisma.location.create({
       data: {
@@ -157,14 +169,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("POST /api/location error", { error: e });
-
-    if (e instanceof Error && e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e instanceof Error && e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to create location" },
@@ -180,6 +187,7 @@ export async function PUT(req: NextRequest) {
     if (demoBlock) return demoBlock;
     // Only admins can update locations
     const admin = await requireApiAdmin();
+    await requireWritableOrg(admin);
 
     const body = await req.json();
 
@@ -226,6 +234,20 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    if (parentId && parentId === locationid) {
+      return NextResponse.json(
+        { error: "A location cannot be its own parent" },
+        { status: 400 },
+      );
+    }
+
+    const foreign = await findForeignReference(orgId, { location: parentId });
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
+
     const updated = await prisma.location.update({
       where: { locationid },
       data: {
@@ -268,14 +290,10 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("PUT /api/location error", { error: e });
 
-    if (e instanceof Error && e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e instanceof Error && e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Location not found" },
@@ -296,6 +314,7 @@ export async function DELETE(req: NextRequest) {
     if (demoBlock) return demoBlock;
     // Only admins can delete locations
     const admin = await requireApiAdmin();
+    await requireWritableOrg(admin);
 
     const body = await req.json();
     const { locationid } = body;
@@ -362,14 +381,10 @@ export async function DELETE(req: NextRequest) {
       { status: 200 },
     );
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("DELETE /api/location error", { error: e });
 
-    if (e instanceof Error && e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e instanceof Error && e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Location not found" },

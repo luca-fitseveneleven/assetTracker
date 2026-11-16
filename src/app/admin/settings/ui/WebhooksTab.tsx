@@ -40,7 +40,8 @@ interface WebhookItem {
   id: string;
   name: string;
   url: string;
-  secret: string | null;
+  /** Whether a signing secret is stored; its value is never sent to the client. */
+  hasSecret: boolean;
   events: string[];
   isActive: boolean;
   retryAttempts: number;
@@ -192,7 +193,7 @@ export default function WebhooksTab() {
     setEditingWebhook(webhook);
     setFormName(webhook.name);
     setFormUrl(webhook.url);
-    setFormSecret(webhook.secret ?? "");
+    setFormSecret("");
     setFormEvents([...webhook.events]);
     setFormIsActive(webhook.isActive);
     setFormRetryAttempts(webhook.retryAttempts);
@@ -312,8 +313,9 @@ export default function WebhooksTab() {
         retryAttempts: formRetryAttempts,
       };
 
-      // Only send secret when creating or when it has changed
-      if (!isEditing || formSecret !== (editingWebhook.secret ?? "")) {
+      // Send a secret when creating or when a new one was entered; a blank
+      // field while editing keeps the stored one.
+      if (!isEditing || formSecret) {
         payload.secret = formSecret || undefined;
       }
 
@@ -539,7 +541,8 @@ export default function WebhooksTab() {
               />
               <p className="text-muted-foreground text-xs">
                 The endpoint that will receive POST requests for subscribed
-                events
+                events. Use the final URL: redirects (301, 302, 307, 308) are
+                not followed, so a URL that redirects will fail every delivery.
               </p>
             </div>
 
@@ -551,7 +554,11 @@ export default function WebhooksTab() {
                   id="webhook-secret"
                   value={formSecret}
                   onChange={(e) => setFormSecret(e.target.value)}
-                  placeholder="Auto-generated if left blank"
+                  placeholder={
+                    editingWebhook?.hasSecret
+                      ? "Leave blank to keep the current secret"
+                      : "Auto-generated if left blank"
+                  }
                   className="flex-1 font-mono text-xs"
                 />
                 <Button
@@ -559,6 +566,7 @@ export default function WebhooksTab() {
                   variant="outline"
                   size="sm"
                   onClick={handleCopySecret}
+                  disabled={!formSecret}
                   title="Copy secret"
                 >
                   <Copy className="h-4 w-4" />

@@ -8,8 +8,10 @@ import {
   scimError,
   userToScim,
   scimListResponse,
+  scimEmailRejection,
 } from "@/lib/scim";
 import { checkUserLimit } from "@/lib/tenant-limits";
+import { assertEmailAssignable } from "@/lib/email-ownership";
 import { logger, logCatchError } from "@/lib/logger";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 
@@ -107,7 +109,7 @@ export async function POST(req: Request) {
     const userName = body.userName;
     const givenName = body.name?.givenName || "SCIM";
     const familyName = body.name?.familyName || "User";
-    const email = body.emails?.[0]?.value || null;
+    const requestedEmail: unknown = body.emails?.[0]?.value;
     const externalId = body.externalId || null;
     const active = body.active !== false;
 
@@ -118,6 +120,11 @@ export async function POST(req: Request) {
       });
     }
 
+    const rawEmail =
+      typeof requestedEmail === "string" && requestedEmail.trim()
+        ? requestedEmail
+        : null;
+
     // Scope the duplicate check to this org — usernames/emails may legitimately
     // repeat across tenants, and cross-org checks would leak their existence.
     const existing = await prisma.user.findFirst({
@@ -125,7 +132,7 @@ export async function POST(req: Request) {
         organizationId: organizationId ?? null,
         OR: [
           { username: userName },
-          ...(email ? [{ email }] : []),
+          ...(rawEmail ? [{ email: rawEmail }] : []),
           ...(externalId ? [{ externalId }] : []),
         ],
       },
@@ -138,7 +145,14 @@ export async function POST(req: Request) {
       });
     }
 
-    const limitCheck = await checkUserLimit();
+    // An IdP can never provision a reserved (super-admin) address, and emails
+    // are unique across the whole platform, not just this org.
+    const email = rawEmail
+      ? await assertEmailAssignable(rawEmail, { callerIsSuperAdmin: false })
+      : null;
+
+    // SCIM has no session: pass the token's organization explicitly.
+    const limitCheck = await checkUserLimit(organizationId ?? undefined);
     if (!limitCheck.allowed) {
       return NextResponse.json(
         scimError(
@@ -199,6 +213,8 @@ export async function POST(req: Request) {
       headers: scimHeaders(),
     });
   } catch (error) {
+    const rejection = scimEmailRejection(error);
+    if (rejection) return rejection;
     logger.error("SCIM POST /Users error", { error });
     return NextResponse.json(scimError("Internal server error", 500), {
       status: 500,

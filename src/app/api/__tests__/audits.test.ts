@@ -111,6 +111,11 @@ describe("POST /api/audits", () => {
       cb(mockPrisma),
     );
     mockPrisma.auditCampaign.create.mockResolvedValue(mockCampaign as any);
+    // Both auditors belong to the caller's organization.
+    mockPrisma.user.findMany.mockResolvedValue([
+      { userid: "550e8400-e29b-41d4-a716-446655440001" },
+      { userid: "550e8400-e29b-41d4-a716-446655440002" },
+    ] as any);
 
     const req = createMockRequest("/api/audits", {
       method: "POST",
@@ -159,10 +164,14 @@ describe("POST /api/audits", () => {
     });
     await POST(req);
 
-    expect(triggerWebhook).toHaveBeenCalledWith("audit.campaign_created", {
-      campaignId: "campaign-uuid-001",
-      campaignName: "Q1 2026 Audit",
-    });
+    expect(triggerWebhook).toHaveBeenCalledWith(
+      "audit.campaign_created",
+      {
+        campaignId: "campaign-uuid-001",
+        campaignName: "Q1 2026 Audit",
+      },
+      "org-uuid-001",
+    );
     expect(notifyIntegrations).toHaveBeenCalledWith("audit.campaign_created", {
       campaignName: "Q1 2026 Audit",
     });

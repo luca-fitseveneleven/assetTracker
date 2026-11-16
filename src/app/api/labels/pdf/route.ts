@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/api-auth";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { apiErrorResponse } from "@/lib/errors";
+import { PDFDocument, rgb, StandardFonts, type PDFFont } from "pdf-lib";
+import { z } from "zod";
 import QRCode from "qrcode";
 import prisma from "@/lib/prisma";
 import {
@@ -11,6 +13,26 @@ import { renderLabelTemplate } from "@/lib/label-renderer";
 import { getBaseUrl } from "@/lib/url";
 import { logger } from "@/lib/logger";
 
+const labelPdfSchema = z.object({
+  assetIds: z.array(z.string().uuid()).min(1).max(200),
+  templateId: z.string().uuid().optional().nullable(),
+});
+
+/**
+ * The standard Helvetica fonts only encode WinAnsi; drawText throws on any
+ * other character. Replace what the font cannot encode with "?" and control
+ * characters with a space.
+ */
+function toEncodableText(text: string, font: PDFFont): string {
+  const supported = new Set(font.getCharacterSet());
+  let result = "";
+  for (const char of text.replace(/[\u0000-\u001f\u007f]/g, " ")) {
+    const codePoint = char.codePointAt(0)!;
+    result += supported.has(codePoint) ? char : "?";
+  }
+  return result;
+}
+
 export async function POST(req: NextRequest) {
   try {
     await requireApiAuth();
@@ -18,14 +40,14 @@ export async function POST(req: NextRequest) {
     const orgId = orgCtx?.organization?.id;
 
     const body = await req.json();
-    const { assetIds, templateId } = body as {
-      assetIds: string[];
-      templateId: string;
-    };
-
-    if (!assetIds?.length) {
-      return NextResponse.json({ error: "assetIds required" }, { status: 400 });
+    const parsed = labelPdfSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.issues },
+        { status: 400 },
+      );
     }
+    const { assetIds, templateId } = parsed.data;
 
     const template = templateId
       ? await prisma.label_templates.findUnique({ where: { id: templateId } })
@@ -121,7 +143,7 @@ export async function POST(req: NextRequest) {
 
         for (const line of lines) {
           if (y < padding) break;
-          page.drawText(line.trim(), {
+          page.drawText(toEncodableText(line.trim(), font), {
             x: padding,
             y,
             size: fontSize,
@@ -149,15 +171,18 @@ export async function POST(req: NextRequest) {
           const value = data[field];
           if (!value || y < padding) continue;
           const label = field.replace(/([A-Z])/g, " $1").trim() + ": ";
-          page.drawText(label, {
+          page.drawText(toEncodableText(label, fontBold), {
             x: padding,
             y,
             size: fontSize,
             font: fontBold,
             color: rgb(0.2, 0.2, 0.2),
           });
-          const labelWidth = fontBold.widthOfTextAtSize(label, fontSize);
-          page.drawText(value, {
+          const labelWidth = fontBold.widthOfTextAtSize(
+            toEncodableText(label, fontBold),
+            fontSize,
+          );
+          page.drawText(toEncodableText(value, font), {
             x: padding + labelWidth,
             y,
             size: fontSize,
@@ -180,9 +205,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("POST /api/labels/pdf error", { error });
     return NextResponse.json(
       { error: "Failed to generate PDF" },

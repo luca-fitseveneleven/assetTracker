@@ -4,6 +4,10 @@ import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import { PLANS } from "@/lib/stripe";
 import { logger } from "@/lib/logger";
+import {
+  isLegacyBillingActive,
+  legacyPlanToEntitlements,
+} from "@/lib/legacy-billing";
 
 /**
  * GET /api/cron/check-trials
@@ -36,14 +40,29 @@ export async function GET() {
 
     // Downgrade all expired trial orgs to starter
     const result = await prisma.organization.updateMany({
+      // Re-assert the selection filter: an org that subscribed (or whose trial
+      // was extended) between the read above and this write must not be downgraded.
       where: {
         id: { in: expiredTrialOrgs.map((o) => o.id) },
+        trialEndsAt: { lt: new Date() },
+        plan: "professional",
+        stripeSubscriptionId: null,
       },
       data: {
         plan: "starter",
         trialEndsAt: null,
         maxAssets: PLANS.starter.maxAssets,
         maxUsers: PLANS.starter.maxUsers,
+        // Phase 1a dual-write: nothing reads it yet (SaaS boundary spec, section 7).
+        ...(isLegacyBillingActive()
+          ? {
+              entitlements: legacyPlanToEntitlements(
+                "starter",
+                PLANS.starter.maxAssets,
+                PLANS.starter.maxUsers,
+              ),
+            }
+          : {}),
       },
     });
 

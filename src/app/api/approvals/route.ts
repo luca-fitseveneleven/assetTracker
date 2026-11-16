@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { hasPermission } from "@/lib/rbac";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { validateBody, createApprovalSchema } from "@/lib/validation";
@@ -69,21 +74,46 @@ export async function GET(req: NextRequest) {
       status: 200,
     });
   } catch (e: unknown) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     const error = e as Error;
     logger.error("GET /api/approvals error", { error });
-
-    if (error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to fetch approvals" },
       { status: 500 },
     );
   }
+}
+
+/**
+ * Whether the entity an approval request points at belongs to the caller's
+ * organization. None of these models has its own organizationId, so each is
+ * scoped through its asset or its requesting user.
+ */
+async function approvalEntityInOrg(
+  entityType: "reservation" | "asset_request" | "transfer",
+  id: string,
+  organizationId: string | null | undefined,
+): Promise<boolean> {
+  const orgId = organizationId ?? null;
+  const select = { id: true } as const;
+  const found =
+    entityType === "reservation"
+      ? await prisma.assetReservation.findFirst({
+          where: { id, asset: { organizationId: orgId } },
+          select,
+        })
+      : entityType === "transfer"
+        ? await prisma.assetTransfer.findFirst({
+            where: { id, asset: { organizationId: orgId } },
+            select,
+          })
+        : await prisma.itemRequest.findFirst({
+            where: { id, user: { organizationId: orgId } },
+            select,
+          });
+  return found !== null;
 }
 
 // POST /api/approvals - Create a new approval request
@@ -93,12 +123,19 @@ export async function POST(req: NextRequest) {
     if (demoBlock) return demoBlock;
 
     const user = await requirePermission("reservation:create");
+    await requireWritableOrg(user);
 
     const body = await req.json();
     const validated = validateBody(createApprovalSchema, body);
     if (validated instanceof NextResponse) return validated;
 
     const { entityType, entityId, notes } = validated;
+
+    if (
+      !(await approvalEntityInOrg(entityType, entityId, user.organizationId))
+    ) {
+      return NextResponse.json({ error: "Entity not found" }, { status: 404 });
+    }
 
     const approval = await prisma.approvalRequest.create({
       data: {
@@ -138,15 +175,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(approval, { status: 201 });
   } catch (e: unknown) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     const error = e as Error;
     logger.error("POST /api/approvals error", { error });
-
-    if (error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to create approval request" },

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { usernameSchema } from "@/lib/username";
 import prisma from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth-utils";
 import { randomBytes } from "crypto";
@@ -11,14 +12,24 @@ import {
 import { requireNotDemoMode } from "@/lib/api-auth";
 import { seedOrgDefaults } from "@/lib/org-defaults";
 import { isSelfHosted } from "@/lib/deployment-mode";
+import {
+  isLegacyBillingActive,
+  legacyPlanToEntitlements,
+} from "@/lib/legacy-billing";
+import { isPublicSignupEnabled } from "@/lib/signup";
 import { logger } from "@/lib/logger";
+import { ForbiddenError } from "@/lib/errors";
+import {
+  assertEmailAssignable,
+  EmailConflictError,
+} from "@/lib/email-ownership";
 
 const registerSchema = z.object({
   firstname: z.string().min(1, "First name is required").max(100),
   lastname: z.string().min(1, "Last name is required").max(100),
   email: z.string().email("Invalid email address"),
   organization: z.string().min(1, "Organization name is required").max(100),
-  username: z.string().min(3, "Username must be at least 3 characters").max(50),
+  username: usernameSchema,
   password: z
     .string()
     .min(12, "Password must be at least 12 characters")
@@ -38,6 +49,13 @@ function generateSlug(name: string): string {
 }
 
 export async function POST(req: Request) {
+  // Public sign-up is closed unless explicitly enabled. Answer before anything
+  // else (no rate-limit bookkeeping, no body parsing) as if the route did not
+  // exist.
+  if (!isPublicSignupEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
@@ -84,6 +102,28 @@ export async function POST(req: Request) {
       );
     }
 
+    // Public sign-up can never take a reserved (super-admin) address or one
+    // that differs from an existing user's only by case. Both answer exactly
+    // like a taken address, so the response does not reveal which emails are
+    // reserved. Checked before the organization is created to avoid orphans.
+    let normalizedEmail: string;
+    try {
+      normalizedEmail = await assertEmailAssignable(email, {
+        callerIsSuperAdmin: false,
+      });
+    } catch (emailError) {
+      if (
+        emailError instanceof EmailConflictError ||
+        emailError instanceof ForbiddenError
+      ) {
+        return NextResponse.json(
+          { message: "Email is already taken." },
+          { status: 409 },
+        );
+      }
+      throw emailError;
+    }
+
     const hashedPassword = await hashPassword(password);
 
     // SaaS mode: start with 14-day Professional trial
@@ -95,6 +135,16 @@ export async function POST(req: Request) {
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           maxAssets: 5000,
           maxUsers: 25,
+          // Phase 1a dual-write: nothing reads it yet (SaaS boundary spec, section 7).
+          ...(isLegacyBillingActive()
+            ? {
+                entitlements: legacyPlanToEntitlements(
+                  "professional",
+                  5000,
+                  25,
+                ),
+              }
+            : {}),
         };
 
     const org = await prisma.organization.create({
@@ -109,7 +159,7 @@ export async function POST(req: Request) {
       data: {
         firstname,
         lastname,
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         username,
         password: hashedPassword,
         isadmin: true,

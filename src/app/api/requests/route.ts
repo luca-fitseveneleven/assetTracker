@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma, PrismaClient } from "@prisma/client";
-import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requireApiAuth,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
+import {
+  validateBody,
+  createItemRequestSchema,
+  updateItemRequestSchema,
+} from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { logger, logCatchError } from "@/lib/logger";
+import { invalidateCacheByPrefix } from "@/lib/cache";
 import {
   getOrganizationContext,
   verifyEntityOrgOwnership,
@@ -15,6 +26,35 @@ type TxClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Allowed status moves for PUT /api/requests: current status -> targets.
+ * Terminal statuses (rejected, cancelled, returned) have no way out, and an
+ * approved request can only be returned, never re-approved or cancelled.
+ */
+const REQUEST_TRANSITIONS: Record<string, readonly string[]> = {
+  pending: ["approved", "rejected", "cancelled"],
+  approved: ["returned"],
+  return_pending: ["returned", "cancelled"],
+};
+
+/** Cached list (src/lib/data.ts) that an approval or return of each entity type changes. */
+const REQUEST_ENTITY_CACHE_KEYS: Record<string, string> = {
+  asset: "user_assets_all",
+  accessory: "user_accessoires_all",
+  consumable: "consumables_all",
+};
+
+/** Thrown inside the PUT transaction when another writer changed the status. */
+const STATUS_CONFLICT = "REQUEST_STATUS_CONFLICT";
+
+/** Thrown inside the PUT transaction when a consumable has too little stock. */
+const INSUFFICIENT_STOCK = "REQUEST_INSUFFICIENT_STOCK";
+
+/** True for the Prisma error raised when a Serializable transaction is aborted. */
+const isSerializationFailure = (error: unknown): boolean =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === "P2034";
+
 export async function GET(req: NextRequest) {
   try {
     const user = await requireApiAuth();
@@ -23,17 +63,18 @@ export async function GET(req: NextRequest) {
     const mine = searchParams.get("mine");
     const limit = searchParams.get("limit");
 
-    const where: Record<string, unknown> = {};
+    // A caller without an organization owns no requests. Never drop the
+    // filter: it would list every tenant's requests.
+    const orgId = user.organizationId;
+    if (!orgId) return NextResponse.json([]);
+
+    // Scope all requests to user's organization
+    const where: Record<string, unknown> = {
+      user: { organizationId: orgId },
+    };
 
     if (status && status !== "all") {
       where.status = status;
-    }
-
-    // Scope all requests to user's organization
-    const orgContext = await getOrganizationContext();
-    const orgId = orgContext?.organization?.id;
-    if (orgId) {
-      where.user = { organizationId: orgId };
     }
 
     // Non-admins only see their own requests
@@ -134,9 +175,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(enriched);
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("GET /api/requests error", { error });
     return NextResponse.json(
       { error: "Failed to fetch requests" },
@@ -151,9 +191,10 @@ export async function POST(req: NextRequest) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const user = await requireApiAuth();
+    await requireWritableOrg(user);
 
     const body = await req.json();
-    const { entityType, entityId, startDate, endDate, notes, quantity } = body;
+    const { entityType, entityId } = body;
     const initialStatus =
       body.status === "return_pending" ? "return_pending" : "pending";
 
@@ -171,6 +212,10 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+
+    const details = validateBody(createItemRequestSchema, body);
+    if (details instanceof NextResponse) return details;
+    const { startDate, endDate, notes, quantity } = details;
 
     // Verify the target entity belongs to the requester's organization
     const orgContext = await getOrganizationContext();
@@ -228,9 +273,12 @@ export async function POST(req: NextRequest) {
 
           // Set item status to "Pending" while request is being reviewed
           if (initialStatus === "pending" && entityType === "asset") {
+            // The status must belong to the entity's organization: a lookup by
+            // name alone could pick another tenant's "Pending".
             const pendingStatus = await tx.statusType.findFirst({
               where: {
                 statustypename: { equals: "Pending", mode: "insensitive" },
+                organizationId: orgId ?? null,
               },
             });
             if (pendingStatus) {
@@ -262,6 +310,13 @@ export async function POST(req: NextRequest) {
             { status: 409 },
           );
         }
+      }
+      // A concurrent request aborted this Serializable transaction.
+      if (isSerializationFailure(error)) {
+        return NextResponse.json(
+          { error: "Request conflict, please retry" },
+          { status: 409 },
+        );
       }
       throw error;
     }
@@ -308,9 +363,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(request, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("POST /api/requests error", { error });
     return NextResponse.json(
       { error: "Failed to create request" },
@@ -325,15 +379,18 @@ export async function PUT(req: NextRequest) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const user = await requireApiAuth();
+    await requireWritableOrg(user);
 
-    const { id, status, notes, _expectedVersion } = await req.json();
-
-    if (!id || !status) {
+    const body = await req.json();
+    if (!body?.id || !body?.status) {
       return NextResponse.json(
         { error: "id and status required" },
         { status: 400 },
       );
     }
+    const validated = validateBody(updateItemRequestSchema, body);
+    if (validated instanceof NextResponse) return validated;
+    const { id, status, notes, _expectedVersion } = validated;
 
     const existing = await prisma.itemRequest.findUnique({ where: { id } });
     if (!existing) {
@@ -392,6 +449,17 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    // Only moves the transition table allows. This also stops a second
+    // approval from decrementing a consumable again.
+    if (!REQUEST_TRANSITIONS[existing.status]?.includes(status)) {
+      return NextResponse.json(
+        {
+          error: `A request with status "${existing.status}" cannot be set to "${status}"`,
+        },
+        { status: 409 },
+      );
+    }
+
     await prisma.$transaction(async (tx) => {
       const updateData: Record<string, unknown> = {
         status,
@@ -409,10 +477,13 @@ export async function PUT(req: NextRequest) {
         updateData.returnedAt = new Date();
       }
 
-      await tx.itemRequest.update({
-        where: { id },
+      // Compare-and-set on the status we validated against: if another request
+      // already moved it, none of the side effects below may run.
+      const moved = await tx.itemRequest.updateMany({
+        where: { id, status: existing.status },
         data: updateData,
       });
+      if (moved.count !== 1) throw new Error(STATUS_CONFLICT);
 
       // On reject/cancel, revert asset status to "Available"
       if (
@@ -423,6 +494,7 @@ export async function PUT(req: NextRequest) {
         const available = await tx.statusType.findFirst({
           where: {
             statustypename: { equals: "Available", mode: "insensitive" },
+            organizationId: orgId ?? null,
           },
         });
         if (available) {
@@ -443,6 +515,7 @@ export async function PUT(req: NextRequest) {
           existing.entityType,
           existing.entityId,
           existing.userId,
+          orgId ?? null,
         );
       }
 
@@ -454,6 +527,7 @@ export async function PUT(req: NextRequest) {
           existing.entityId,
           existing.userId,
           existing.quantity,
+          orgId ?? null,
         );
       }
 
@@ -469,6 +543,13 @@ export async function PUT(req: NextRequest) {
         },
       });
     });
+
+    // The decision changes who holds the item (or its stock): bust the cached
+    // list of the entity type that was assigned, returned or decremented.
+    const staleKey = REQUEST_ENTITY_CACHE_KEYS[existing.entityType];
+    if (staleKey) {
+      await invalidateCacheByPrefix(staleKey).catch(() => {});
+    }
 
     // Audit log for status change
     const actionMap: Record<string, string> = {
@@ -521,8 +602,22 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ success: true, status });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
+    if (error instanceof Error && error.message === STATUS_CONFLICT) {
+      return NextResponse.json(
+        {
+          error:
+            "This request was modified by another user. Please refresh and try again.",
+        },
+        { status: 409 },
+      );
+    }
+    if (error instanceof Error && error.message === INSUFFICIENT_STOCK) {
+      return NextResponse.json(
+        { error: "Not enough stock to approve this request" },
+        { status: 409 },
+      );
     }
     logger.error("PUT /api/requests error", { error });
     return NextResponse.json(
@@ -584,6 +679,7 @@ async function autoAssignItem(
   entityId: string,
   userId: string,
   quantity: number,
+  organizationId: string | null,
 ): Promise<void> {
   switch (entityType) {
     case "asset": {
@@ -606,7 +702,10 @@ async function autoAssignItem(
 
       // Always ensure the asset status is "Active"
       const active = await tx.statusType.findFirst({
-        where: { statustypename: { equals: "Active", mode: "insensitive" } },
+        where: {
+          statustypename: { equals: "Active", mode: "insensitive" },
+          organizationId,
+        },
       });
       if (active) {
         await tx.asset.update({
@@ -635,18 +734,16 @@ async function autoAssignItem(
       break;
     }
     case "consumable": {
-      // Check current quantity before decrementing to prevent going negative
-      const consumable = await tx.consumable.findUnique({
-        where: { consumableid: entityId },
-        select: { quantity: true },
-      });
-      if (!consumable || consumable.quantity < quantity) {
-        throw new Error("Insufficient consumable quantity");
-      }
-      await tx.consumable.update({
-        where: { consumableid: entityId },
+      // The stock guard lives in the WHERE clause so the check and the
+      // decrement are one atomic statement: concurrent approvals cannot
+      // both pass a stale read and drive the quantity negative.
+      const reserved = await tx.consumable.updateMany({
+        where: { consumableid: entityId, quantity: { gte: quantity } },
         data: { quantity: { decrement: quantity } },
       });
+      if (reserved.count === 0) {
+        throw new Error(INSUFFICIENT_STOCK);
+      }
       await tx.consumable_checkouts.create({
         data: { consumableId: entityId, userId, quantity },
       });
@@ -672,6 +769,7 @@ async function unassignItem(
   entityType: string,
   entityId: string,
   userId: string,
+  organizationId: string | null,
 ): Promise<void> {
   switch (entityType) {
     case "asset": {
@@ -682,6 +780,7 @@ async function unassignItem(
       const available = await tx.statusType.findFirst({
         where: {
           statustypename: { equals: "Available", mode: "insensitive" },
+          organizationId,
         },
       });
       if (available) {

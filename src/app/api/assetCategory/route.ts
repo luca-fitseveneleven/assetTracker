@@ -6,11 +6,15 @@ import {
   requireApiAuth,
   requireApiAdmin,
   requireNotDemoMode,
+  requireWritableOrg,
 } from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import {
   createAssetCategoryTypeSchema,
   updateAssetCategoryTypeSchema,
+  deleteAssetCategoryTypeSchema,
   uuidSchema,
+  validateBody,
 } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { getOrganizationContext } from "@/lib/organization-context";
@@ -68,11 +72,9 @@ export async function GET(req: NextRequest) {
       status: 200,
     });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("GET /api/assetCategory error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     return NextResponse.json(
       { error: "Failed to fetch asset categories" },
@@ -88,6 +90,7 @@ export async function POST(req: NextRequest) {
     if (demoBlock) return demoBlock;
     // Only admins can create asset categories
     const admin = await requireApiAdmin();
+    await requireWritableOrg(admin);
 
     const body = await req.json();
 
@@ -126,14 +129,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("POST /api/assetCategory error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to create asset category" },
@@ -149,6 +147,7 @@ export async function PUT(req: NextRequest) {
     if (demoBlock) return demoBlock;
     // Only admins can update asset categories
     const admin = await requireApiAdmin();
+    await requireWritableOrg(admin);
 
     const body = await req.json();
 
@@ -206,14 +205,10 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("PUT /api/assetCategory error", { error: e });
 
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Asset category not found" },
@@ -223,6 +218,87 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(
       { error: "Failed to update asset category" },
+      { status: 500 },
+    );
+  }
+}
+
+// DELETE /api/assetCategory
+export async function DELETE(req: NextRequest) {
+  try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+    // Only admins can delete asset categories
+    const admin = await requireApiAdmin();
+    await requireWritableOrg(admin);
+
+    const body = await req.json();
+    const validated = validateBody(deleteAssetCategoryTypeSchema, body);
+    if (validated instanceof NextResponse) return validated;
+    const { assetcategorytypeid } = validated;
+
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Scope the lookup so foreign-org categories read as "not found".
+    const category = await prisma.assetCategoryType.findFirst({
+      where: { assetcategorytypeid, organizationId: orgId ?? null },
+      select: { assetcategorytypename: true },
+    });
+    if (!category) {
+      return NextResponse.json(
+        { error: "Asset category not found" },
+        { status: 404 },
+      );
+    }
+
+    // Deliberately unscoped by organization: the FKs are NoAction, so a row
+    // from any tenant would block the delete. Only existence is reported, never
+    // a count, so nothing about other tenants leaks.
+    const inUse = await prisma.asset.findFirst({
+      where: { assetcategorytypeid },
+      select: { assetcategorytypeid: true },
+    });
+    if (inUse) {
+      return NextResponse.json(
+        { error: "Category is still in use. Reassign its items first." },
+        { status: 409 },
+      );
+    }
+
+    await prisma.assetCategoryType.delete({ where: { assetcategorytypeid } });
+
+    await createAuditLog({
+      userId: admin.id,
+      action: AUDIT_ACTIONS.DELETE,
+      entity: AUDIT_ENTITIES.ASSET_CATEGORY,
+      entityId: assetcategorytypeid,
+      details: { assetcategorytypename: category.assetcategorytypename },
+    });
+
+    await invalidateCacheByPrefix("categories").catch(() => {});
+
+    return NextResponse.json(
+      { message: "Asset category deleted successfully" },
+      { status: 200 },
+    );
+  } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
+    logger.error("DELETE /api/assetCategory error", { error: e });
+
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2025"
+    ) {
+      return NextResponse.json(
+        { error: "Asset category not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Failed to delete asset category" },
       { status: 500 },
     );
   }

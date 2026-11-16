@@ -1,8 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requireApiAdmin,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { getOrganizationContext } from "@/lib/organization-context";
+import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
+import {
+  demotionFailureResponse,
+  guardedAdminDemotion,
+} from "@/lib/admin-demotion";
 
 // PATCH /api/admin/users/bulk-permissions
 export async function PATCH(req: NextRequest) {
@@ -10,9 +20,12 @@ export async function PATCH(req: NextRequest) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
 
-    await requireApiAdmin();
+    const user = await requireApiAdmin();
+    await requireWritableOrg(user);
     const body = await req.json();
-    const { userIds, isadmin, canrequest } = body;
+    // The settings UI nests the fields under `updates`; flat bodies still work.
+    const { userIds } = body;
+    const { isadmin, canrequest } = body.updates ?? body;
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
       return NextResponse.json(
@@ -49,12 +62,47 @@ export async function PATCH(req: NextRequest) {
     const orgContext = await getOrganizationContext();
     const orgId = orgContext?.organization?.id;
 
-    const result = await prisma.user.updateMany({
-      where: {
-        userid: { in: userIds },
-        organizationId: orgId ?? null,
+    const applyUpdate = (db: Pick<typeof prisma, "user">) =>
+      db.user.updateMany({
+        where: {
+          userid: { in: userIds },
+          organizationId: orgId ?? null,
+        },
+        data: updateData,
+      });
+
+    let result: { count: number };
+    if (updateData.isadmin === false) {
+      // Check and write share one Serializable transaction, so two admins
+      // demoting each other at once cannot both pass the last-admin check.
+      const outcome = await guardedAdminDemotion(
+        { callerId: user.id, targetUserIds: userIds, organizationId: orgId },
+        applyUpdate,
+      );
+      if (outcome.status !== "ok") return demotionFailureResponse(outcome);
+      result = outcome.result;
+    } else {
+      result = await applyUpdate(prisma);
+    }
+
+    await createAuditLog({
+      userId: user.id ?? null,
+      action: AUDIT_ACTIONS.UPDATE,
+      entity: AUDIT_ENTITIES.USER,
+      entityId: null,
+      details: {
+        type: "bulk_permission_update",
+        userIds,
+        changes: {
+          ...(updateData.isadmin !== undefined && {
+            isadmin: updateData.isadmin,
+          }),
+          ...(updateData.canrequest !== undefined && {
+            canrequest: updateData.canrequest,
+          }),
+        },
+        count: result.count,
       },
-      data: updateData,
     });
 
     return NextResponse.json(
@@ -65,20 +113,9 @@ export async function PATCH(req: NextRequest) {
       { status: 200 },
     );
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("PATCH /api/admin/users/bulk-permissions error", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-
-    if (error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to update bulk permissions" },

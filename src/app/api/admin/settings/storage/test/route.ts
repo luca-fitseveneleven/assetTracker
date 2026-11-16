@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { getOrganizationContext } from "@/lib/organization-context";
 import { S3StorageProvider } from "@/lib/storage/s3";
 import { decrypt } from "@/lib/encryption";
 import prisma from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+import { validateStorageEndpoint } from "@/lib/url-validation";
 import crypto from "crypto";
 
 export async function POST(req: Request) {
@@ -22,9 +25,21 @@ export async function POST(req: Request) {
       secretKey?: string;
     };
 
-    if (!endpoint || !bucket) {
+    if (typeof endpoint !== "string" || !endpoint || !bucket) {
       return NextResponse.json(
         { success: false, error: "endpoint and bucket are required" },
+        { status: 400 },
+      );
+    }
+
+    // SSRF protection: never connect to private/internal or non-https endpoints
+    const endpointCheck = await validateStorageEndpoint(endpoint);
+    if (!endpointCheck.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Invalid endpoint: ${endpointCheck.error}`,
+        },
         { status: 400 },
       );
     }
@@ -71,15 +86,15 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Connection failed";
-    if (message.startsWith("Forbidden")) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 },
-      );
-    }
-    return NextResponse.json({ success: false, error: message });
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
+    // The provider's raw error can carry internal hosts and request details;
+    // the caller only learns that the test failed.
+    logger.error("POST /api/admin/settings/storage/test error", { error });
+    return NextResponse.json({
+      success: false,
+      error: "Connection failed. Check the endpoint, bucket and credentials.",
+    });
   }
 }
 

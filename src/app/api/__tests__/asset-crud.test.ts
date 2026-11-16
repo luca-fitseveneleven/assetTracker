@@ -17,6 +17,7 @@ vi.mock("@/lib/api-auth", () => ({
   requireApiAuth: vi.fn(),
   requirePermission: vi.fn(),
   requireNotDemoMode: vi.fn().mockReturnValue(null),
+  requireWritableOrg: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/organization-context", () => ({
@@ -44,6 +45,7 @@ vi.mock("@/lib/logger");
 import { GET, POST, PUT } from "@/app/api/asset/route";
 import prisma from "@/lib/prisma";
 import { requirePermission } from "@/lib/api-auth";
+import { ForbiddenError, UnauthorizedError } from "@/lib/errors";
 import { checkAssetLimit } from "@/lib/tenant-limits";
 
 const mockPrisma = vi.mocked(prisma, true);
@@ -113,7 +115,7 @@ describe("GET /api/asset", () => {
   });
 
   it("returns 401 when not authenticated", async () => {
-    mockRequirePermission.mockRejectedValue(new Error("Unauthorized"));
+    mockRequirePermission.mockRejectedValue(new UnauthorizedError());
 
     const req = createMockRequest("/api/asset");
     const res = await GET(req);
@@ -122,7 +124,7 @@ describe("GET /api/asset", () => {
 
   it("returns 403 when user lacks permission", async () => {
     mockRequirePermission.mockRejectedValue(
-      new Error("Forbidden: Insufficient permissions"),
+      new ForbiddenError("insufficient_permission", "Insufficient permissions"),
     );
 
     const req = createMockRequest("/api/asset");
@@ -173,7 +175,7 @@ describe("POST /api/asset", () => {
   });
 
   it("returns 401 when not authenticated", async () => {
-    mockRequirePermission.mockRejectedValue(new Error("Unauthorized"));
+    mockRequirePermission.mockRejectedValue(new UnauthorizedError());
 
     const req = createMockRequest("/api/asset", {
       method: "POST",
@@ -222,7 +224,7 @@ describe("PUT /api/asset", () => {
   });
 
   it("returns 401 when not authenticated", async () => {
-    mockRequirePermission.mockRejectedValue(new Error("Unauthorized"));
+    mockRequirePermission.mockRejectedValue(new UnauthorizedError());
 
     const req = createMockRequest("/api/asset", {
       method: "PUT",
@@ -233,5 +235,93 @@ describe("PUT /api/asset", () => {
     });
     const res = await PUT(req);
     expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /api/asset full-text search", () => {
+  it("scopes the raw tsvector query to the caller's organization and limits it", async () => {
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{ assetid: "a-1" }]);
+    mockPrisma.asset.findMany.mockResolvedValue([mockAsset] as any);
+
+    const res = await GET(createMockRequest("/api/asset?search=laptop") as any);
+
+    expect(res.status).toBe(200);
+    const [sql, ...params] = mockPrisma.$queryRawUnsafe.mock.calls[0] as [
+      string,
+      ...unknown[],
+    ];
+    expect(sql).toContain('"organizationId" = $2');
+    expect(sql).toContain("LIMIT 1001");
+    expect(params).toEqual(["laptop", "org-uuid-001"]);
+  });
+
+  it("flags a paginated search whose matches were capped", async () => {
+    mockPrisma.$queryRawUnsafe.mockResolvedValue(
+      Array.from({ length: 1001 }, (_, i) => ({ assetid: `a-${i}` })),
+    );
+    mockPrisma.asset.findMany.mockResolvedValue([mockAsset] as any);
+    mockPrisma.asset.count.mockResolvedValue(1000);
+
+    const res = await GET(
+      createMockRequest("/api/asset?page=1&search=laptop") as any,
+    );
+    const { body } = await parseResponse<any>(res);
+
+    expect(body.truncated).toBe(true);
+  });
+
+  it("omits truncated for a complete search result", async () => {
+    mockPrisma.$queryRawUnsafe.mockResolvedValue([{ assetid: "a-1" }]);
+    mockPrisma.asset.findMany.mockResolvedValue([mockAsset] as any);
+    mockPrisma.asset.count.mockResolvedValue(1);
+
+    const res = await GET(
+      createMockRequest("/api/asset?page=1&search=laptop") as any,
+    );
+    const { body } = await parseResponse<any>(res);
+
+    expect(body).not.toHaveProperty("truncated");
+  });
+});
+
+describe("duplicate assettag / serialnumber", () => {
+  const uniqueViolation = () =>
+    Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+
+  it("POST maps a unique-constraint violation to 409", async () => {
+    mockPrisma.asset.create.mockRejectedValue(uniqueViolation());
+
+    const res = await POST(
+      createMockRequest("/api/asset", {
+        method: "POST",
+        body: {
+          assetname: "Dup",
+          assettag: "DUP-001",
+          serialnumber: "SN-DUP-001",
+        },
+      }),
+    );
+    const { status, body } = await parseResponse<{ error: string }>(res);
+
+    expect(status).toBe(409);
+    expect(body.error).toMatch(/already exists/);
+  });
+
+  it("PUT maps a unique-constraint violation to 409", async () => {
+    const assetUuid = "550e8400-e29b-41d4-a716-446655440000";
+    mockPrisma.asset.findFirst.mockResolvedValue({
+      ...mockAsset,
+      assetid: assetUuid,
+    } as any);
+    mockPrisma.asset.update.mockRejectedValue(uniqueViolation());
+
+    const res = await PUT(
+      createMockRequest("/api/asset", {
+        method: "PUT",
+        body: { assetid: assetUuid, assettag: "TAKEN-001" },
+      }),
+    );
+
+    expect(res.status).toBe(409);
   });
 });

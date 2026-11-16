@@ -4,7 +4,13 @@ import {
   requirePermission,
   requireNotDemoMode,
   requirePlanFeature,
+  requireWritableOrg,
 } from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
+import {
+  findForeignReference,
+  foreignReferenceError,
+} from "@/lib/org-references";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import {
   getOrganizationContext,
@@ -100,13 +106,9 @@ export async function GET(req: NextRequest) {
       status: 200,
     });
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("GET /api/procurement/requests error", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to fetch purchase requests" },
       { status: 500 },
@@ -121,6 +123,7 @@ export async function POST(req: NextRequest) {
     if (demoBlock) return demoBlock;
 
     const user = await requirePermission("procurement:create");
+    await requireWritableOrg(user);
     await requirePlanFeature(user, "procurement");
 
     const orgContext = await getOrganizationContext();
@@ -135,6 +138,16 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const validated = createPurchaseRequestSchema.parse(body);
+
+    const foreign = await findForeignReference(orgId, {
+      department: validated.departmentId,
+      supplier: validated.items.flatMap((item) => item.supplierId ?? []),
+    });
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
 
     // Calculate estimated total from items
     const estimatedTotal = validated.items.reduce((sum, item) => {
@@ -199,13 +212,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(purchaseRequest, { status: 201 });
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("POST /api/procurement/requests error", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }

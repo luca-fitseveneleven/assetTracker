@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiAuth, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requireApiAuth,
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import prisma from "@/lib/prisma";
 import { getOrganizationContext } from "@/lib/organization-context";
 import { getOrgStorage } from "@/lib/storage";
+import { ATTACHMENT_EDIT_PERMISSION } from "@/lib/attachment-permissions";
 import { deleteThumbnails } from "@/lib/storage/thumbnails";
 
 type EntityType = "accessory" | "consumable" | "component";
@@ -81,7 +88,8 @@ export async function DELETE(
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
-    await requireApiAuth();
+    const user = await requireApiAuth();
+    await requireWritableOrg(user);
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
@@ -95,6 +103,7 @@ export async function DELETE(
         { status: 400 },
       );
     }
+    await requirePermission(ATTACHMENT_EDIT_PERMISSION[entityType]);
 
     if (!orgId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -133,9 +142,8 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     return NextResponse.json(
       { error: "Failed to delete attachment" },
       { status: 500 },
@@ -150,7 +158,8 @@ export async function PATCH(
   try {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
-    await requireApiAuth();
+    const user = await requireApiAuth();
+    await requireWritableOrg(user);
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
@@ -167,6 +176,7 @@ export async function PATCH(
         { status: 400 },
       );
     }
+    await requirePermission(ATTACHMENT_EDIT_PERMISSION[entityType]);
 
     if (!orgId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -227,9 +237,8 @@ export async function PATCH(
         );
     }
   } catch (error) {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     return NextResponse.json(
       { error: "Failed to update attachment" },
       { status: 500 },

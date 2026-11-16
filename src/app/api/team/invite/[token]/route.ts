@@ -3,17 +3,36 @@ import prisma from "@/lib/prisma";
 import { requireNotDemoMode } from "@/lib/api-auth";
 import { setUserPassword } from "@/lib/auth-utils";
 import { logger } from "@/lib/logger";
+import { apiErrorResponse } from "@/lib/errors";
+import {
+  assertEmailAssignable,
+  EmailConflictError,
+} from "@/lib/email-ownership";
 import { auth } from "@/lib/auth";
+import { checkUserLimit } from "@/lib/tenant-limits";
+import { resolveOrgStatus } from "@/lib/org-suspension";
 import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
+
+const USER_LIMIT_MESSAGE =
+  "This organization has reached its user limit. Ask an administrator to upgrade the plan.";
+
+/** Why a non-pending invitation cannot be used (anything else: generic). */
+const UNAVAILABLE_MESSAGES: Record<string, string> = {
+  accepted: "Invitation has already been accepted",
+  revoked: "Invitation was revoked",
+  cancelled: "Invitation was cancelled",
+};
 
 async function findAndValidateInvitation(token: string) {
   const invitation = await prisma.teamInvitation.findUnique({
     where: { token },
     include: {
-      organization: { select: { id: true, name: true } },
-      role: { select: { id: true, name: true } },
+      organization: {
+        select: { id: true, name: true, isActive: true, suspendedAt: true },
+      },
+      role: { select: { id: true, name: true, organizationId: true } },
       inviter: { select: { firstname: true, lastname: true } },
     },
   });
@@ -22,20 +41,41 @@ async function findAndValidateInvitation(token: string) {
     return { error: "Invitation not found", status: 404, invitation: null };
   }
 
-  if (invitation.status === "accepted") {
+  // Only a pending invitation can be used; accepted, revoked, cancelled and
+  // any other status are dead links.
+  if (invitation.status !== "pending") {
     return {
-      error: "Invitation has already been accepted",
+      error:
+        UNAVAILABLE_MESSAGES[invitation.status] ??
+        "Invitation is no longer available",
       status: 410,
       invitation: null,
     };
   }
 
-  if (invitation.status === "revoked") {
-    return { error: "Invitation was revoked", status: 410, invitation: null };
-  }
-
   if (new Date() > new Date(invitation.expiresAt)) {
     return { error: "Invitation has expired", status: 410, invitation: null };
+  }
+
+  // Invitations created before roles were checked at creation may name another
+  // organization's role. Global roles (no organization) are fine.
+  const roleOrgId = invitation.role?.organizationId;
+  if (roleOrgId && roleOrgId !== invitation.organization.id) {
+    return {
+      error: "Invitation is no longer available",
+      status: 410,
+      invitation: null,
+    };
+  }
+
+  // Nobody joins an organization that is locked or in its billing grace
+  // period; the invitation stays pending and works again after reactivation.
+  if (resolveOrgStatus(invitation.organization) !== "active") {
+    return {
+      error: "This organization is currently unavailable",
+      status: 403,
+      invitation: null,
+    };
   }
 
   return { error: null, status: 200, invitation };
@@ -57,8 +97,13 @@ export async function GET(
     return NextResponse.json({
       id: invitation.id,
       email: invitation.email,
-      organization: invitation.organization,
-      role: invitation.role,
+      organization: {
+        id: invitation.organization.id,
+        name: invitation.organization.name,
+      },
+      role: invitation.role
+        ? { id: invitation.role.id, name: invitation.role.name }
+        : null,
       inviter: invitation.inviter,
       expiresAt: invitation.expiresAt,
       createdAt: invitation.createdAt,
@@ -115,29 +160,56 @@ export async function POST(
         );
       }
 
-      // Link existing user to the organization
-      await prisma.user.update({
-        where: { userid: existingUser.userid },
-        data: { organizationId: invitation.organization.id },
-      });
+      const joinsNewOrganization =
+        existingUser.organizationId !== invitation.organization.id;
 
-      // Assign role if specified
-      if (invitation.role) {
-        await prisma.userRole.upsert({
-          where: {
-            userId_roleId: {
+      if (joinsNewOrganization) {
+        const limitCheck = await checkUserLimit(invitation.organization.id);
+        if (!limitCheck.allowed) {
+          return NextResponse.json(
+            { error: USER_LIMIT_MESSAGE },
+            { status: 403 },
+          );
+        }
+      }
+
+      await prisma.$transaction(async (tx) => {
+        if (joinsNewOrganization) {
+          // Switching organizations must not carry rights over: permissions
+          // are the union of all of a user's roles, so a surviving global
+          // role (e.g. the all-permissions Administrator) would keep full
+          // access in the new org. Drop every role, then grant the invited one.
+          await tx.user.update({
+            where: { userid: existingUser.userid },
+            data: {
+              organizationId: invitation.organization.id,
+              isadmin: false,
+              departmentId: null,
+            },
+          });
+          await tx.userRole.deleteMany({
+            where: { userId: existingUser.userid },
+          });
+        }
+
+        // Assign role if specified
+        if (invitation.role) {
+          await tx.userRole.upsert({
+            where: {
+              userId_roleId: {
+                userId: existingUser.userid,
+                roleId: invitation.role.id,
+              },
+            },
+            create: {
               userId: existingUser.userid,
               roleId: invitation.role.id,
+              grantedBy: invitation.invitedBy,
             },
-          },
-          create: {
-            userId: existingUser.userid,
-            roleId: invitation.role.id,
-            grantedBy: invitation.invitedBy,
-          },
-          update: {},
-        });
-      }
+            update: {},
+          });
+        }
+      });
     } else {
       if (!firstname || !lastname || !password) {
         return NextResponse.json(
@@ -156,14 +228,28 @@ export async function POST(
         );
       }
 
+      // Accepting an invite must never claim a reserved (super-admin) address
+      // or one that only differs from an existing user's by case.
+      const email = await assertEmailAssignable(invitation.email, {
+        callerIsSuperAdmin: false,
+      });
+
+      const limitCheck = await checkUserLimit(invitation.organization.id);
+      if (!limitCheck.allowed) {
+        return NextResponse.json(
+          { error: USER_LIMIT_MESSAGE },
+          { status: 403 },
+        );
+      }
+
       // Create new user without a password column write — setUserPassword handles
       // both user.password and accounts.password atomically right after creation.
       const newUser = await prisma.user.create({
         data: {
           firstname,
           lastname,
-          email: invitation.email,
-          username: invitation.email,
+          email,
+          username: email,
           isadmin: false,
           canrequest: true,
           organizationId: invitation.organization.id,
@@ -200,6 +286,11 @@ export async function POST(
       message: "Invitation accepted successfully",
     });
   } catch (err) {
+    const denied = apiErrorResponse(err);
+    if (denied) return denied;
+    if (err instanceof EmailConflictError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
     logger.error("Error accepting invitation", { error: err });
     return NextResponse.json(
       { error: "Internal server error" },

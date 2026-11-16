@@ -1,15 +1,90 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { AppError, apiErrorResponse } from "@/lib/errors";
+import { assertEmailAssignable } from "@/lib/email-ownership";
+import { isSuperAdmin } from "@/lib/super-admin";
 import { importJobSchema } from "@/lib/validation-organization";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
 import { notifyIntegrations } from "@/lib/integrations/slack-teams";
 import { checkAssetLimit, checkUserLimit } from "@/lib/tenant-limits";
 import { logger, logCatchError } from "@/lib/logger";
+import {
+  findForeignReference,
+  foreignReferenceError,
+  type ReferenceKind,
+} from "@/lib/org-references";
 import { z } from "zod";
+import { isValidUsername, USERNAME_AT_SIGN_MESSAGE } from "@/lib/username";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+
+/**
+ * A problem with a row's own data or the import's setup, reported by this file.
+ * Its message is written for the user and is stored on the import job as is.
+ */
+class ImportRowError extends Error {}
+
+/**
+ * Reference ids a CSV row supplies must belong to the importing organization.
+ * The defaults the import falls back to are already looked up there.
+ */
+async function assertRowReferences(
+  organizationId: string | null,
+  refs: Partial<Record<ReferenceKind, string | undefined>>,
+): Promise<void> {
+  const foreign = await findForeignReference(organizationId, refs);
+  if (foreign) throw new ImportRowError(foreignReferenceError(foreign).error);
+}
+
+/** Upper bounds that keep a single import request from exhausting the server. */
+const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_IMPORT_ROWS = 5000;
+
+/** Field name → CSV column index; -1 marks a field the user left unmapped. */
+const columnMappingSchema = z.record(
+  z.string().min(1).max(100),
+  z.number().int().min(-1).max(1000),
+);
+
+const ROW_FAILED_MESSAGE = "Row could not be imported";
+
+/**
+ * What a user may read about a failed row. Messages this code writes itself
+ * (ImportRowError) and typed application errors (email conflict, reserved
+ * address) pass through. Known Prisma errors map to a fixed sentence. Anything
+ * else (query text, table and column names, connection details) is replaced
+ * and only logged.
+ */
+function describeRowError(error: unknown): {
+  message: string;
+  unexpected: boolean;
+} {
+  if (error instanceof ImportRowError || error instanceof AppError) {
+    return { message: error.message, unexpected: false };
+  }
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      return {
+        message: "A record with the same unique value already exists",
+        unexpected: false,
+      };
+    }
+    if (error.code === "P2003") {
+      return {
+        message: "A referenced record does not exist",
+        unexpected: false,
+      };
+    }
+  }
+  return { message: ROW_FAILED_MESSAGE, unexpected: true };
+}
 
 // Entity field mappings for CSV import
 const ENTITY_FIELDS: Record<string, string[]> = {
@@ -65,13 +140,9 @@ export async function GET(_req: NextRequest) {
 
     return NextResponse.json(jobs);
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("Error fetching import jobs", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to fetch import jobs" },
       { status: 500 },
@@ -85,6 +156,7 @@ export async function POST(req: NextRequest) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("import:execute");
+    await requireWritableOrg(authUser);
 
     const importUser = await prisma.user.findUnique({
       where: { userid: authUser.id! },
@@ -107,14 +179,32 @@ export async function POST(req: NextRequest) {
     // Parse column mapping if provided (field name → CSV column index)
     let columnMapping: Record<string, number> | null = null;
     if (columnMappingRaw) {
+      let parsedMapping: unknown;
       try {
-        columnMapping = JSON.parse(columnMappingRaw);
+        parsedMapping = JSON.parse(columnMappingRaw);
       } catch {
         return NextResponse.json(
           { error: "Invalid columnMapping JSON" },
           { status: 400 },
         );
       }
+      const mappingResult = columnMappingSchema.safeParse(parsedMapping);
+      if (!mappingResult.success) {
+        return NextResponse.json(
+          { error: "Invalid columnMapping" },
+          { status: 400 },
+        );
+      }
+      columnMapping = mappingResult.data;
+    }
+
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      return NextResponse.json(
+        {
+          error: `File too large. Maximum size is ${MAX_IMPORT_FILE_BYTES / (1024 * 1024)} MB`,
+        },
+        { status: 400 },
+      );
     }
 
     const validatedInput = importJobSchema.parse({
@@ -130,6 +220,15 @@ export async function POST(req: NextRequest) {
     if (lines.length < 2) {
       return NextResponse.json(
         { error: "CSV must have a header row and at least one data row" },
+        { status: 400 },
+      );
+    }
+
+    if (lines.length - 1 > MAX_IMPORT_ROWS) {
+      return NextResponse.json(
+        {
+          error: `Too many rows. Maximum is ${MAX_IMPORT_ROWS} data rows per import`,
+        },
         { status: 400 },
       );
     }
@@ -264,6 +363,16 @@ export async function POST(req: NextRequest) {
       licencecategorytypeid: defaultLicenceCategory?.licencecategorytypeid,
     };
 
+    // Imported users may only claim a reserved (super-admin) address when the
+    // importer is a super-admin themselves. Resolved once, not per row.
+    const callerIsSuperAdmin =
+      validatedInput.entityType === "user"
+        ? await isSuperAdmin(authUser)
+        : false;
+    // import:execute can be granted to a plain role; only an admin may mint
+    // admins from the file.
+    const callerIsAdmin = authUser.isAdmin === true;
+
     // Process rows (in a real app, this would be done asynchronously)
     const errors: { row: number; error: string }[] = [];
     let successCount = 0;
@@ -281,13 +390,20 @@ export async function POST(req: NextRequest) {
           authUser.id!,
           importOrgId,
           defaultRefs,
+          callerIsSuperAdmin,
+          callerIsAdmin,
         );
         successCount++;
       } catch (err) {
-        errors.push({
-          row: i + 1,
-          error: err instanceof Error ? err.message : "Unknown error",
-        });
+        const { message, unexpected } = describeRowError(err);
+        if (unexpected) {
+          logger.error("Import row failed", {
+            row: i + 1,
+            entityType: validatedInput.entityType,
+            error: err,
+          });
+        }
+        errors.push({ row: i + 1, error: message });
       }
 
       if (i % 10 === 0) {
@@ -332,13 +448,17 @@ export async function POST(req: NextRequest) {
     // Trigger webhook
     const webhookEvent =
       errors.length === lines.length - 1 ? "import.failed" : "import.completed";
-    await triggerWebhook(webhookEvent, {
-      jobId: job.id,
-      entityType: validatedInput.entityType,
-      totalRows: lines.length - 1,
-      successCount,
-      errorCount: errors.length,
-    });
+    await triggerWebhook(
+      webhookEvent,
+      {
+        jobId: job.id,
+        entityType: validatedInput.entityType,
+        totalRows: lines.length - 1,
+        successCount,
+        errorCount: errors.length,
+      },
+      importOrgId,
+    );
     notifyIntegrations(webhookEvent, {
       entityType: validatedInput.entityType,
       successCount,
@@ -348,13 +468,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(completedJob, { status: 201 });
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("Error processing import", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
@@ -471,6 +587,8 @@ async function createEntity(
   userId: string,
   organizationId: string | null,
   defaultRefs: Record<string, string | undefined>,
+  callerIsSuperAdmin: boolean,
+  callerIsAdmin: boolean,
 ): Promise<void> {
   const now = new Date();
 
@@ -513,10 +631,18 @@ async function createEntity(
         !accSupplier ||
         !accModel
       ) {
-        throw new Error(
+        throw new ImportRowError(
           "Missing required reference data for accessory import. Ensure manufacturer, status type, accessory category, location, supplier, and model records exist.",
         );
       }
+      await assertRowReferences(organizationId, {
+        manufacturer: data.manufacturerid,
+        statusType: data.statustypeid,
+        accessoryCategory: data.accessoriecategorytypeid,
+        location: data.locationid,
+        supplier: data.supplierid,
+        model: data.modelid,
+      });
       await prisma.accessories.create({
         data: {
           accessoriename: data.accessoriename,
@@ -545,10 +671,15 @@ async function createEntity(
         data.consumablecategorytypeid || defaultRefs.consumablecategorytypeid;
       const conSupplier = data.supplierid || defaultRefs.supplierid;
       if (!conManufacturer || !conCategory || !conSupplier) {
-        throw new Error(
+        throw new ImportRowError(
           "Missing required reference data for consumable import. Ensure manufacturer, consumable category, and supplier records exist.",
         );
       }
+      await assertRowReferences(organizationId, {
+        manufacturer: data.manufacturerid,
+        consumableCategory: data.consumablecategorytypeid,
+        supplier: data.supplierid,
+      });
       await prisma.consumable.create({
         data: {
           consumablename: data.consumablename,
@@ -574,10 +705,15 @@ async function createEntity(
         data.licencecategorytypeid || defaultRefs.licencecategorytypeid;
       const licSupplier = data.supplierid || defaultRefs.supplierid;
       if (!licManufacturer || !licCategory || !licSupplier) {
-        throw new Error(
+        throw new ImportRowError(
           "Missing required reference data for licence import. Ensure manufacturer, licence category, and supplier records exist.",
         );
       }
+      await assertRowReferences(organizationId, {
+        manufacturer: data.manufacturerid,
+        licenceCategory: data.licencecategorytypeid,
+        supplier: data.supplierid,
+      });
       await prisma.licence.create({
         data: {
           licencekey: data.licencekey || null,
@@ -603,6 +739,13 @@ async function createEntity(
     }
 
     case "user": {
+      if (data.username && !isValidUsername(data.username)) {
+        throw new Error(USERNAME_AT_SIGN_MESSAGE);
+      }
+      // A rejected address fails only this row; the import job records it.
+      const email = data.email
+        ? await assertEmailAssignable(data.email, { callerIsSuperAdmin })
+        : null;
       const randomPassword = await bcrypt.hash(
         crypto.randomBytes(32).toString("hex"),
         10,
@@ -610,11 +753,14 @@ async function createEntity(
       const newUser = await prisma.user.create({
         data: {
           username: data.username || null,
-          email: data.email || null,
+          email,
           firstname: data.firstname,
           lastname: data.lastname,
           password: randomPassword,
-          isadmin: data.isadmin === "true" || data.isadmin === "1",
+          // An importer without admin rights cannot create admins: the column
+          // is ignored for them.
+          isadmin:
+            callerIsAdmin && (data.isadmin === "true" || data.isadmin === "1"),
           canrequest: data.canrequest !== "false" && data.canrequest !== "0",
           creation_date: now,
           organizationId,
@@ -644,12 +790,15 @@ async function createEntity(
           city: data.city || null,
           country: data.country || null,
           creation_date: now,
+          organizationId,
         },
       });
       break;
 
     default:
-      throw new Error(`Import not implemented for entity type: ${entityType}`);
+      throw new ImportRowError(
+        `Import not implemented for entity type: ${entityType}`,
+      );
   }
 }
 

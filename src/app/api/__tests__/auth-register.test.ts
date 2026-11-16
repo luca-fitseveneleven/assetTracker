@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   createMockRequest,
   parseResponse,
@@ -32,7 +32,12 @@ const mockCheckRateLimit = vi.mocked(checkRateLimit);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env.ALLOW_PUBLIC_SIGNUP = "true";
   mockCheckRateLimit.mockResolvedValue({ success: true } as any);
+});
+
+afterEach(() => {
+  delete process.env.ALLOW_PUBLIC_SIGNUP;
 });
 
 describe("POST /api/auth/register", () => {
@@ -44,6 +49,45 @@ describe("POST /api/auth/register", () => {
     username: "testuser",
     password: "SecurePass123!",
   };
+
+  it("rejects a username containing @ so it cannot shadow an email", async () => {
+    const req = createMockRequest("/api/auth/register", {
+      method: "POST",
+      body: { ...validBody, username: "victim@example.com" },
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 and skips rate limiting when public signup is closed", async () => {
+    delete process.env.ALLOW_PUBLIC_SIGNUP;
+
+    const req = createMockRequest("/api/auth/register", {
+      method: "POST",
+      body: validBody,
+    });
+    const res = await POST(req);
+    const { status, body } = await parseResponse<any>(res);
+    expect(status).toBe(404);
+    expect(body.error).toBe("Not found");
+    expect(mockCheckRateLimit).not.toHaveBeenCalled();
+    expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.organization.create).not.toHaveBeenCalled();
+  });
+
+  it("stays closed for any value other than the string true", async () => {
+    process.env.ALLOW_PUBLIC_SIGNUP = "1";
+
+    const req = createMockRequest("/api/auth/register", {
+      method: "POST",
+      body: validBody,
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(404);
+    expect(mockCheckRateLimit).not.toHaveBeenCalled();
+  });
 
   it("returns 201 on successful registration", async () => {
     mockPrisma.user.findFirst.mockResolvedValue(null);
@@ -124,5 +168,68 @@ describe("POST /api/auth/register", () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(429);
+  });
+
+  describe("trial entitlements (phase 1a dual-write)", () => {
+    beforeEach(() => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      mockPrisma.organization.create.mockResolvedValue({
+        id: "new-org-id",
+      } as never);
+      mockPrisma.user.create.mockResolvedValue({
+        userid: "new-user-id",
+      } as never);
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    async function register() {
+      await POST(
+        createMockRequest("/api/auth/register", {
+          method: "POST",
+          body: validBody,
+        }),
+      );
+      return mockPrisma.organization.create.mock.calls[0][0].data;
+    }
+
+    it("records the professional trial entitlements when legacy billing is active", async () => {
+      vi.stubEnv("SELF_HOSTED", "");
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_x");
+
+      const data = await register();
+
+      expect(data).toMatchObject({
+        plan: "professional",
+        entitlements: {
+          features: [
+            "api_keys",
+            "procurement",
+            "advanced_reports",
+            "tco_dashboard",
+            "custom_fields",
+            "workflow_automation",
+          ],
+          maxAssets: 5000,
+          maxUsers: 25,
+        },
+      });
+    });
+
+    it("writes no entitlements without legacy billing", async () => {
+      vi.stubEnv("SELF_HOSTED", "");
+      vi.stubEnv("STRIPE_SECRET_KEY", "");
+
+      expect(await register()).not.toHaveProperty("entitlements");
+    });
+
+    it("writes no entitlements when self-hosted", async () => {
+      vi.stubEnv("SELF_HOSTED", "true");
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_x");
+
+      expect(await register()).not.toHaveProperty("entitlements");
+    });
   });
 });

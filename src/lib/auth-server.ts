@@ -29,6 +29,10 @@ import {
 } from "@/lib/auth-two-factor-audit";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { resolveSsoUserData } from "@/lib/sso-provisioning";
+import { USER_ADDITIONAL_FIELDS } from "@/lib/auth-user-fields";
+import { getTrustedProviders } from "@/lib/auth-trusted-providers";
+import { findUserByLoginIdentifier } from "@/lib/login-identifier";
+import { isValidUsername, USERNAME_AT_SIGN_MESSAGE } from "@/lib/username";
 import { parseDeviceName, parseBrowser } from "@/lib/session-tracking";
 import {
   recordLoginAttempt,
@@ -197,6 +201,10 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
+    // Sign-up goes through /api/auth/register (org creation, rate limiting,
+    // ALLOW_PUBLIC_SIGNUP); BetterAuth's own endpoint stays off. The
+    // /sign-up/email hook below remains as defence in depth.
+    disableSignUp: true,
     minPasswordLength: 12,
     password: {
       async hash(password: string) {
@@ -221,57 +229,13 @@ export const auth = betterAuth({
       createdAt: "creation_date",
       updatedAt: "updatedAt",
     },
-    additionalFields: {
-      username: {
-        type: "string",
-        required: false,
-        input: true,
-      },
-      lastname: {
-        type: "string",
-        required: false,
-        defaultValue: "",
-        input: true,
-      },
-      isadmin: {
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-      },
-      canrequest: {
-        type: "boolean",
-        required: false,
-        defaultValue: true,
-      },
-      organizationId: {
-        type: "string",
-        required: false,
-      },
-      departmentId: {
-        type: "string",
-        required: false,
-      },
-      authProvider: {
-        type: "string",
-        required: false,
-        defaultValue: "local",
-      },
-      isActive: {
-        type: "boolean",
-        required: false,
-        defaultValue: true,
-      },
-      password: {
-        type: "string",
-        required: false,
-      },
-    },
+    additionalFields: USER_ADDITIONAL_FIELDS,
   },
 
   account: {
     accountLinking: {
       enabled: true,
-      trustedProviders: ["microsoft"],
+      trustedProviders: getTrustedProviders(process.env.MICROSOFT_TENANT_ID),
     },
     modelName: "accounts",
     fields: {
@@ -305,7 +269,8 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24,
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60,
+      // Short: a revoked session keeps working until its cached cookie expires.
+      maxAge: 60,
     },
   },
 
@@ -420,6 +385,18 @@ export const auth = betterAuth({
         throw new Error("Registration is not available via this endpoint");
       }
 
+      // A username containing "@" could shadow another user's email at login.
+      if (ctx.path === "/update-user") {
+        const username = (ctx.body as { username?: unknown } | undefined)
+          ?.username;
+        if (typeof username === "string" && !isValidUsername(username)) {
+          throw new APIError("BAD_REQUEST", {
+            message: USERNAME_AT_SIGN_MESSAGE,
+          });
+        }
+        return;
+      }
+
       if (ctx.path !== "/sign-in/email") return;
 
       const body = ctx.body as
@@ -477,17 +454,12 @@ export const auth = betterAuth({
       }
 
       // Look up user by email OR username
-      const user = await prisma.user.findFirst({
-        where: {
-          OR: [{ email: rawIdentifier }, { username: rawIdentifier }],
-        },
-        select: {
-          userid: true,
-          email: true,
-          authProvider: true,
-          username: true,
-          isActive: true,
-        },
+      const user = await findUserByLoginIdentifier(rawIdentifier, {
+        userid: true,
+        email: true,
+        authProvider: true,
+        username: true,
+        isActive: true,
       });
 
       // Use canonical email for lockout tracking (consistent key)
@@ -583,11 +555,10 @@ export const auth = betterAuth({
       if (setCookie) {
         await recordSuccessfulLogin(identifier);
 
-        const user = await prisma.user.findFirst({
-          where: {
-            OR: [{ email: identifier }, { username: identifier }],
-          },
-          select: { userid: true, username: true, twoFactorEnabled: true },
+        const user = await findUserByLoginIdentifier(identifier, {
+          userid: true,
+          username: true,
+          twoFactorEnabled: true,
         });
 
         // This hook runs before the twoFactor plugin's. For a 2FA user the

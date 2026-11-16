@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import {
   requireApiAuth,
   requirePermission,
   requireNotDemoMode,
+  requireWritableOrg,
 } from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { validateBody, assetCheckoutSchema } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { triggerWebhook } from "@/lib/webhooks";
@@ -14,6 +17,11 @@ import {
   scopeToOrganization,
 } from "@/lib/organization-context";
 import { logger, logCatchError } from "@/lib/logger";
+import {
+  ACTIVE_CHECKOUT_STATUSES,
+  ALREADY_CHECKED_OUT,
+  isCheckoutConflict,
+} from "@/lib/asset-checkout";
 
 // GET /api/asset/checkout?assetId=<uuid>
 export async function GET(req: Request) {
@@ -60,14 +68,10 @@ export async function GET(req: Request) {
 
     return NextResponse.json(checkouts, { status: 200 });
   } catch (error: unknown) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.error("GET /api/asset/checkout error", { error: message });
-    if (message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (message.includes("Forbidden")) {
-      return NextResponse.json({ error: message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to fetch checkouts" },
       { status: 500 },
@@ -83,6 +87,7 @@ export async function POST(req: Request) {
     if (demoBlock) return demoBlock;
     // Checkout requires the asset:assign permission (matches the bulk route).
     const user = await requirePermission("asset:assign");
+    await requireWritableOrg(user);
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
@@ -154,21 +159,34 @@ export async function POST(req: Request) {
       targetLabel = targetAsset.assetname || targetAsset.assettag;
     }
 
-    const checkout = await prisma.assetCheckout.create({
-      data: {
-        assetId,
-        checkedOutToType,
-        checkedOutTo: checkedOutToType === "user" ? checkedOutTo : null,
-        checkedOutToLocationId:
-          checkedOutToType === "location" ? checkedOutToLocationId : null,
-        checkedOutToAssetId:
-          checkedOutToType === "asset" ? checkedOutToAssetId : null,
-        checkedOutBy: user.id as string,
-        expectedReturn: expectedReturn ? new Date(expectedReturn) : null,
-        notes: notes || null,
-        status: "checked_out",
+    // The "already out?" check and the insert share one serializable
+    // transaction, so two concurrent checkouts cannot both succeed.
+    const checkout = await prisma.$transaction(
+      async (tx) => {
+        const active = await tx.assetCheckout.findFirst({
+          where: { assetId, status: { in: ACTIVE_CHECKOUT_STATUSES } },
+          select: { id: true },
+        });
+        if (active) throw new Error(ALREADY_CHECKED_OUT);
+
+        return tx.assetCheckout.create({
+          data: {
+            assetId,
+            checkedOutToType,
+            checkedOutTo: checkedOutToType === "user" ? checkedOutTo : null,
+            checkedOutToLocationId:
+              checkedOutToType === "location" ? checkedOutToLocationId : null,
+            checkedOutToAssetId:
+              checkedOutToType === "asset" ? checkedOutToAssetId : null,
+            checkedOutBy: user.id as string,
+            expectedReturn: expectedReturn ? new Date(expectedReturn) : null,
+            notes: notes || null,
+            status: "checked_out",
+          },
+        });
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
 
     createAuditLog({
       userId: user.id as string,
@@ -182,13 +200,17 @@ export async function POST(req: Request) {
       },
     }).catch(logCatchError("Audit log failed"));
 
-    triggerWebhook("asset.checked_out", {
-      assetId,
-      assetName: asset.assetname,
-      checkoutId: checkout.id,
-      checkedOutToType,
-      targetLabel,
-    }).catch(() => {});
+    triggerWebhook(
+      "asset.checked_out",
+      {
+        assetId,
+        assetName: asset.assetname,
+        checkoutId: checkout.id,
+        checkedOutToType,
+        targetLabel,
+      },
+      asset.organizationId,
+    ).catch(() => {});
 
     // Slack/Teams notification
     notifyIntegrations("asset.checked_out", {
@@ -200,14 +222,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json(checkout, { status: 201 });
   } catch (error: unknown) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
+    if (isCheckoutConflict(error)) {
+      return NextResponse.json(
+        { error: "Asset is already checked out" },
+        { status: 409 },
+      );
+    }
     const message = error instanceof Error ? error.message : "Unknown error";
     logger.error("POST /api/asset/checkout error", { error: message });
-    if (message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (message.includes("Forbidden")) {
-      return NextResponse.json({ error: message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to create checkout" },
       { status: 500 },

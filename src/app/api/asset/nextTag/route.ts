@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "../../../../lib/prisma";
 import { requireApiAuth } from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -21,20 +22,26 @@ export async function GET(req: NextRequest) {
     // Look up names
     const [category, manufacturer, model] = await Promise.all([
       categoryId
-        ? prisma.assetCategoryType.findUnique({
-            where: { assetcategorytypeid: categoryId },
+        ? prisma.assetCategoryType.findFirst({
+            where: scopeToOrganization(
+              { assetcategorytypeid: categoryId },
+              orgId,
+            ),
             select: { assetcategorytypename: true },
           })
         : null,
       manufacturerId
-        ? prisma.manufacturer.findUnique({
-            where: { manufacturerid: manufacturerId },
+        ? prisma.manufacturer.findFirst({
+            where: scopeToOrganization(
+              { manufacturerid: manufacturerId },
+              orgId,
+            ),
             select: { manufacturername: true },
           })
         : null,
       modelId
-        ? prisma.model.findUnique({
-            where: { modelid: modelId },
+        ? prisma.model.findFirst({
+            where: scopeToOrganization({ modelid: modelId }, orgId),
             select: { modelname: true },
           })
         : null,
@@ -85,10 +92,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ tag }, { status: 200 });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("GET /api/asset/nextTag error", { error: e });
-    if (e instanceof Error && e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
     return NextResponse.json(
       { error: "Failed to generate next tag" },
       { status: 500 },

@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { searchIdsByFullText } from "@/lib/fulltext-search";
 import { Prisma } from "@prisma/client";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
+import {
+  findForeignReference,
+  foreignReferenceError,
+} from "@/lib/org-references";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { invalidateCacheByPrefix } from "@/lib/cache";
 import {
@@ -55,17 +65,19 @@ export async function GET(req: Request) {
 
     const where: Record<string, unknown> = scopeToOrganization({}, orgId);
 
+    let searchTruncated = false;
     // Full-text search using tsvector GIN index (falls back to ILIKE if needed)
     if (params.search) {
-      const tsQuery = params.search.trim().split(/\s+/).join(" & ");
-      const matchingIds = await prisma
-        .$queryRawUnsafe<
-          Array<{ id: string }>
-        >(`SELECT "id" FROM "components" WHERE "search_vector" @@ websearch_to_tsquery('english', $1)`, tsQuery)
-        .catch(() => null);
+      const fullText = await searchIdsByFullText(
+        "components",
+        orgId,
+        params.search,
+      );
+      const matchingIds = fullText?.ids ?? null;
+      searchTruncated = fullText?.truncated ?? false;
 
       if (matchingIds && matchingIds.length > 0) {
-        where.id = { in: matchingIds.map((r) => r.id) };
+        where.id = { in: matchingIds };
       } else if (matchingIds) {
         // tsvector returned no results — empty set
         where.id = { in: [] };
@@ -92,18 +104,18 @@ export async function GET(req: Request) {
       prisma.component.count({ where }),
     ]);
 
-    return NextResponse.json(buildPaginatedResponse(items, total, params), {
-      status: 200,
-    });
+    return NextResponse.json(
+      buildPaginatedResponse(items, total, params, {
+        truncated: searchTruncated,
+      }),
+      {
+        status: 200,
+      },
+    );
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("GET /api/components error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to fetch components" },
@@ -118,6 +130,7 @@ export async function POST(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("component:create");
+    await requireWritableOrg(authUser);
 
     const body = await req.json();
     const validated = validateBody(createComponentSchema, body);
@@ -138,6 +151,18 @@ export async function POST(req: Request) {
 
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
+
+    const foreign = await findForeignReference(orgId, {
+      componentCategory: categoryId,
+      manufacturer: manufacturerId,
+      supplier: supplierId,
+      location: locationId,
+    });
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
 
     const created = await prisma.component.create({
       data: {
@@ -165,10 +190,14 @@ export async function POST(req: Request) {
     });
 
     // Webhook + integrations
-    triggerWebhook("component.created", {
-      componentId: created.id,
-      componentName: created.name,
-    }).catch(() => {});
+    triggerWebhook(
+      "component.created",
+      {
+        componentId: created.id,
+        componentName: created.name,
+      },
+      created.organizationId,
+    ).catch(() => {});
     notifyIntegrations("component.created", {
       componentName: created.name,
     }).catch(logCatchError("Integration notification failed"));
@@ -179,14 +208,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("POST /api/components error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to create component" },
@@ -201,6 +225,7 @@ export async function PUT(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("component:edit");
+    await requireWritableOrg(authUser);
 
     const body = await req.json();
     const { id, ...rest } = body;
@@ -231,6 +256,18 @@ export async function PUT(req: Request) {
 
     const data = validated;
 
+    const foreign = await findForeignReference(orgId, {
+      componentCategory: data.categoryId,
+      manufacturer: data.manufacturerId,
+      supplier: data.supplierId,
+      location: data.locationId,
+    });
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
+
     const updateData: Record<string, unknown> = {};
 
     if (data.name !== undefined) updateData.name = data.name;
@@ -240,11 +277,19 @@ export async function PUT(req: Request) {
     if (data.totalQuantity !== undefined)
       updateData.totalQuantity = data.totalQuantity;
     // Keep the invariant remainingQuantity <= totalQuantity. If the caller sends
-    // an explicit remainingQuantity, use it; otherwise when totalQuantity changes
-    // reconcile remaining so the currently-checked-out amount is preserved.
-    const explicitRemaining = (body as Record<string, unknown>)
-      .remainingQuantity;
+    // an explicit remainingQuantity (validated as an int >= 0 by the schema and
+    // capped at the resulting total below), use it; otherwise when totalQuantity
+    // changes reconcile remaining so the currently-checked-out amount is
+    // preserved.
+    const explicitRemaining = data.remainingQuantity;
     if (explicitRemaining !== undefined) {
+      const effectiveTotal = data.totalQuantity ?? existing.totalQuantity;
+      if (explicitRemaining > effectiveTotal) {
+        return NextResponse.json(
+          { error: "remainingQuantity cannot exceed totalQuantity" },
+          { status: 400 },
+        );
+      }
       updateData.remainingQuantity = explicitRemaining;
     } else if (data.totalQuantity !== undefined) {
       const checkedOut = existing.totalQuantity - existing.remainingQuantity;
@@ -280,11 +325,15 @@ export async function PUT(req: Request) {
     });
 
     // Webhook + integrations
-    triggerWebhook("component.updated", {
-      componentId: updated.id,
-      componentName: updated.name,
-      changes: Object.keys(data),
-    }).catch(() => {});
+    triggerWebhook(
+      "component.updated",
+      {
+        componentId: updated.id,
+        componentName: updated.name,
+        changes: Object.keys(data),
+      },
+      updated.organizationId,
+    ).catch(() => {});
     notifyIntegrations("component.updated", {
       componentName: updated.name,
     }).catch(logCatchError("Integration notification failed"));
@@ -293,14 +342,10 @@ export async function PUT(req: Request) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("PUT /api/components error", { error: e });
 
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Component not found" },
@@ -320,6 +365,7 @@ export async function DELETE(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("component:delete");
+    await requireWritableOrg(authUser);
 
     const body = await req.json();
     const { id } = body;
@@ -360,10 +406,14 @@ export async function DELETE(req: Request) {
     });
 
     // Webhook + integrations
-    triggerWebhook("component.deleted", {
-      componentId: id,
-      componentName: component.name,
-    }).catch(() => {});
+    triggerWebhook(
+      "component.deleted",
+      {
+        componentId: id,
+        componentName: component.name,
+      },
+      orgId,
+    ).catch(() => {});
     notifyIntegrations("component.deleted", {
       componentName: component.name,
     }).catch(logCatchError("Integration notification failed"));
@@ -375,14 +425,10 @@ export async function DELETE(req: Request) {
       { status: 200 },
     );
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("DELETE /api/components error", { error: e });
 
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Component not found" },

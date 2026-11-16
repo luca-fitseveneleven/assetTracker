@@ -6,11 +6,15 @@ import {
   requireApiAuth,
   requireApiAdmin,
   requireNotDemoMode,
+  requireWritableOrg,
 } from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import {
   createLicenceCategoryTypeSchema,
   updateLicenceCategoryTypeSchema,
+  deleteLicenceCategoryTypeSchema,
   uuidSchema,
+  validateBody,
 } from "@/lib/validation";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { getOrganizationContext } from "@/lib/organization-context";
@@ -68,11 +72,9 @@ export async function GET(req: NextRequest) {
       status: 200,
     });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("GET /api/licenceCategory error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     return NextResponse.json(
       { error: "Failed to fetch licence categories" },
@@ -88,6 +90,7 @@ export async function POST(req: NextRequest) {
     if (demoBlock) return demoBlock;
     // Only admins can create licence categories
     const admin = await requireApiAdmin();
+    await requireWritableOrg(admin);
 
     const body = await req.json();
 
@@ -126,14 +129,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("POST /api/licenceCategory error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to create licence category" },
@@ -149,6 +147,7 @@ export async function PUT(req: NextRequest) {
     if (demoBlock) return demoBlock;
     // Only admins can update licence categories
     const admin = await requireApiAdmin();
+    await requireWritableOrg(admin);
 
     const body = await req.json();
 
@@ -206,14 +205,10 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("PUT /api/licenceCategory error", { error: e });
 
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Licence category not found" },
@@ -223,6 +218,89 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(
       { error: "Failed to update licence category" },
+      { status: 500 },
+    );
+  }
+}
+
+// DELETE /api/licenceCategory
+export async function DELETE(req: NextRequest) {
+  try {
+    const demoBlock = requireNotDemoMode();
+    if (demoBlock) return demoBlock;
+    // Only admins can delete licence categories
+    const admin = await requireApiAdmin();
+    await requireWritableOrg(admin);
+
+    const body = await req.json();
+    const validated = validateBody(deleteLicenceCategoryTypeSchema, body);
+    if (validated instanceof NextResponse) return validated;
+    const { licencecategorytypeid } = validated;
+
+    const orgCtx = await getOrganizationContext();
+    const orgId = orgCtx?.organization?.id;
+
+    // Scope the lookup so foreign-org categories read as "not found".
+    const category = await prisma.licenceCategoryType.findFirst({
+      where: { licencecategorytypeid, organizationId: orgId ?? null },
+      select: { licencecategorytypename: true },
+    });
+    if (!category) {
+      return NextResponse.json(
+        { error: "Licence category not found" },
+        { status: 404 },
+      );
+    }
+
+    // Deliberately unscoped by organization: the FKs are NoAction, so a row
+    // from any tenant would block the delete. Only existence is reported, never
+    // a count, so nothing about other tenants leaks.
+    const inUse = await prisma.licence.findFirst({
+      where: { licencecategorytypeid },
+      select: { licencecategorytypeid: true },
+    });
+    if (inUse) {
+      return NextResponse.json(
+        { error: "Category is still in use. Reassign its items first." },
+        { status: 409 },
+      );
+    }
+
+    await prisma.licenceCategoryType.delete({
+      where: { licencecategorytypeid },
+    });
+
+    await createAuditLog({
+      userId: admin.id,
+      action: AUDIT_ACTIONS.DELETE,
+      entity: AUDIT_ENTITIES.LICENCE_CATEGORY,
+      entityId: licencecategorytypeid,
+      details: { licencecategorytypename: category.licencecategorytypename },
+    });
+
+    await invalidateCacheByPrefix("licence_categories").catch(() => {});
+
+    return NextResponse.json(
+      { message: "Licence category deleted successfully" },
+      { status: 200 },
+    );
+  } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
+    logger.error("DELETE /api/licenceCategory error", { error: e });
+
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2025"
+    ) {
+      return NextResponse.json(
+        { error: "Licence category not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Failed to delete licence category" },
       { status: 500 },
     );
   }

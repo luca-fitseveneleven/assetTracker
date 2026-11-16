@@ -1,7 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
+import { searchIdsByFullText } from "@/lib/fulltext-search";
 import { Prisma } from "@prisma/client";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
+import {
+  findForeignReference,
+  foreignReferenceError,
+} from "@/lib/org-references";
 import { invalidateCacheByPrefix } from "@/lib/cache";
 import {
   createConsumableSchema,
@@ -49,17 +59,19 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = scopeToOrganization({}, orgId);
 
+    let searchTruncated = false;
     // Full-text search using tsvector GIN index (falls back to ILIKE if needed)
     if (params.search) {
-      const tsQuery = params.search.trim().split(/\s+/).join(" & ");
-      const matchingIds = await prisma
-        .$queryRawUnsafe<
-          Array<{ consumableid: string }>
-        >(`SELECT "consumableid" FROM "consumable" WHERE "search_vector" @@ websearch_to_tsquery('english', $1)`, tsQuery)
-        .catch(() => null);
+      const fullText = await searchIdsByFullText(
+        "consumable",
+        orgId,
+        params.search,
+      );
+      const matchingIds = fullText?.ids ?? null;
+      searchTruncated = fullText?.truncated ?? false;
 
       if (matchingIds && matchingIds.length > 0) {
-        where.consumableid = { in: matchingIds.map((r) => r.consumableid) };
+        where.consumableid = { in: matchingIds };
       } else if (matchingIds) {
         // tsvector returned no results — empty set
         where.consumableid = { in: [] };
@@ -74,18 +86,18 @@ export async function GET(req: NextRequest) {
       prisma.consumable.count({ where }),
     ]);
 
-    return NextResponse.json(buildPaginatedResponse(items, total, params), {
-      status: 200,
-    });
+    return NextResponse.json(
+      buildPaginatedResponse(items, total, params, {
+        truncated: searchTruncated,
+      }),
+      {
+        status: 200,
+      },
+    );
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("GET /api/consumable error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to fetch consumables" },
@@ -101,6 +113,7 @@ export async function POST(req: NextRequest) {
     if (demoBlock) return demoBlock;
     // Require consumable:create permission to create consumables
     const admin = await requirePermission("consumable:create");
+    await requireWritableOrg(admin);
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
 
@@ -128,6 +141,17 @@ export async function POST(req: NextRequest) {
       quantity,
     } = validationResult.data;
 
+    const foreign = await findForeignReference(orgId, {
+      consumableCategory: consumablecategorytypeid,
+      manufacturer: manufacturerid,
+      supplier: supplierid,
+    });
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
+
     const created = await prisma.consumable.create({
       data: {
         consumablename,
@@ -154,14 +178,9 @@ export async function POST(req: NextRequest) {
     invalidateCacheByPrefix("consumables_all").catch(() => {});
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("POST /api/consumable error", { error: e });
-
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
 
     return NextResponse.json(
       { error: "Failed to create consumable" },
@@ -177,6 +196,7 @@ export async function PUT(req: NextRequest) {
     if (demoBlock) return demoBlock;
     // Require consumable:edit permission to update consumables
     const admin = await requirePermission("consumable:edit");
+    await requireWritableOrg(admin);
 
     const body = await req.json();
 
@@ -231,6 +251,17 @@ export async function PUT(req: NextRequest) {
     );
     if (conflict) return conflict;
 
+    const foreign = await findForeignReference(orgId, {
+      consumableCategory: consumablecategorytypeid,
+      manufacturer: manufacturerid,
+      supplier: supplierid,
+    });
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
+
     const updated = await prisma.consumable.update({
       where: { consumableid: existingConsumable.consumableid },
       data: {
@@ -263,14 +294,10 @@ export async function PUT(req: NextRequest) {
     invalidateCacheByPrefix("consumables_all").catch(() => {});
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("PUT /api/consumable error", { error: e });
 
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Consumable not found" },
@@ -291,6 +318,7 @@ export async function DELETE(req: NextRequest) {
     if (demoBlock) return demoBlock;
     // Require consumable:delete permission to delete consumables
     const admin = await requirePermission("consumable:delete");
+    await requireWritableOrg(admin);
 
     const body = await req.json();
     const { consumableid } = body;
@@ -338,14 +366,10 @@ export async function DELETE(req: NextRequest) {
       { status: 200 },
     );
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("DELETE /api/consumable error", { error: e });
 
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Consumable not found" },
@@ -366,6 +390,7 @@ export async function PATCH(req: NextRequest) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const admin = await requirePermission("consumable:edit");
+    await requireWritableOrg(admin);
     const body = await req.json();
     const { consumableid, addQuantity } = body;
 
@@ -408,14 +433,10 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("PATCH /api/consumable error", { error: e });
 
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Consumable not found" },

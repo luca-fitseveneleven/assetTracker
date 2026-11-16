@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireApiAdmin } from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import {
   getOrganizationContext,
   scopeToOrganization,
@@ -39,14 +40,20 @@ export async function GET() {
     const adminUsersList = users.filter((u) => u.isadmin);
     const regularUsersList = users.filter((u) => !u.isadmin);
 
+    // audit_logs has no organizationId; scope through the author, like the
+    // compliance dashboard route does.
+    const auditWhere = { user: { organizationId: orgId ?? null } };
+
     const [totalAuditLogs, lastAuditEntry, oldestAuditEntry] =
       await Promise.all([
-        prisma.audit_logs.count(),
+        prisma.audit_logs.count({ where: auditWhere }),
         prisma.audit_logs.findFirst({
+          where: auditWhere,
           orderBy: { createdAt: "desc" },
           select: { createdAt: true, action: true, entity: true },
         }),
         prisma.audit_logs.findFirst({
+          where: auditWhere,
           orderBy: { createdAt: "asc" },
           select: { createdAt: true },
         }),
@@ -55,12 +62,14 @@ export async function GET() {
     // Audit logs by action type
     const auditByAction = await prisma.audit_logs.groupBy({
       by: ["action"],
+      where: auditWhere,
       _count: { id: true },
     });
 
     // Audit logs by entity type
     const auditByEntity = await prisma.audit_logs.groupBy({
       by: ["entity"],
+      where: auditWhere,
       _count: { id: true },
     });
 
@@ -146,13 +155,9 @@ export async function GET() {
       },
     });
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("GET /api/admin/compliance/export error", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.includes("Forbidden")) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to generate compliance report" },
       { status: 500 },

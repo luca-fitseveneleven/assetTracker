@@ -4,7 +4,9 @@ import {
   requirePermission,
   requireNotDemoMode,
   requireSuperAdmin,
+  requireWritableOrg,
 } from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { organizationSchema } from "@/lib/validation-organization";
 import { createAuditLog, AUDIT_ACTIONS } from "@/lib/audit-log";
 import { z } from "zod";
@@ -15,6 +17,8 @@ import {
   buildPaginatedResponse,
 } from "@/lib/pagination";
 import { logger } from "@/lib/logger";
+import { isSuperAdmin } from "@/lib/super-admin";
+import { organizationApiSelect } from "@/lib/organizations";
 
 const ORGANIZATION_SORT_FIELDS = ["name", "slug", "createdAt"];
 
@@ -24,12 +28,22 @@ export async function GET(req: NextRequest) {
 
     const searchParams = req.nextUrl.searchParams;
 
-    // Scope to the user's own organization to prevent enumeration
-    const orgFilter: Record<string, unknown> = authUser.organizationId
-      ? { id: authUser.organizationId }
-      : {};
+    // Scope to the user's own organization to prevent enumeration. A caller
+    // without an organization sees nothing unless they are a super-admin
+    // (an empty filter would list every tenant).
+    let orgFilter: Record<string, unknown> = {};
+    if (authUser.organizationId) {
+      orgFilter = { id: authUser.organizationId };
+    } else if (!(await isSuperAdmin(authUser))) {
+      if (!searchParams.has("page")) return NextResponse.json([]);
+      return NextResponse.json(
+        buildPaginatedResponse([], 0, parsePaginationParams(searchParams)),
+        { status: 200 },
+      );
+    }
 
-    const include = {
+    const select = {
+      ...organizationApiSelect,
       _count: {
         select: { users: true, assets: true, departments: true },
       },
@@ -39,7 +53,7 @@ export async function GET(req: NextRequest) {
     if (!searchParams.has("page")) {
       const organizations = await prisma.organization.findMany({
         where: orgFilter,
-        include,
+        select,
         orderBy: { name: "asc" },
       });
       return NextResponse.json(organizations);
@@ -60,7 +74,7 @@ export async function GET(req: NextRequest) {
     }
 
     const [organizations, total] = await Promise.all([
-      prisma.organization.findMany({ where, include, ...prismaArgs }),
+      prisma.organization.findMany({ where, select, ...prismaArgs }),
       prisma.organization.count({ where }),
     ]);
 
@@ -69,13 +83,9 @@ export async function GET(req: NextRequest) {
       { status: 200 },
     );
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("Error fetching organizations", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to fetch organizations" },
       { status: 500 },
@@ -89,6 +99,7 @@ export async function POST(req: NextRequest) {
     if (demoBlock) return demoBlock;
 
     const authUser = await requireSuperAdmin();
+    await requireWritableOrg(authUser);
 
     const body = await req.json();
     const validated = organizationSchema.parse(body);
@@ -112,8 +123,8 @@ export async function POST(req: NextRequest) {
         settings: validated.settings
           ? (validated.settings as Prisma.InputJsonValue)
           : Prisma.JsonNull,
-        isActive: validated.isActive,
       },
+      select: organizationApiSelect,
     });
 
     await createAuditLog({
@@ -126,13 +137,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(organization, { status: 201 });
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     logger.error("Error creating organization", { error });
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message.startsWith("Forbidden")) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }

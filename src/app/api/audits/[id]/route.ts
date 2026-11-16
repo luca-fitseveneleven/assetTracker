@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requirePermission, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requirePermission,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
+import {
+  auditScopeReferences,
+  findForeignReference,
+  foreignReferenceError,
+} from "@/lib/org-references";
 import { createAuditLog, AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/audit-log";
 import { validateBody, updateAuditCampaignSchema } from "@/lib/validation";
 import { invalidateCacheByPrefix } from "@/lib/cache";
@@ -65,13 +75,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ ...campaign, summary }, { status: 200 });
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("GET /api/audits/[id] error", { error: e });
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to fetch audit campaign" },
       { status: 500 },
@@ -85,6 +91,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("audit_campaign:edit");
+    await requireWritableOrg(authUser);
     const { id } = await params;
 
     const orgCtx = await getOrganizationContext();
@@ -118,8 +125,22 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       updateData.scopeType = validated.scopeType;
     if (validated.scopeId !== undefined) updateData.scopeId = validated.scopeId;
 
+    // Check the scope the campaign ends up with, not only the fields sent.
+    const foreign = await findForeignReference(
+      orgId,
+      auditScopeReferences(
+        validated.scopeType ?? existing.scopeType,
+        validated.scopeId !== undefined ? validated.scopeId : existing.scopeId,
+      ),
+    );
+    if (foreign) {
+      return NextResponse.json(foreignReferenceError(foreign), {
+        status: 400,
+      });
+    }
+
     const updated = await prisma.auditCampaign.update({
-      where: { id },
+      where: { id, organizationId: orgId ?? null },
       data: updateData,
     });
 
@@ -135,13 +156,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(updated, { status: 200 });
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("PUT /api/audits/[id] error", { error: e });
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     if (e.code === "P2025") {
       return NextResponse.json(
         { error: "Audit campaign not found" },
@@ -161,6 +178,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
     const authUser = await requirePermission("audit_campaign:edit");
+    await requireWritableOrg(authUser);
     const { id } = await params;
 
     const orgCtx = await getOrganizationContext();
@@ -195,13 +213,9 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       { status: 200 },
     );
   } catch (e: any) {
+    const denied = apiErrorResponse(e);
+    if (denied) return denied;
     logger.error("DELETE /api/audits/[id] error", { error: e });
-    if (e.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (e.message?.startsWith("Forbidden")) {
-      return NextResponse.json({ error: e.message }, { status: 403 });
-    }
     return NextResponse.json(
       { error: "Failed to delete audit campaign" },
       { status: 500 },

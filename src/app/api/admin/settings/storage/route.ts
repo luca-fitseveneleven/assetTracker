@@ -1,25 +1,26 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { encrypt } from "@/lib/encryption";
-import { requireApiAdmin, requireNotDemoMode } from "@/lib/api-auth";
+import {
+  requireApiAdmin,
+  requireNotDemoMode,
+  requireWritableOrg,
+} from "@/lib/api-auth";
+import { apiErrorResponse } from "@/lib/errors";
 import { getOrganizationContext } from "@/lib/organization-context";
 import { maskSecret } from "@/lib/secrets";
 import { logger } from "@/lib/logger";
+import { validateStorageEndpoint } from "@/lib/url-validation";
 
 /**
  * Categorize a storage-config failure into an actionable response. Full details
- * are always logged server-side; the returned message is safe for the (admin-only)
- * caller and points at the concrete cause.
+ * are always logged server-side; the returned message is a fixed string that
+ * points at the concrete cause for the known failures and is generic otherwise.
  */
 function storageErrorResponse(action: string, error: unknown): NextResponse {
   logger.error(`Storage config ${action} failed`, { error });
 
   const message = error instanceof Error ? error.message : String(error);
-
-  // Forbidden (non-admin)
-  if (message.startsWith("Forbidden")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   // Encryption key absent at runtime — Vercel isn't injecting it (not set for
   // this environment/scope, or the deployment predates the variable).
@@ -61,9 +62,10 @@ function storageErrorResponse(action: string, error: unknown): NextResponse {
     );
   }
 
-  // Fall back to the real message (admin-only endpoint — safe to surface)
+  // Anything else stays server-side (logged above): the raw message can carry
+  // connection strings, hosts or query text.
   return NextResponse.json(
-    { error: `Failed to ${action} storage config: ${message}` },
+    { error: `Failed to ${action} storage config` },
     { status: 500 },
   );
 }
@@ -99,6 +101,8 @@ export async function GET() {
       isEnabled: config.isEnabled,
     });
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     return storageErrorResponse("load", error);
   }
 }
@@ -108,7 +112,8 @@ export async function PUT(req: Request) {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
 
-    await requireApiAdmin();
+    const user = await requireApiAdmin();
+    await requireWritableOrg(user);
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
     if (!orgId) {
@@ -127,9 +132,19 @@ export async function PUT(req: Request) {
       secretKey: string;
     };
 
-    if (!endpoint || !bucket) {
+    if (typeof endpoint !== "string" || !endpoint || !bucket) {
       return NextResponse.json(
         { error: "endpoint and bucket are required" },
+        { status: 400 },
+      );
+    }
+
+    // SSRF protection: the server connects to this endpoint with the stored
+    // credentials, so it must be a public https URL.
+    const endpointCheck = await validateStorageEndpoint(endpoint);
+    if (!endpointCheck.valid) {
+      return NextResponse.json(
+        { error: `Invalid endpoint: ${endpointCheck.error}` },
         { status: 400 },
       );
     }
@@ -184,6 +199,8 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     return storageErrorResponse("save", error);
   }
 }
@@ -193,7 +210,8 @@ export async function DELETE() {
     const demoBlock = requireNotDemoMode();
     if (demoBlock) return demoBlock;
 
-    await requireApiAdmin();
+    const user = await requireApiAdmin();
+    await requireWritableOrg(user);
     const orgCtx = await getOrganizationContext();
     const orgId = orgCtx?.organization?.id;
     if (!orgId) {
@@ -209,6 +227,8 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const denied = apiErrorResponse(error);
+    if (denied) return denied;
     return storageErrorResponse("remove", error);
   }
 }

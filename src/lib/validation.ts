@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
+import { getEntitiesWithCustomFields } from "@/lib/entity-registry";
+import { usernameSchema } from "@/lib/username";
 
 /**
  * Validate request body against a Zod schema.
@@ -51,7 +53,7 @@ export const loginSchema = z.object({
 });
 
 export const createUserSchema = z.object({
-  username: z.string().min(3).max(50),
+  username: usernameSchema,
   email: z.string().email().nullable().optional(),
   firstname: z.string().min(1).max(100),
   lastname: z.string().min(1).max(100),
@@ -68,7 +70,7 @@ export const createUserSchema = z.object({
 });
 
 export const updateUserSchema = z.object({
-  username: z.string().min(3).max(50).optional(),
+  username: usernameSchema.optional(),
   email: z.string().email().optional().nullable(),
   firstname: z.string().min(1).max(100).optional(),
   lastname: z.string().min(1).max(100).optional(),
@@ -88,6 +90,35 @@ export const createReportScheduleSchema = z.object({
   reportType: z.enum(["summary", "depreciation", "warranty", "tco"]),
   frequency: z.enum(["daily", "weekly", "monthly"]),
   format: z.enum(["csv", "xlsx"]),
+});
+
+export const updateDepreciationSettingsSchema = z.object({
+  method: z.enum(["straight_line", "declining_balance", "sum_of_years"]),
+  usefulLifeYears: z.number().int().min(1).max(100),
+  salvagePercent: z.number().min(0).max(100),
+});
+
+export const deleteAssetCategoryTypeSchema = z.object({
+  assetcategorytypeid: z.string().uuid(),
+});
+
+export const deleteAccessoryCategoryTypeSchema = z.object({
+  accessoriecategorytypeid: z.string().uuid(),
+});
+
+export const deleteConsumableCategoryTypeSchema = z.object({
+  consumablecategorytypeid: z.string().uuid(),
+});
+
+export const deleteLicenceCategoryTypeSchema = z.object({
+  licencecategorytypeid: z.string().uuid(),
+});
+
+export const updateReportScheduleSchema = z.object({
+  id: z.string().uuid(),
+  isActive: z.boolean().optional(),
+  frequency: createReportScheduleSchema.shape.frequency.optional(),
+  format: createReportScheduleSchema.shape.format.optional(),
 });
 
 export const createAssetSchema = z.object({
@@ -290,22 +321,29 @@ export const resolveApprovalSchema = z.object({
   notes: optionalString,
 });
 
-export const createTransferSchema = z.object({
-  assetId: uuidField,
-  transferType: z.enum(["user", "location", "organization"], {
-    message: "Must be user, location, or organization",
-  }),
-  fromUserId: optionalUuid,
-  toUserId: optionalUuid,
-  fromLocationId: optionalUuid,
-  toLocationId: optionalUuid,
-  fromOrgId: optionalUuid,
-  toOrgId: optionalUuid,
-  reason: optionalString,
-});
+// Transfers stay inside the caller's organization. Moving an asset into another
+// organization was removed in 0.15.3: it left that organization's data behind.
+export const createTransferSchema = z.discriminatedUnion(
+  "transferType",
+  [
+    z.object({
+      transferType: z.literal("user"),
+      assetId: uuidField,
+      toUserId: uuidField,
+      reason: optionalString,
+    }),
+    z.object({
+      transferType: z.literal("location"),
+      assetId: uuidField,
+      toLocationId: uuidField,
+      reason: optionalString,
+    }),
+  ],
+  { message: "Must be user or location" },
+);
 
 export const createAutomationRuleSchema = z.object({
-  name: trimmedString,
+  name: trimmedString.max(200, "Too long"),
   description: optionalString,
   trigger: z.enum([
     "warranty_expiring",
@@ -327,24 +365,101 @@ export const createAutomationRuleSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export const createComponentSchema = z.object({
+export const updateAutomationRuleSchema = createAutomationRuleSchema.partial();
+
+/**
+ * Field types the admin UI offers (FIELD_TYPES in CustomFieldsAdminTab).
+ * Keep both lists in sync.
+ */
+export const CUSTOM_FIELD_TYPES = [
+  "text",
+  "number",
+  "date",
+  "checkbox",
+  "select",
+  "textarea",
+] as const;
+
+const customFieldEntityTypes = getEntitiesWithCustomFields().map((e) => e.key);
+
+/**
+ * Select options: the admin UI sends a string array, the column stores text
+ * (a JSON array that CustomFieldsSection parses, or a comma-separated list).
+ */
+const customFieldOptions = z
+  .union([
+    z.string().max(20_000),
+    z.array(z.string().trim().min(1).max(200)).max(200),
+  ])
+  .transform((value) =>
+    typeof value === "string" ? value : JSON.stringify(value),
+  )
+  .optional()
+  .nullable();
+
+export const createCustomFieldDefinitionSchema = z.object({
+  name: z.string().trim().min(1, "Required").max(100, "Too long"),
+  fieldType: z.enum(CUSTOM_FIELD_TYPES, {
+    message: `Must be one of: ${CUSTOM_FIELD_TYPES.join(", ")}`,
+  }),
+  entityType: z.enum(customFieldEntityTypes, {
+    message: `Must be one of: ${customFieldEntityTypes.join(", ")}`,
+  }),
+  isRequired: z.boolean().optional(),
+  displayOrder: z.number().int().min(-1_000_000).max(1_000_000).optional(),
+  options: customFieldOptions,
+});
+
+export const updateCustomFieldDefinitionSchema =
+  createCustomFieldDefinitionSchema
+    .partial()
+    .extend({ isActive: z.boolean().optional() });
+
+export const toggleCustomFieldDefinitionSchema = z.object({
+  isActive: z.boolean(),
+});
+
+const guid = z.guid();
+
+/**
+ * True for any 8-4-4-4-12 hex identifier, which is what a Postgres uuid column
+ * accepts. Use it before putting a client-supplied id into a uuid `in` filter,
+ * where a malformed value would otherwise surface as a database error.
+ */
+export function isGuid(value: unknown): value is string {
+  return guid.safeParse(value).success;
+}
+
+/**
+ * Component fields without create defaults. zod 4's `.partial()` re-applies
+ * `.default()`, so the update schema is derived from this default-free base:
+ * otherwise renaming a component would reset its stock levels to 0.
+ */
+const componentFields = z.object({
   name: trimmedString,
   serialNumber: optionalString,
   categoryId: uuidField,
-  totalQuantity: z.number().int().nonnegative("Must be >= 0").default(0),
+  totalQuantity: z.number().int().nonnegative("Must be >= 0"),
   purchasePrice: z.coerce
     .number()
     .nonnegative("Must be >= 0")
     .optional()
     .nullable(),
   purchaseDate: z.string().optional().nullable(),
-  minQuantity: z.number().int().nonnegative().default(0),
+  minQuantity: z.number().int().nonnegative(),
   manufacturerId: optionalUuid,
   supplierId: optionalUuid,
   locationId: optionalUuid,
 });
 
-export const updateComponentSchema = createComponentSchema.partial();
+export const createComponentSchema = componentFields.extend({
+  totalQuantity: z.number().int().nonnegative("Must be >= 0").default(0),
+  minQuantity: z.number().int().nonnegative().default(0),
+});
+
+export const updateComponentSchema = componentFields.partial().extend({
+  remainingQuantity: z.number().int().nonnegative("Must be >= 0").optional(),
+});
 
 export const componentCheckoutSchema = z.object({
   componentId: uuidField,
@@ -466,20 +581,62 @@ export const kitCheckoutSchema = z.object({
   notes: optionalString,
 });
 
-export const createAuditCampaignSchema = z.object({
+/** Default-free base for the update schema, see `componentFields`. */
+const auditCampaignFields = z.object({
   name: trimmedString,
   description: optionalString,
   dueDate: z.string().optional().nullable(),
-  scopeType: z.enum(["all", "location", "category"]).default("all"),
+  scopeType: z.enum(["all", "location", "category"]),
   scopeId: optionalUuid,
   auditorIds: z.array(uuidField).optional(),
 });
 
-export const updateAuditCampaignSchema = createAuditCampaignSchema.partial();
+export const createAuditCampaignSchema = auditCampaignFields.extend({
+  scopeType: z.enum(["all", "location", "category"]).default("all"),
+});
+
+export const updateAuditCampaignSchema = auditCampaignFields.partial();
 
 export const auditScanSchema = z.object({
   assetId: uuidField,
   locationId: optionalUuid,
   status: z.enum(["found", "missing", "moved"]).default("found"),
   notes: optionalString,
+});
+
+const parseableDate = z
+  .string()
+  .refine((value) => !Number.isNaN(Date.parse(value)), "Must be a valid date");
+
+/** Fields of POST /api/requests that need more than a presence check. */
+export const createItemRequestSchema = z
+  .object({
+    quantity: z.number().int().positive().max(1_000_000).optional(),
+    startDate: parseableDate.optional().nullable(),
+    endDate: parseableDate.optional().nullable(),
+    notes: z.string().max(5000).optional().nullable(),
+  })
+  .refine(
+    (data) =>
+      !data.startDate ||
+      !data.endDate ||
+      Date.parse(data.endDate) >= Date.parse(data.startDate),
+    { message: "endDate must not be before startDate", path: ["endDate"] },
+  );
+
+/** Statuses an item request can be moved to through PUT /api/requests. */
+export const ITEM_REQUEST_TARGET_STATUSES = [
+  "approved",
+  "rejected",
+  "cancelled",
+  "returned",
+] as const;
+
+export const updateItemRequestSchema = z.object({
+  id: z.string().min(1, "Required"),
+  status: z.enum(ITEM_REQUEST_TARGET_STATUSES, {
+    message: `Must be one of: ${ITEM_REQUEST_TARGET_STATUSES.join(", ")}`,
+  }),
+  notes: z.string().max(5000).nullable().optional(),
+  _expectedVersion: z.string().optional(),
 });
